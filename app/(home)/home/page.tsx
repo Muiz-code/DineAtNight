@@ -4,8 +4,8 @@ import Loader from "../../_components/loader";
 import { useEffect, useState, useRef } from "react";
 // import DoodleBg from "@/components/DoodleBg";
 import Image from "next/image";
-import { Images } from "@/Images/images";
-import { motion, useInView } from "framer-motion";
+import { Images } from "@/assets/images";
+import { animate, motion, useInView } from "framer-motion";
 import Antigravity from "@/components/Antigravity";
 
 // Neon glow pulse animation variants
@@ -39,14 +39,14 @@ const NeonButton = ({
   <motion.button
     className="relative px-8 py-3 text-lg font-semibold bg-transparent rounded-full uppercase tracking-wider group overflow-hidden"
     style={{
-      border: `2px solid ${color}`,
+      border: `2px solid ${glowColor}`,
       color: color,
       textShadow: `0 0 10px ${glowColor}`,
       boxShadow: `0 0 15px ${glowColor}, inset 0 0 15px ${glowColor}30`,
     }}
     whileHover={{
       boxShadow: `0 0 30px ${glowColor}, 0 0 60px ${glowColor}, inset 0 0 30px ${glowColor}50`,
-      textShadow: `0 0 20px ${color}, 0 0 40px ${color}`,
+      // textShadow: `0 0 20px ${color}, 0 0 40px ${color}`,
     }}
     animate={{
       boxShadow: [
@@ -64,14 +64,146 @@ const NeonButton = ({
   >
     {/* Hover fill effect */}
     <span
-      className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-300"
-      style={{ backgroundColor: color }}
+      className="absolute inset-0 opacity-0 group-hover:opacity-20 group-hover:scale-110 cursor-pointer transition-opacity duration-300"
+      style={{ backgroundColor: glowColor }}
     />
     <span className="relative z-10">{children}</span>
   </motion.button>
 );
 
+// Video Card Component
+const VideoCard = ({
+  src,
+  color,
+  glowColor,
+  isPlaying,
+  onPlay,
+}: {
+  src: string;
+  color: string;
+  glowColor: string;
+  isPlaying: boolean;
+  onPlay: () => void;
+}) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.play().catch(() => {});
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  }, [isPlaying]);
+
+  return (
+    <motion.div
+      className="relative group rounded-2xl overflow-hidden border border-white/20 bg-black/50 aspect-video cursor-pointer"
+      whileHover={{
+        scale: 1.05,
+        borderColor: color,
+        boxShadow: `0 0 20px ${glowColor}`,
+      }}
+      onClick={onPlay}
+    >
+      <video
+        ref={videoRef}
+        className="w-full h-full object-cover"
+        loop
+        playsInline
+      >
+        <source src={src} type="video/mp4" />
+      </video>
+
+      {/* Play Button Overlay */}
+      <div
+        className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${
+          isPlaying
+            ? "opacity-0 group-hover:opacity-100 bg-black/20"
+            : "bg-black/40"
+        }`}
+      >
+        <div
+          className="w-16 h-16 rounded-full border-2 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-transform duration-300 group-hover:scale-110"
+          style={{
+            borderColor: color,
+            boxShadow: `0 0 15px ${glowColor}`,
+          }}
+        >
+          {isPlaying ? (
+            <div className="flex gap-1">
+              <div
+                className="w-1.5 h-5 rounded-full"
+                style={{ backgroundColor: color }}
+              />
+              <div
+                className="w-1.5 h-5 rounded-full"
+                style={{ backgroundColor: color }}
+              />
+            </div>
+          ) : (
+            <div
+              className="w-0 h-0 border-t-[10px] border-t-transparent border-l-[18px] border-b-[10px] border-b-transparent ml-1"
+              style={{ borderLeftColor: color }}
+            />
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+// Animated Counter Component
+const Counter = ({
+  value,
+  suffix = "",
+  color,
+}: {
+  value: number;
+  suffix?: string;
+  color: string;
+}) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-20px" });
+
+  useEffect(() => {
+    if (isInView && ref.current) {
+      const controls = animate(0, value, {
+        duration: 2.5,
+        ease: "easeOut",
+        onUpdate(v) {
+          if (ref.current) {
+            ref.current.textContent = Math.floor(v).toLocaleString() + suffix;
+          }
+        },
+      });
+      return () => controls.stop();
+    }
+  }, [value, suffix, isInView]);
+
+  return <span ref={ref} />;
+};
+
 // ── Data ──
+const videos = [
+  {
+    src: "https://res.cloudinary.com/dhhvxjczm/video/upload/v1771177374/dine_at_nightV_z3tk7p.mp4",
+    color: "#FFFF00",
+    glow: "rgba(255,255,0,0.5)",
+  },
+  {
+    src: "https://res.cloudinary.com/dhhvxjczm/video/upload/v1771179581/dine_at_nightV2_kfirxq.mp4",
+    color: "#FF3333",
+    glow: "rgba(255,51,51,0.5)",
+  },
+  {
+    src: "https://res.cloudinary.com/dhhvxjczm/video/upload/v1771177374/dine_at_nightV_z3tk7p.mp4",
+    color: "#00FF41",
+    glow: "rgba(0,255,65,0.5)",
+  },
+];
+
 const vendors = [
   {
     name: "Suya Spot",
@@ -79,6 +211,8 @@ const vendors = [
     icon: "🔥",
     color: "#FFFF00",
     glow: "rgba(255,255,0,0.5)",
+    image:
+      "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?q=80&w=800&auto=format&fit=crop",
   },
   {
     name: "Jollof Wars",
@@ -86,6 +220,8 @@ const vendors = [
     icon: "🍚",
     color: "#FF3333",
     glow: "rgba(255,51,51,0.5)",
+    image:
+      "https://images.unsplash.com/photo-1604329760661-e71dc83f8f1a?q=80&w=800&auto=format&fit=crop",
   },
   {
     name: "Boli & Fish",
@@ -93,6 +229,8 @@ const vendors = [
     icon: "🍌",
     color: "#00FF41",
     glow: "rgba(0,255,65,0.5)",
+    image:
+      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=800&auto=format&fit=crop",
   },
   {
     name: "Puff Puff Palace",
@@ -100,6 +238,8 @@ const vendors = [
     icon: "🍩",
     color: "#FFFF00",
     glow: "rgba(255,255,0,0.5)",
+    image:
+      "https://images.unsplash.com/photo-1626015449066-133cc6114871?q=80&w=800&auto=format&fit=crop",
   },
   {
     name: "Asun Alley",
@@ -107,6 +247,8 @@ const vendors = [
     icon: "🌶️",
     color: "#FF3333",
     glow: "rgba(255,51,51,0.5)",
+    image:
+      "https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=800&auto=format&fit=crop",
   },
   {
     name: "Nkwobi Nights",
@@ -114,6 +256,8 @@ const vendors = [
     icon: "🥘",
     color: "#00FF41",
     glow: "rgba(0,255,65,0.5)",
+    image:
+      "https://images.unsplash.com/photo-1547592180-85f173990554?q=80&w=800&auto=format&fit=crop",
   },
   {
     name: "Small Chops Co",
@@ -121,6 +265,8 @@ const vendors = [
     icon: "🥟",
     color: "#FFFF00",
     glow: "rgba(255,255,0,0.5)",
+    image:
+      "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?q=80&w=800&auto=format&fit=crop",
   },
   {
     name: "Chapman Bar",
@@ -128,6 +274,8 @@ const vendors = [
     icon: "🍹",
     color: "#FF3333",
     glow: "rgba(255,51,51,0.5)",
+    image:
+      "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?q=80&w=800&auto=format&fit=crop",
   },
 ];
 
@@ -155,8 +303,16 @@ const SectionFadeIn = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+const formatFollowers = (count: number) => {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M+`;
+  if (count >= 1_000) return `${Math.round(count / 100) / 10}K+`;
+  return `${count}`;
+};
+
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
+  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
+  const [followers, setFollowers] = useState<string | null>(null);
   const { logo } = Images();
 
   useEffect(() => {
@@ -166,6 +322,22 @@ export default function Home() {
     }, 1500);
 
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const loadFollowers = async () => {
+      try {
+        const res = await fetch("/api/ig-followers");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.followers) {
+          setFollowers(formatFollowers(Number(data.followers)));
+        }
+      } catch (err) {
+        console.error("Failed to load followers", err);
+      }
+    };
+    loadFollowers();
   }, []);
 
   if (isLoading) {
@@ -202,7 +374,7 @@ export default function Home() {
               alt="Dine At Night Logo"
               width={300}
               height={300}
-              className="w-48 h-48 md:w-72 md:h-72 object-contain"
+              className="w-40 h-40 md:w-72 md:h-72 object-contain"
               priority
             />
           </motion.div>
@@ -217,20 +389,20 @@ export default function Home() {
         >
           {/* Main headline - neon outline style */}
           <motion.h1
-            className="text-3xl md:text-5xl lg:text-6xl font-bold tracking-wider uppercase"
+            className="text-3xl md:text-5xl lg:text-6xl font-bold tracking-wide capitalize"
             style={{
               color: "transparent",
               WebkitTextStroke: "2px #FFFF00",
-              textShadow:
-                "0 0 10px rgba(255,255,0,0.5), 0 0 20px rgba(255,255,0,0.3), 0 0 40px rgba(255,255,0,0.2)",
+              // textShadow:
+              //   "0 0 10px rgba(255,255,0,0.5), 0 0 20px rgba(255,255,0,0.3), 0 0 40px rgba(255,255,0,0.2)",
             }}
-            animate={{
-              textShadow: [
-                "0 0 10px rgba(255,255,0,0.5), 0 0 20px rgba(255,255,0,0.3), 0 0 40px rgba(255,255,0,0.2)",
-                "0 0 20px rgba(255,255,0,0.7), 0 0 40px rgba(255,255,0,0.5), 0 0 60px rgba(255,255,0,0.3)",
-                "0 0 10px rgba(255,255,0,0.5), 0 0 20px rgba(255,255,0,0.3), 0 0 40px rgba(255,255,0,0.2)",
-              ],
-            }}
+            // animate={{
+            //   textShadow: [
+            //     "0 0 10px rgba(255,255,0,0.5), 0 0 20px rgba(255,255,0,0.3), 0 0 40px rgba(255,255,0,0.2)",
+            //     "0 0 20px rgba(255,255,0,0.7), 0 0 40px rgba(255,255,0,0.5), 0 0 60px rgba(255,255,0,0.3)",
+            //     "0 0 10px rgba(255,255,0,0.5), 0 0 20px rgba(255,255,0,0.3), 0 0 40px rgba(255,255,0,0.2)",
+            //   ],
+            // }}
             transition={{
               duration: 3,
               repeat: Infinity,
@@ -266,6 +438,9 @@ export default function Home() {
           </motion.p>
         </motion.div>
 
+        {/* Countdown Timer */}
+        {/* <Countdown /> */}
+
         {/* CTA Buttons - Neon outline style */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -273,29 +448,69 @@ export default function Home() {
           transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
           className="mt-12 flex flex-col sm:flex-row gap-6 pointer-events-auto"
         >
-          <NeonButton color="#FFFF00" glowColor="rgba(255,255,0,0.5)" delay={0}>
+          <NeonButton color="#FFF" glowColor="rgba(255,255,0,0.5)" delay={0}>
             Get Tickets
           </NeonButton>
-          <NeonButton
-            color="#FF3333"
-            glowColor="rgba(255,51,51,0.5)"
-            delay={0.3}
-          >
+          <NeonButton color="#FFF" glowColor="rgba(255,51,51,0.5)" delay={0.3}>
             Become a Vendor
           </NeonButton>
-          <NeonButton
-            color="#00FF41"
-            glowColor="rgba(0,255,65,0.5)"
-            delay={0.6}
-          >
+          <NeonButton color="#FFF" glowColor="rgba(0,255,65,0.5)" delay={0.6}>
             Get Merch
           </NeonButton>
         </motion.div>
       </section>
 
-      {/* ── What Is Dine At Night? ── */}
+      {/* Stats */}
       <SectionFadeIn>
-        <section className="relative z-10 py-24 px-6 md:px-16 lg:px-32 bg-black/80">
+        <section className="relative z-10 px-4 sm:px-8 lg:px-24 py-10 md:py-14 bg-black/85">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            {[
+              { label: "Diners", value: "5000+", color: "#00FF41" },
+              { label: "Vendors", value: "100+", color: "#00FF41" },
+              { label: "Events", value: "50+", color: "#00FF41" },
+              {
+                label: "Followers",
+                value: followers ?? "20K+",
+                color: "#00FF41",
+              },
+            ].map((item, i) => (
+              <motion.div
+                key={item.label}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05, duration: 0.4 }}
+                className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-[#0b0b0b] via-[#050505] to-[#0f0f0f] border-[#00FF41] px-6 py-7 shadow-[0_0_20px_rgba(0,255,65,0.25)]"
+                style={{
+                  boxShadow:
+                    "0 0 12px rgba(0,255,65,0.25), inset 0 0 12px rgba(0,255,65,0.15)",
+                }}
+              >
+                <div
+                  className="text-3xl md:text-4xl font-bold text-center"
+                  style={{
+                    color: item.color,
+                    textShadow: `0 0 12px ${item.color}70`,
+                  }}
+                >
+                  {item.value}
+                </div>
+                <div className="mt-2 text-center text-gray-400 text-sm md:text-base tracking-wide">
+                  {item.label}
+                </div>
+                <span
+                  className="pointer-events-none absolute -inset-px rounded-xl"
+                  style={{ boxShadow: `0 0 18px ${item.color}25` }}
+                />
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      </SectionFadeIn>
+
+      {/* ── {/* What Is Dine At Night? ── */}
+      <SectionFadeIn>
+        <section className="relative z-10 py-10 px-6 md:px-32 bg-black/80">
           <div className="max-w-4xl mx-auto text-center space-y-8">
             <motion.h2
               className="text-4xl md:text-6xl uppercase tracking-wider"
@@ -325,6 +540,20 @@ export default function Home() {
             >
               It&apos;s more than a food event. It&apos;s an experience.
             </p>
+
+            {/* Video Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 w-full px-4">
+              {videos.map((video, i) => (
+                <VideoCard
+                  key={i}
+                  src={video.src}
+                  color={video.color}
+                  glowColor={video.glow}
+                  isPlaying={playingIndex === i}
+                  onPlay={() => setPlayingIndex(playingIndex === i ? null : i)}
+                />
+              ))}
+            </div>
 
             {/* Decorative neon divider */}
             <div className="flex items-center justify-center gap-4 pt-4">
@@ -359,10 +588,10 @@ export default function Home() {
 
       {/* ── Vendors Section (Preview) ── */}
       <SectionFadeIn>
-        <section className="relative z-10 py-24 px-6 md:px-16 bg-black/70">
+        <section className="relative z-10 py-10 px-6 md:px-16 bg-black/70">
           <div className="max-w-7xl mx-auto">
             <motion.h2
-              className="text-4xl md:text-6xl uppercase tracking-wider text-center mb-16"
+              className="text-4xl md:text-6xl uppercase tracking-wider text-center mb-5"
               style={{
                 color: "transparent",
                 WebkitTextStroke: "2px #FF3333",
@@ -402,48 +631,59 @@ export default function Home() {
                       e.currentTarget.style.boxShadow = `0 0 15px ${vendor.glow}, inset 0 0 15px ${vendor.glow}30`;
                     }}
                   >
+                    {/* Background Image */}
+                    <Image
+                      src={vendor.image}
+                      alt={vendor.name}
+                      fill
+                      className="object-cover transition-transform duration-500 group-hover:scale-110"
+                      unoptimized
+                    />
+
                     {/* Card content */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-black/60">
-                      {/* Vendor icon placeholder */}
-                      <div
-                        className="w-16 h-16 rounded-full mb-4 flex items-center justify-center text-2xl"
-                        style={{
-                          border: `2px solid ${vendor.color}`,
-                          boxShadow: `0 0 10px ${vendor.glow}`,
-                          color: vendor.color,
-                        }}
-                      >
-                        {vendor.icon}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-black/60 backdrop-blur-[2px]">
+                        {/* Vendor icon placeholder */}
+                        <div
+                          className="w-16 h-16 rounded-full mb-4 flex items-center justify-center text-2xl"
+                          style={{
+                            border: `2px solid ${vendor.color}`,
+                            boxShadow: `0 0 10px ${vendor.glow}`,
+                            color: vendor.color,
+                          }}
+                        >
+                          {vendor.icon}
+                        </div>
+                        <h3
+                          className="text-xl font-bold uppercase tracking-wide"
+                          style={{
+                            color: vendor.color,
+                            textShadow: `0 0 10px ${vendor.glow}`,
+                          }}
+                        >
+                          {vendor.name}
+                        </h3>
+                        <p className="text-sm text-gray-400 mt-2">
+                          {vendor.type}
+                        </p>
                       </div>
-                      <h3
-                        className="text-xl font-bold uppercase tracking-wide"
-                        style={{
-                          color: vendor.color,
-                          textShadow: `0 0 10px ${vendor.glow}`,
-                        }}
-                      >
-                        {vendor.name}
-                      </h3>
-                      <p className="text-sm text-gray-400 mt-2">
-                        {vendor.type}
-                      </p>
-                    </div>
 
-                    {/* Neon corner accents */}
-                    <div
-                      className="absolute top-0 left-0 w-6 h-6"
-                      style={{
-                        borderTop: `2px solid ${vendor.color}`,
-                        borderLeft: `2px solid ${vendor.color}`,
-                      }}
-                    />
-                    <div
-                      className="absolute bottom-0 right-0 w-6 h-6"
-                      style={{
-                        borderBottom: `2px solid ${vendor.color}`,
-                        borderRight: `2px solid ${vendor.color}`,
-                      }}
-                    />
+                      {/* Neon corner accents */}
+                      <div
+                        className="absolute top-0 left-0 w-6 h-6"
+                        style={{
+                          borderTop: `2px solid ${vendor.color}`,
+                          borderLeft: `2px solid ${vendor.color}`,
+                        }}
+                      />
+                      <div
+                        className="absolute bottom-0 right-0 w-6 h-6"
+                        style={{
+                          borderBottom: `2px solid ${vendor.color}`,
+                          borderRight: `2px solid ${vendor.color}`,
+                        }}
+                      />
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -465,7 +705,7 @@ export default function Home() {
 
       {/* ── Sponsors & Partners ── */}
       <SectionFadeIn>
-        <section className="relative z-10 py-24 px-6 md:px-16 bg-black/80">
+        <section className="relative z-10 py-24 px-6 md:px-16 bg-black/80 ">
           <div className="max-w-5xl mx-auto text-center">
             <motion.h2
               className="text-4xl md:text-6xl uppercase tracking-wider mb-4"
@@ -525,6 +765,37 @@ export default function Home() {
                   </div>
                 </motion.div>
               ))}
+            </div>
+          </div>
+        </section>
+      </SectionFadeIn>
+
+      {/* ── Newsletter ── */}
+      <SectionFadeIn>
+        <section className="relative z-10 py-24 px-6 md:px-16 bg-black/80 border-t border-white/10">
+          <div className="max-w-3xl mx-auto text-center space-y-8">
+            <motion.h2
+              className="text-3xl md:text-5xl font-bold uppercase tracking-wider"
+              style={{
+                color: "white",
+                textShadow: "0 0 15px rgba(0,255,65,0.3)",
+              }}
+            >
+              Don&apos;t Miss The Next Bite
+            </motion.h2>
+            <p className="text-gray-400 text-lg">
+              Join our community for exclusive updates, vendor reveals, and
+              early bird tickets.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pointer-events-auto">
+              <input
+                type="email"
+                placeholder="Enter your email"
+                className="px-6 py-3 bg-white/5 border border-white/20 rounded-full text-white focus:outline-none focus:border-[#00FF41] focus:shadow-[0_0_15px_rgba(0,255,65,0.3)] transition-all w-full sm:w-80 placeholder:text-gray-600"
+              />
+              <NeonButton color="#00FF41" glowColor="rgba(0,255,65,0.5)">
+                Subscribe
+              </NeonButton>
             </div>
           </div>
         </section>

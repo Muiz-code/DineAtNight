@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Loader from "./loader";
 import Image from "next/image";
-import { Images } from "@/Images/images";
+import { Images } from "@/assets/images";
+import { ShoppingCart } from "lucide-react";
 
 interface NavItem {
   label: string;
@@ -13,6 +14,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  // { label: "Cart", href: "/cart" },
   { label: "SHOP", href: "/shop" },
   { label: "ABOUT", href: "/aboutUs" },
   { label: "EVENT", href: "/event" },
@@ -92,9 +94,16 @@ export default function Navbar() {
               })}
             </div>
 
-            {/* Desktop Login Button */}
-            <button className="hidden md:block border-2 border-white text-white px-6 py-2 rounded-full hover:bg-white hover:text-black transition font-medium text-sm">
-              Login
+            {/* Desktop Cart Button */}
+            <button
+              onClick={() => router.push("/cart")}
+              className="hidden md:flex items-center gap-2 border-2 border-white text-white px-6 py-2 rounded-full hover:bg-white hover:text-black transition-all duration-300 font-medium text-sm group"
+            >
+              <ShoppingCart className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              <span>Cart</span>
+              <span className="bg-[#008000] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1">
+                0
+              </span>
             </button>
 
             {/* Mobile Menu Button */}
@@ -131,11 +140,11 @@ export default function Navbar() {
       )}
 
       <div
-        className={`fixed top-0 left-0 right-0 bottom-0 bg-gradient-to-b from-slate-900 via-slate-800 to-black z-35 md:hidden transition-transform duration-300 transform ${
+        className={`fixed top-0 left-0 right-0 bottom-0 bg-gradient-to-b from-black via-black to-black z-35 md:hidden transition-transform duration-300 transform ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex flex-col items-center justify-center h-screen space-y-8">
+        <div className="flex flex-col items-center justify-center h-screen space-y-10">
           {NAV_ITEMS.map((item) => {
             const isActive =
               pathname === item.href || pathname.startsWith(item.href + "/");
@@ -145,8 +154,8 @@ export default function Navbar() {
                 href={item.href}
                 className={`transition text-2xl font-semibold ${
                   isActive
-                    ? "text-cyan-400"
-                    : "text-gray-300 hover:text-cyan-400"
+                    ? "text-[#00FF41]"
+                    : "text-gray-300 hover:text-[#00FF41]"
                 }`}
                 onClick={() => setIsOpen(false)}
               >
@@ -154,9 +163,9 @@ export default function Navbar() {
               </Link>
             );
           })}
-          <button className="border-2 border-white text-white px-8 py-3 rounded-full hover:bg-white hover:text-black transition font-medium mt-8">
-            Login
-          </button>
+          {/* <button className="border-2 border-white text-white px-8 py-3 rounded-full hover:bg-white hover:text-black transition font-medium mt-8">
+            cart
+          </button> */}
         </div>
       </div>
     </>

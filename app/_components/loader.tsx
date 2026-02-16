@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { Images } from "@/Images/images";
+import { Images } from "@/assets/images";
 
 interface LoaderProps {
   duration?: number;
