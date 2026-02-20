@@ -6,10 +6,10 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { DanEvent, DanTicket } from "@/lib/firestore";
 import Link from "next/link";
-import { Calendar, Ticket, TrendingUp, Users, AlertCircle } from "lucide-react";
+import { Calendar, Ticket, TrendingUp, Users, AlertCircle, type LucideIcon } from "lucide-react";
 
 function StatCard({ label, value, icon: Icon, color, glow }: {
-  label: string; value: string | number; icon: React.ElementType; color: string; glow: string;
+  label: string; value: string | number; icon: LucideIcon; color: string; glow: string;
 }) {
   return (
     <motion.div
@@ -19,7 +19,7 @@ function StatCard({ label, value, icon: Icon, color, glow }: {
       transition={{ duration: 0.2 }}
     >
       <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${color}12`, border: `1px solid ${color}25` }}>
-        <Icon className="w-5 h-5" style={{ color }} />
+        <Icon className="w-5 h-5" color={color} />
       </div>
       <div>
         <p className="text-gray-600 text-xs uppercase tracking-widest">{label}</p>
