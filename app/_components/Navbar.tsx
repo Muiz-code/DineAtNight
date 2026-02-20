@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import Loader from "./loader";
 import Image from "next/image";
 import { Images } from "@/assets/images";
-import { ShoppingCart } from "lucide-react";
 
 interface NavItem {
   label: string;
@@ -14,18 +13,21 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  // { label: "Cart", href: "/cart" },
-  { label: "SHOP", href: "/shop" },
+  { label: "EVENTS", href: "/event" },
+  { label: "VENDORS", href: "/vendors" },
   { label: "ABOUT", href: "/aboutUs" },
-  { label: "EVENT", href: "/event" },
-  { label: "CONTACT", href: "/contact" },
+  { label: "SHOP", href: "/shop" },
+  { label: "GALLERY", href: "/gallery" },
 ];
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+
   const pathname = usePathname();
   const router = useRouter();
+
+  if (pathname.startsWith("/admin")) return null;
   const { logoText } = Images();
 
   const toggleMenu = () => {
@@ -56,24 +58,25 @@ export default function Navbar() {
           <Loader />
         </div>
       )}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-none backdrop-blur-md px-4 md:px-25 md:py-2.5 w-full">
-        <div className=" md:w-340 w-full">
-          <div className="flex items-center justify-between h-16">
+
+      <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md w-full">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+          <div className="flex items-center justify-between h-16 md:h-18">
             {/* Logo */}
             <Link
               href="/home"
               onClick={handleLogoClick}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 shrink-0"
             >
               <Image
                 src={logoText}
                 alt="Dine@Night Logo"
-                className="md:w-25 w-16"
+                className="w-16 sm:w-20 md:w-24 lg:w-28"
               />
             </Link>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-8">
+            <div className="hidden md:flex items-center gap-5 lg:gap-9">
               {NAV_ITEMS.map((item) => {
                 const isActive =
                   pathname === item.href ||
@@ -82,10 +85,10 @@ export default function Navbar() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`transition text-lg font-medium ${
+                    className={`transition text-sm lg:text-base font-medium tracking-wide ${
                       isActive
-                        ? "text-[#008000]"
-                        : "text-gray-300 hover:text-[#008000]"
+                        ? "text-[#00FF41]"
+                        : "text-gray-300 hover:text-[#00FF41]"
                     }`}
                   >
                     {item.label}
@@ -94,36 +97,25 @@ export default function Navbar() {
               })}
             </div>
 
-            {/* Desktop Cart Button */}
-            <button
-              onClick={() => router.push("/cart")}
-              className="hidden md:flex items-center gap-2 border-2 border-white text-white px-6 py-2 rounded-full hover:bg-white hover:text-black transition-all duration-300 font-medium text-sm group"
-            >
-              <ShoppingCart className="w-4 h-4 group-hover:scale-110 transition-transform" />
-              <span>Cart</span>
-              <span className="bg-[#008000] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1">
-                0
-              </span>
-            </button>
-
-            {/* Mobile Menu Button */}
+            {/* Mobile Menu Button — larger tap target */}
             <button
               onClick={toggleMenu}
-              className="md:hidden flex flex-col gap-1.5 relative w-5 h-5 z-50"
+              aria-label={isOpen ? "Close menu" : "Open menu"}
+              className="md:hidden flex flex-col justify-center gap-[5px] w-10 h-10 z-50 relative -mr-1"
             >
               <span
-                className={`w-full h-0.5 bg-white transition-all ${
-                  isOpen ? "rotate-45 translate-y-2" : ""
+                className={`block w-6 h-0.5 bg-white transition-all duration-300 origin-center mx-auto ${
+                  isOpen ? "rotate-45 translate-y-[7px]" : ""
                 }`}
               />
               <span
-                className={`w-full h-0.5 bg-white transition-all ${
-                  isOpen ? "opacity-0" : ""
+                className={`block w-6 h-0.5 bg-white transition-all duration-300 mx-auto ${
+                  isOpen ? "opacity-0 scale-x-0" : ""
                 }`}
               />
               <span
-                className={`w-full h-0.5 bg-white transition-all ${
-                  isOpen ? "-rotate-45 -translate-y-2" : ""
+                className={`block w-6 h-0.5 bg-white transition-all duration-300 origin-center mx-auto ${
+                  isOpen ? "-rotate-45 -translate-y-[7px]" : ""
                 }`}
               />
             </button>
@@ -131,20 +123,40 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Mobile Navigation - Full Screen Overlay */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/80 z-30 md:hidden"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
-
+      {/* Mobile Backdrop */}
       <div
-        className={`fixed top-0 left-0 right-0 bottom-0 bg-gradient-to-b from-black via-black to-black z-35 md:hidden transition-transform duration-300 transform ${
+        className={`fixed inset-0 bg-black/80 z-30 md:hidden transition-opacity duration-300 ${
+          isOpen
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
+        }`}
+        onClick={() => setIsOpen(false)}
+      />
+
+      {/* Mobile Navigation Panel — slides in from right */}
+      <div
+        className={`fixed top-0 right-0 bottom-0 w-full sm:w-80 bg-black z-40 md:hidden transition-transform duration-300 ease-in-out ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex flex-col items-center justify-center h-screen space-y-10">
+        {/* Top bar with close button */}
+        <div className="flex items-center justify-between h-16 px-5 border-b border-white/8">
+          <Image
+            src={logoText}
+            alt="Dine@Night Logo"
+            className="w-14"
+          />
+          <button
+            onClick={() => setIsOpen(false)}
+            aria-label="Close menu"
+            className="w-9 h-9 rounded-full border border-white/15 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/30 transition-all text-sm"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Nav links */}
+        <div className="flex flex-col items-center justify-center h-[calc(100svh-4rem)] gap-8 pb-10">
           {NAV_ITEMS.map((item) => {
             const isActive =
               pathname === item.href || pathname.startsWith(item.href + "/");
@@ -152,7 +164,7 @@ export default function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`transition text-2xl font-semibold ${
+                className={`transition text-2xl font-semibold tracking-widest ${
                   isActive
                     ? "text-[#00FF41]"
                     : "text-gray-300 hover:text-[#00FF41]"
@@ -163,9 +175,6 @@ export default function Navbar() {
               </Link>
             );
           })}
-          {/* <button className="border-2 border-white text-white px-8 py-3 rounded-full hover:bg-white hover:text-black transition font-medium mt-8">
-            cart
-          </button> */}
         </div>
       </div>
     </>
