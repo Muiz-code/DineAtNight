@@ -28,7 +28,6 @@ export async function POST(req: Request) {
     const eventId = await createEvent({
       ...rest,
       date: Timestamp.fromDate(new Date(date)),
-      soldTickets: 0,
     });
 
     return NextResponse.json({ id: eventId });
