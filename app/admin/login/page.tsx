@@ -10,7 +10,6 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const auth = getAuthClient();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -24,6 +23,11 @@ export default function AdminLoginPage() {
       .map((s) => s.trim());
 
     try {
+      const auth = getAuthClient();
+      if (!auth) {
+        setError("Auth not available. Please try again in the browser.");
+        return;
+      }
       const cred = await signInWithEmailAndPassword(auth, email, password);
       if (!allowed.includes(cred.user.email ?? "")) {
         await auth.signOut();

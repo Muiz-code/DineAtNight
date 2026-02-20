@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+export const dynamic = "force-dynamic";
+
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { confirmTicket, type DanTicket } from "@/lib/firestore";
 import { QrCode, Search, Camera } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import dynamic from "next/dynamic";
+import dynamicImport from "next/dynamic";
 
-const CameraScanner = dynamic(() => import("@/app/_components/CameraScanner"), { ssr: false });
+const CameraScanner = dynamicImport(() => import("@/app/_components/CameraScanner"), { ssr: false });
 
 type ConfirmState = "idle" | "loading" | "success" | "already" | "error";
 
@@ -73,6 +75,7 @@ function ConfirmContent() {
   const [ticket, setTicket] = useState<DanTicket | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [showCamera, setShowCamera] = useState(false);
+  const ranPrefill = useRef(false);
 
   const handleCameraScan = (scannedRef: string) => {
     setShowCamera(false);
@@ -107,11 +110,12 @@ function ConfirmContent() {
   };
 
   // Auto-confirm if ref is in URL
-  const [ranPrefill, setRanPrefill] = useState(false);
-  if (prefill && !ranPrefill) {
-    setRanPrefill(true);
-    handleConfirm(prefill);
-  }
+  useEffect(() => {
+    if (prefill && !ranPrefill.current) {
+      ranPrefill.current = true;
+      handleConfirm(prefill);
+    }
+  }, [prefill]);
 
   return (
     <div className="max-w-lg mx-auto space-y-6">

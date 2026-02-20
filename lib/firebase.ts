@@ -19,7 +19,8 @@ export const db = getFirestore(app);
 
 // Auth should only be initialised in the browser to avoid build-time errors
 let authInstance: Auth | null = null;
-export const getAuthClient = (): Auth => {
+export const getAuthClient = (): Auth | null => {
+  if (typeof window === "undefined") return null;
   if (!authInstance) {
     authInstance = getAuth(app);
   }

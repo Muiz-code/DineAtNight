@@ -19,11 +19,12 @@ const NAV = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = useState(true);
   const [authed, setAuthed] = useState(false);
-  const auth = getAuthClient();
+  const auth = typeof window !== "undefined" ? getAuthClient() : null;
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
+    if (!auth) return;
     const unsub = onAuthStateChanged(auth, (user) => {
       if (pathname === "/admin/login") { setChecking(false); return; }
       if (!user) { router.replace("/admin/login"); return; }
@@ -31,7 +32,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setChecking(false);
     });
     return () => unsub();
-  }, [pathname, router]);
+  }, [pathname, router, auth]);
 
   if (pathname === "/admin/login") return <>{children}</>;
 
@@ -60,7 +61,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           DAN Admin
         </h2>
         <button
-          onClick={async () => { await signOut(auth); router.replace("/admin/login"); }}
+          onClick={async () => { if (!auth) return; await signOut(auth); router.replace("/admin/login"); }}
           className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-[#FF3333] transition-all"
         >
           <LogOut className="w-4 h-4" />
@@ -109,7 +110,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <div className="px-3 pb-6">
             <button
-              onClick={async () => { await signOut(auth); router.replace("/admin/login"); }}
+              onClick={async () => { if (!auth) return; await signOut(auth); router.replace("/admin/login"); }}
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm w-full transition-all text-gray-600 hover:text-[#FF3333]"
             >
               <LogOut className="w-4 h-4" />
