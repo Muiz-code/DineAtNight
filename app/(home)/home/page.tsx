@@ -391,8 +391,8 @@ export default function Home() {
           <motion.h1
             className="text-3xl md:text-5xl lg:text-6xl font-bold tracking-wide capitalize"
             style={{
-              color: "transparent",
-              WebkitTextStroke: "2px #FFFF00",
+              color: "#FFFF00",
+              // WebkitTextStroke: "2px #FFFF00",
               // textShadow:
               //   "0 0 10px rgba(255,255,0,0.5), 0 0 20px rgba(255,255,0,0.3), 0 0 40px rgba(255,255,0,0.2)",
             }}
