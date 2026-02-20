@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, useInView, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import VendorModal from "../_components/VendorModal";
 import Footer from "../_components/Footer";
 import Carousel from "../_components/Carousel";
@@ -174,6 +175,7 @@ function TicketModal({
   const event = events.find((e) => e.id === selectedId) ?? initialEvent;
   const soldCount = soldCounts[event.id ?? ""] ?? event.soldTickets ?? 0;
   const remaining = event.totalTickets - soldCount;
+  const router = useRouter();
 
   const [form, setForm] = useState({
     name: "",
@@ -214,7 +216,7 @@ function TicketModal({
       });
       const data = await res.json();
       if (data.authorization_url) {
-        window.location.href = data.authorization_url;
+        router.push(data.authorization_url);
       } else {
         setError(data.error ?? "Failed to initialize payment.");
         setLoading(false);

@@ -107,7 +107,7 @@ export default function AdminEventsPage() {
       if (editing?.id) {
         await updateEvent(editing.id, data);
       } else {
-        await createEvent({ ...data, soldTickets: 0 });
+        await createEvent(data);
       }
 
       setModalOpen(false);
