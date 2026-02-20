@@ -19,12 +19,18 @@ const NAV = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = useState(true);
   const [authed, setAuthed] = useState(false);
-  const auth = typeof window !== "undefined" ? getAuthClient() : null;
+  const [configError, setConfigError] = useState("");
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!auth) return;
+    // Always call getAuthClient() inside useEffect — guarantees browser context
+    const auth = getAuthClient();
+    if (!auth) {
+      setConfigError("Firebase is not configured. Add NEXT_PUBLIC_FIREBASE_* environment variables in your Vercel dashboard.");
+      setChecking(false);
+      return;
+    }
     const unsub = onAuthStateChanged(auth, (user) => {
       if (pathname === "/admin/login") { setChecking(false); return; }
       if (!user) { router.replace("/admin/login"); return; }
@@ -32,9 +38,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setChecking(false);
     });
     return () => unsub();
-  }, [pathname, router, auth]);
+  }, [pathname, router]);
+
+  const handleSignOut = async () => {
+    const auth = getAuthClient();
+    if (auth) await signOut(auth);
+    router.replace("/admin/login");
+  };
 
   if (pathname === "/admin/login") return <>{children}</>;
+
+  if (configError) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center px-6">
+        <div className="max-w-md text-center space-y-4">
+          <div className="text-4xl">⚠️</div>
+          <h2 className="text-[#FF3333] font-bold uppercase tracking-widest text-lg">Firebase Not Configured</h2>
+          <p className="text-gray-500 text-sm leading-relaxed">{configError}</p>
+          <p className="text-gray-600 text-xs">Go to Vercel → Your Project → Settings → Environment Variables and add all <span className="text-gray-400 font-mono">NEXT_PUBLIC_FIREBASE_*</span> keys.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (checking) {
     return (
@@ -61,7 +86,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           DAN Admin
         </h2>
         <button
-          onClick={async () => { if (!auth) return; await signOut(auth); router.replace("/admin/login"); }}
+          onClick={handleSignOut}
           className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-[#FF3333] transition-all"
         >
           <LogOut className="w-4 h-4" />
@@ -110,7 +135,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <div className="px-3 pb-6">
             <button
-              onClick={async () => { if (!auth) return; await signOut(auth); router.replace("/admin/login"); }}
+              onClick={handleSignOut}
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm w-full transition-all text-gray-600 hover:text-[#FF3333]"
             >
               <LogOut className="w-4 h-4" />

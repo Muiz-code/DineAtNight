@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { getTicketByReference, type DanTicket } from "@/lib/firestore";
+import { getTicketByReference, getEventById, type DanTicket, type DanSponsor } from "@/lib/firestore";
 
 const fmt = (kobo: number) => "₦" + (kobo / 100).toLocaleString("en-NG");
 
@@ -27,6 +27,7 @@ function QRCode({ value, size = 200 }: { value: string; size?: number }) {
 export default function TicketPage() {
   const { reference } = useParams<{ reference: string }>();
   const [ticket, setTicket] = useState<DanTicket | null>(null);
+  const [sponsors, setSponsors] = useState<DanSponsor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -37,6 +38,10 @@ export default function TicketPage() {
         if (!t) { setError("Ticket not found."); return; }
         if (t.status === "pending") { setError("Payment not yet confirmed."); return; }
         setTicket(t);
+        // Load event sponsors in background — doesn't block ticket display
+        getEventById(t.eventId).then((ev) => {
+          if (ev?.sponsors?.length) setSponsors(ev.sponsors);
+        }).catch(() => {});
       })
       .catch(() => setError("Failed to load ticket."))
       .finally(() => setLoading(false));
@@ -152,6 +157,35 @@ export default function TicketPage() {
             <QRCode value={`${process.env.NEXT_PUBLIC_APP_URL ?? ""}/admin/confirm?ref=${ticket.reference}`} size={180} />
             <p className="text-gray-700 text-[10px] tracking-widest uppercase">Scan to verify at the gate</p>
           </div>
+
+          {/* Sponsors */}
+          {sponsors.length > 0 && (
+            <div className="px-7 pb-5 border-t border-dashed" style={{ borderColor: `${statusColor}15` }}>
+              <p className="text-gray-700 text-[9px] uppercase tracking-widest text-center mt-4 mb-3">Sponsored By</p>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                {sponsors.map((sp, i) => {
+                  const spColors = ["#FFFF00", "#00FF41", "#FF3333"];
+                  const c = spColors[i % spColors.length];
+                  return (
+                    <div
+                      key={sp.name}
+                      className="w-16 h-10 flex items-center justify-center rounded overflow-hidden p-1"
+                      style={{ border: `1px solid ${c}60`, boxShadow: `0 0 8px ${c}30` }}
+                    >
+                      {sp.logoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={sp.logoUrl} alt={sp.name} className="max-h-full max-w-full object-contain" />
+                      ) : (
+                        <span className="text-[9px] font-bold uppercase tracking-wide text-center" style={{ color: c }}>
+                          {sp.name}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Footer */}
           <div

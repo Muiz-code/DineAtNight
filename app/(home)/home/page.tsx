@@ -8,6 +8,7 @@ import { Images } from "@/assets/images";
 import { animate, motion, useInView, useScroll, useTransform } from "framer-motion";
 import VendorModal from "../../_components/VendorModal";
 import Antigravity from "@/components/Antigravity";
+import { getActiveEvents, type DanSponsor } from "@/lib/firestore";
 
 /* ═══════════════════════════════════════════════
    Motion Variants
@@ -297,12 +298,12 @@ const vendors = [
   },
 ];
 
-// Sponsors — replace text with actual <Image> logos once assets are available
-const sponsors = [
-  { name: "FirstBank", color: "#FFFF00", glow: "rgba(255,255,0,0.5)" },
-  { name: "MTN", color: "#FFFF00", glow: "rgba(255,255,0,0.5)" },
-  { name: "Pepsi", color: "#00FF41", glow: "rgba(0,255,65,0.5)" },
-  { name: "Beat FM", color: "#FF3333", glow: "rgba(255,51,51,0.5)" },
+// Sponsor accent colors — cycled by index
+const SPONSOR_COLORS = [
+  { color: "#FFFF00", glow: "rgba(255,255,0,0.5)" },
+  { color: "#00FF41", glow: "rgba(0,255,65,0.5)" },
+  { color: "#FF3333", glow: "rgba(255,51,51,0.5)" },
+  { color: "#FFFF00", glow: "rgba(255,255,0,0.5)" },
 ];
 
 // Real stats from the first edition — all verified in the brief
@@ -370,6 +371,7 @@ export default function Home() {
   const [followers, setFollowers] = useState<string | null>(null);
   const [activeTestimonial, setActiveTestimonial] = useState(0);
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
+  const [eventSponsors, setEventSponsors] = useState<DanSponsor[]>([]);
   const { logo } = Images();
 
   // Parallax transforms — logo moves up slower than the page
@@ -380,6 +382,13 @@ export default function Home() {
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1500);
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    getActiveEvents().then((evs) => {
+      const sponsors = evs[0]?.sponsors ?? [];
+      if (sponsors.length > 0) setEventSponsors(sponsors);
+    }).catch(() => {});
   }, []);
 
   // Rotate testimonials every 5 seconds
@@ -896,57 +905,50 @@ export default function Home() {
               Proudly supported by
             </p>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 items-center justify-items-center">
-              {sponsors.map((sponsor, i) => (
-                <motion.div
-                  key={sponsor.name}
-                  className="group cursor-pointer pointer-events-auto"
-                  initial={{ opacity: 0, scale: 0.85 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.12, duration: 0.5 }}
-                  whileHover={{ scale: 1.06 }}
-                >
-                  <div
-                    className="w-40 h-24 md:w-48 md:h-28 flex items-center justify-center rounded-lg transition-all duration-300"
-                    style={{
-                      border: `1.5px solid ${sponsor.color}25`,
-                      boxShadow: `0 0 5px ${sponsor.glow}10`,
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLDivElement).style.border = `1.5px solid ${sponsor.color}`;
-                      (e.currentTarget as HTMLDivElement).style.boxShadow = `0 0 30px ${sponsor.glow}, inset 0 0 20px ${sponsor.glow}25`;
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLDivElement).style.border = `1.5px solid ${sponsor.color}25`;
-                      (e.currentTarget as HTMLDivElement).style.boxShadow = `0 0 5px ${sponsor.glow}10`;
-                    }}
-                  >
-                    {/*
-                     * ASSET NEEDED: Replace the text below with an actual <Image>
-                     * sponsor logo once the client provides official brand assets.
-                     * The neon-outlined box will still look great as a placeholder.
-                     */}
-                    <span
-                      className="text-lg md:text-xl font-bold uppercase tracking-wider transition-all duration-300"
-                      style={{ color: `${sponsor.color}60` }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLSpanElement).style.color =
-                          sponsor.color;
-                        (e.currentTarget as HTMLSpanElement).style.textShadow = `0 0 20px ${sponsor.glow}`;
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLSpanElement).style.color = `${sponsor.color}60`;
-                        (e.currentTarget as HTMLSpanElement).style.textShadow =
-                          "none";
-                      }}
+            {eventSponsors.length === 0 ? (
+              <p className="text-gray-700 text-sm text-center tracking-widest uppercase">Sponsor announcements coming soon</p>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-8 items-center justify-items-center">
+                {eventSponsors.map((sponsor, i) => {
+                  const accent = SPONSOR_COLORS[i % SPONSOR_COLORS.length];
+                  return (
+                    <motion.div
+                      key={sponsor.name}
+                      className="pointer-events-auto"
+                      initial={{ opacity: 0, scale: 0.85 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: i * 0.12, duration: 0.5 }}
+                      whileHover={{ scale: 1.06 }}
                     >
-                      {sponsor.name}
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+                      <div
+                        className="w-40 h-24 md:w-48 md:h-28 flex items-center justify-center rounded-lg overflow-hidden p-3"
+                        style={{
+                          border: `1.5px solid ${accent.color}`,
+                          boxShadow: `0 0 20px ${accent.glow}, inset 0 0 15px ${accent.glow}20`,
+                        }}
+                      >
+                        {sponsor.logoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={sponsor.logoUrl}
+                            alt={sponsor.name}
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        ) : (
+                          <span
+                            className="text-lg md:text-xl font-bold uppercase tracking-wider"
+                            style={{ color: accent.color, textShadow: `0 0 20px ${accent.glow}` }}
+                          >
+                            {sponsor.name}
+                          </span>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </section>
       </SectionFadeIn>

@@ -870,6 +870,46 @@ export default function EventPage() {
         </SectionFadeIn>
       )}
 
+      {/* ── SPONSORS ── */}
+      {!loading && (activeEvents[0]?.sponsors?.length ?? 0) > 0 && (
+        <SectionFadeIn>
+          <section className="relative z-10 py-16 px-6 md:px-16 bg-black/80 border-t border-white/5">
+            <div className="max-w-4xl mx-auto text-center">
+              <p className="text-xs tracking-[0.4em] uppercase text-gray-600 mb-8">Proudly Supported By</p>
+              <div className="flex flex-wrap items-center justify-center gap-6">
+                {(activeEvents[0].sponsors ?? []).map((sp, i) => {
+                  const colors = ["#FFFF00", "#00FF41", "#FF3333", "#FFFF00"];
+                  const glows = ["rgba(255,255,0,0.5)", "rgba(0,255,65,0.5)", "rgba(255,51,51,0.5)", "rgba(255,255,0,0.5)"];
+                  const c = colors[i % colors.length];
+                  const g = glows[i % glows.length];
+                  return (
+                    <motion.div
+                      key={sp.name}
+                      className="w-36 h-20 md:w-44 md:h-24 flex items-center justify-center rounded-lg overflow-hidden p-3 flex-shrink-0"
+                      style={{ border: `1.5px solid ${c}`, boxShadow: `0 0 18px ${g}, inset 0 0 12px ${g}20` }}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: i * 0.1 }}
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      {sp.logoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={sp.logoUrl} alt={sp.name} className="max-h-full max-w-full object-contain" />
+                      ) : (
+                        <span className="text-base font-bold uppercase tracking-wider" style={{ color: c, textShadow: `0 0 15px ${g}` }}>
+                          {sp.name}
+                        </span>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        </SectionFadeIn>
+      )}
+
       {/* ── WHAT TO EXPECT Carousel ── */}
       <SectionFadeIn>
         <section className="relative z-10 py-20 px-6 md:px-16 bg-black/75">

@@ -18,6 +18,11 @@ import { db } from "./firebase";
 /* ═══════════════════════════════════════════════
    Types
 ═══════════════════════════════════════════════ */
+export interface DanSponsor {
+  name: string;
+  logoUrl: string;
+}
+
 export interface DanEvent {
   id?: string;
   title: string;
@@ -32,6 +37,7 @@ export interface DanEvent {
   status: "draft" | "active" | "ended";
   imageUrl: string;
   highlights: string[];
+  sponsors?: DanSponsor[];
   createdAt?: Timestamp;
 }
 

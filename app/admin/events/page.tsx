@@ -6,7 +6,7 @@ import { Timestamp } from "firebase/firestore";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
-  getAllEvents, createEvent, updateEvent, deleteEvent, type DanEvent, type DanTicket,
+  getAllEvents, createEvent, updateEvent, deleteEvent, type DanEvent, type DanTicket, type DanSponsor,
 } from "@/lib/firestore";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
 
@@ -18,6 +18,7 @@ const EMPTY_FORM = {
   ticketPrice: 5000, totalTickets: 500,
   status: "draft" as DanEvent["status"],
   imageUrl: "", highlights: "",
+  sponsors: [] as DanSponsor[],
 };
 
 type FormState = typeof EMPTY_FORM;
@@ -81,6 +82,7 @@ export default function AdminEventsPage() {
       status: ev.status,
       imageUrl: ev.imageUrl,
       highlights: (ev.highlights ?? []).join("\n"),
+      sponsors: ev.sponsors ?? [],
     });
     setModalOpen(true);
   };
@@ -102,6 +104,7 @@ export default function AdminEventsPage() {
         status: form.status,
         imageUrl: form.imageUrl,
         highlights: form.highlights.split("\n").map((s) => s.trim()).filter(Boolean),
+        sponsors: form.sponsors.filter((s) => s.name.trim() || s.logoUrl.trim()),
       };
 
       if (editing?.id) {
@@ -370,6 +373,56 @@ export default function AdminEventsPage() {
                   <div>
                     <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Highlights (one per line)</label>
                     <textarea rows={3} value={form.highlights} onChange={(e) => setForm((p) => ({ ...p, highlights: e.target.value }))} placeholder={"50+ Vendors\nLive Music\nBar Activations"} className={`${inputCls} resize-none`} />
+                  </div>
+
+                  {/* Sponsors */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest">Sponsors & Partners</label>
+                      <button
+                        type="button"
+                        onClick={() => setForm((p) => ({ ...p, sponsors: [...p.sponsors, { name: "", logoUrl: "" }] }))}
+                        className="text-[10px] text-[#FFFF00] uppercase tracking-widest hover:opacity-70 transition-opacity"
+                      >
+                        + Add Sponsor
+                      </button>
+                    </div>
+                    {form.sponsors.length === 0 && (
+                      <p className="text-gray-700 text-xs italic">No sponsors yet. Click + Add Sponsor to add one.</p>
+                    )}
+                    <div className="space-y-2">
+                      {form.sponsors.map((sp, idx) => (
+                        <div key={idx} className="flex gap-2 items-start">
+                          <input
+                            value={sp.name}
+                            onChange={(e) => setForm((p) => {
+                              const s = [...p.sponsors];
+                              s[idx] = { ...s[idx], name: e.target.value };
+                              return { ...p, sponsors: s };
+                            })}
+                            placeholder="Sponsor name (e.g. FirstBank)"
+                            className={`${inputCls} flex-1`}
+                          />
+                          <input
+                            value={sp.logoUrl}
+                            onChange={(e) => setForm((p) => {
+                              const s = [...p.sponsors];
+                              s[idx] = { ...s[idx], logoUrl: e.target.value };
+                              return { ...p, sponsors: s };
+                            })}
+                            placeholder="Logo URL (https://...)"
+                            className={`${inputCls} flex-1`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setForm((p) => ({ ...p, sponsors: p.sponsors.filter((_, i) => i !== idx) }))}
+                            className="w-9 h-10 flex items-center justify-center text-gray-600 hover:text-[#FF3333] transition-colors flex-shrink-0"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   <motion.button
