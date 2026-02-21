@@ -586,7 +586,7 @@ export default function Home() {
          ────────────────────────────────────────── */}
       <SectionFadeIn>
         <section className="relative z-10 px-4 sm:px-8 lg:px-24 py-14 bg-black/88">
-          <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div className="max-w-5xl mx-auto grid grid-cols-2 gap-5">
             {stats.map((item, i) => (
               <motion.div
                 key={item.label}
@@ -618,18 +618,14 @@ export default function Home() {
                 </div>
               </motion.div>
             ))}
-          </div>
 
-          {/* 4th stat: IG followers (live when API is connected) */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.38, duration: 0.5 }}
-            className="max-w-5xl mx-auto mt-5"
-          >
-            <div
-              className="relative overflow-hidden rounded-2xl border bg-linear-to-br from-[#0e0e0e] to-[#040404] px-6 py-8 text-center"
+            {/* 4th stat: IG followers (live when API is connected) */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.38, duration: 0.5 }}
+              className="relative overflow-hidden rounded-2xl border bg-linear-to-br from-[#0e0e0e] to-[#040404] px-6 py-10 text-center"
               style={{
                 borderColor: "#FFFF00",
                 boxShadow:
@@ -640,17 +636,13 @@ export default function Home() {
                 className="text-5xl md:text-6xl font-bold"
                 style={{ color: "#FFFF00", textShadow: "0 0 20px #FFFF00" }}
               >
-                {/*
-                 * API NEEDED: This displays the live Instagram follower count.
-                 * Falls back to "20K+" until IG_ACCESS_TOKEN is added to .env.local
-                 */}
                 {followers ?? "20K+"}
               </div>
               <div className="mt-3 text-gray-400 text-sm tracking-widest uppercase">
                 Instagram Followers
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </div>
         </section>
       </SectionFadeIn>
 
