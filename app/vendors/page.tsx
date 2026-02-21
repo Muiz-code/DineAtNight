@@ -22,7 +22,7 @@ const SectionFadeIn = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-// Map Firestore category to filter key
+// Map a single Firestore category string to filter key
 const categoryToFilter = (cat: string): string => {
   const c = cat.toLowerCase();
   if (c.includes("grill") || c.includes("bbq")) return "grilled";
@@ -34,6 +34,62 @@ const categoryToFilter = (cat: string): string => {
   if (c.includes("fusion") || c.includes("international")) return "fusion";
   return "other";
 };
+
+// Get all category strings for a vendor (handles both legacy `category` and new `categories` array)
+const vendorCategoryList = (v: DanVendor): string[] =>
+  v.categories?.length ? v.categories : v.category ? [v.category] : [];
+
+// Slideshow component — auto-advances through multiple images
+function VendorImageSlideshow({ images, alt, palette }: {
+  images: string[];
+  alt: string;
+  palette: { color: string; glow: string };
+}) {
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const t = setInterval(() => setIdx((i) => (i + 1) % images.length), 3500);
+    return () => clearInterval(t);
+  }, [images.length]);
+
+  return (
+    <div className="relative h-52 overflow-hidden">
+      {images.map((src, i) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={src + i}
+          src={src}
+          alt={`${alt} ${i + 1}`}
+          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+          style={{ opacity: i === idx ? 1 : 0 }}
+        />
+      ))}
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-black/60 group-hover:bg-black/40 transition-colors duration-500" />
+      {/* Corner accents */}
+      <span className="absolute top-0 left-0 w-6 h-6" style={{ borderTop: `2px solid ${palette.color}`, borderLeft: `2px solid ${palette.color}` }} />
+      <span className="absolute bottom-0 right-0 w-6 h-6" style={{ borderBottom: `2px solid ${palette.color}`, borderRight: `2px solid ${palette.color}` }} />
+      {/* Dot indicators */}
+      {images.length > 1 && (
+        <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+          {images.map((_, i) => (
+            <button
+              key={i}
+              onClick={(e) => { e.stopPropagation(); setIdx(i); }}
+              className="rounded-full transition-all duration-300"
+              style={{
+                width: i === idx ? "16px" : "6px",
+                height: "6px",
+                background: i === idx ? palette.color : "rgba(255,255,255,0.35)",
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Cycle of accent colors for cards
 const COLORS = [
@@ -81,7 +137,7 @@ export default function VendorsPage() {
 
   const filtered = vendors.filter((v) => {
     if (activeFilter === "all") return true;
-    return categoryToFilter(v.category) === activeFilter;
+    return vendorCategoryList(v).some((cat) => categoryToFilter(cat) === activeFilter);
   });
 
   return (
@@ -204,20 +260,12 @@ export default function VendorsPage() {
                         boxShadow: `0 0 35px ${palette.glow}`,
                       }}
                     >
-                      {/* Image background */}
-                      <div className="relative h-52 overflow-hidden">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={vendor.imageUrl}
-                          alt={vendor.brandName}
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                        />
-                        <div className="absolute inset-0 bg-black/60" />
-
-                        {/* Corner accents */}
-                        <span className="absolute top-0 left-0 w-6 h-6" style={{ borderTop: `2px solid ${palette.color}`, borderLeft: `2px solid ${palette.color}` }} />
-                        <span className="absolute bottom-0 right-0 w-6 h-6" style={{ borderBottom: `2px solid ${palette.color}`, borderRight: `2px solid ${palette.color}` }} />
-                      </div>
+                      {/* Image slideshow */}
+                      <VendorImageSlideshow
+                        images={vendor.imageUrls?.length ? vendor.imageUrls : vendor.imageUrl ? [vendor.imageUrl] : []}
+                        alt={vendor.brandName}
+                        palette={palette}
+                      />
 
                       <div className="p-5 bg-[#070707]">
                         <h3
@@ -226,7 +274,18 @@ export default function VendorsPage() {
                         >
                           {vendor.brandName}
                         </h3>
-                        <p className="text-xs text-gray-600 uppercase tracking-widest mt-0.5 mb-3">{vendor.category}</p>
+                        {/* Category chips */}
+                        <div className="flex flex-wrap gap-1.5 mt-1.5 mb-3">
+                          {vendorCategoryList(vendor).map((cat) => (
+                            <span
+                              key={cat}
+                              className="text-[9px] px-2 py-0.5 rounded-full border uppercase tracking-wide font-bold"
+                              style={{ borderColor: `${palette.color}35`, color: `${palette.color}90` }}
+                            >
+                              {cat}
+                            </span>
+                          ))}
+                        </div>
                         <p className="text-gray-400 text-sm leading-relaxed">{vendor.description}</p>
                       </div>
                     </motion.div>

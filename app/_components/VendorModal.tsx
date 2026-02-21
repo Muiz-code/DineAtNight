@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X } from "lucide-react";
-import { createVendorApplication } from "@/lib/firestore";
+import { X, Check } from "lucide-react";
+import { upsertVendorApplication, getActiveEvents, type DanEvent } from "@/lib/firestore";
 
 interface VendorModalProps {
   isOpen: boolean;
@@ -48,39 +48,61 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
     email: "",
     phone: "",
     instagram: "",
-    category: "",
+    categories: [] as string[],
+    eventTitle: "",
     description: "",
     products: "",
     imageUrl: "",
   };
 
   const [form, setForm] = useState(EMPTY_FORM);
+  const [activeEvents, setActiveEvents] = useState<DanEvent[]>([]);
   const [submitted, setSubmitted] = useState(false);
+  const [isUpdate, setIsUpdate] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Load active events for the event picker
+  useEffect(() => {
+    getActiveEvents().then(setActiveEvents).catch(() => {});
+  }, []);
+
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+
+  const toggleCategory = (cat: string) => {
+    setForm((p) => {
+      if (p.categories.includes(cat)) {
+        return { ...p, categories: p.categories.filter((c) => c !== cat) };
+      }
+      if (p.categories.length >= 3) return p; // max 3
+      return { ...p, categories: [...p.categories, cat] };
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.categories.length === 0) {
+      setError("Please select at least one food category.");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
-      await createVendorApplication({
+      const result = await upsertVendorApplication({
         brandName: form.brandName,
         ownerName: form.ownerName,
         email: form.email,
         phone: form.phone,
         instagram: form.instagram,
-        category: form.category,
+        categories: form.categories,
+        events: form.eventTitle ? [form.eventTitle] : [],
         description: form.description,
         products: form.products,
         imageUrl: form.imageUrl,
       });
+      setIsUpdate(result.isUpdate);
       setSubmitted(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
@@ -100,6 +122,7 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
     onClose();
     setTimeout(() => {
       setSubmitted(false);
+      setIsUpdate(false);
       setError("");
       setForm(EMPTY_FORM);
     }, 400);
@@ -187,11 +210,12 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                     className="text-2xl font-bold uppercase tracking-wide mb-3"
                     style={{ color: "#00FF41", textShadow: "0 0 15px rgba(0,255,65,0.6)" }}
                   >
-                    Application Received!
+                    {isUpdate ? "Application Updated!" : "Application Received!"}
                   </h3>
                   <p className="text-gray-400 leading-relaxed mb-8 text-sm sm:text-base">
-                    We&apos;ll review your application and reach out within 5–7
-                    business days. Get ready to dine after dark!
+                    {isUpdate
+                      ? "Your existing application has been updated with the new event. Our team will review it shortly."
+                      : "We'll review your application and reach out within 5–7 business days. Get ready to dine after dark!"}
                   </p>
                   <button
                     onClick={handleClose}
@@ -252,23 +276,30 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="Food Category" required>
-                      <select
-                        name="category"
-                        value={form.category}
-                        onChange={handleChange}
-                        required
-                        className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] focus:shadow-[0_0_15px_rgba(255,255,0,0.2)] transition-all cursor-pointer"
-                      >
-                        <option value="" className="bg-[#0a0a0a]">
-                          Select a category…
-                        </option>
-                        {FOOD_CATEGORIES.map((c) => (
-                          <option key={c} value={c} className="bg-[#0a0a0a]">
-                            {c}
-                          </option>
-                        ))}
-                      </select>
+                    <Field label="Event Applying For">
+                      {activeEvents.length > 0 ? (
+                        <select
+                          name="eventTitle"
+                          value={form.eventTitle}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] focus:shadow-[0_0_15px_rgba(255,255,0,0.2)] transition-all cursor-pointer"
+                        >
+                          <option value="" className="bg-[#0a0a0a]">Select event…</option>
+                          {activeEvents.map((ev) => (
+                            <option key={ev.id} value={ev.title} className="bg-[#0a0a0a]">
+                              {ev.title}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          name="eventTitle"
+                          value={form.eventTitle}
+                          onChange={handleChange}
+                          placeholder="e.g. Dine At Night — Edition 2"
+                          className={inputCls}
+                        />
+                      )}
                     </Field>
                     <Field label="Instagram Handle">
                       <input
@@ -280,6 +311,38 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                       />
                     </Field>
                   </div>
+
+                  {/* Multi-select categories */}
+                  <Field label={`Food Categories (select up to 3)`} required>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {FOOD_CATEGORIES.map((cat) => {
+                        const selected = form.categories.includes(cat);
+                        const atMax = form.categories.length >= 3 && !selected;
+                        return (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => toggleCategory(cat)}
+                            disabled={atMax}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide border transition-all duration-200"
+                            style={{
+                              borderColor: selected ? "#FFFF00" : "rgba(255,255,255,0.12)",
+                              color: selected ? "#FFFF00" : atMax ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.5)",
+                              background: selected ? "rgba(255,255,0,0.1)" : "transparent",
+                              boxShadow: selected ? "0 0 10px rgba(255,255,0,0.2)" : "none",
+                            }}
+                          >
+                            {selected && <Check className="w-3 h-3" />}
+                            {cat}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-gray-700 text-xs mt-2">
+                      {form.categories.length}/3 selected
+                      {form.categories.length === 3 && " — maximum reached"}
+                    </p>
+                  </Field>
 
                   <Field label="Tell Us About Your Brand" required>
                     <textarea
@@ -320,7 +383,7 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                       className={inputCls}
                     />
                     <p className="text-gray-700 text-xs mt-1">
-                      Link to a photo of your food or brand (Cloudinary, Google Drive, etc.)
+                      Link to a photo of your food or brand. Each application adds a new photo — re-applying vendors get a slideshow on their profile.
                     </p>
                   </Field>
 

@@ -195,12 +195,23 @@ export interface DanVendor {
   email: string;
   phone: string;
   instagram?: string;
-  category: string;
+  category?: string;       // legacy — kept for old Firestore docs
+  categories?: string[];   // up to 3 food categories
+  events?: string[];       // event titles vendor has applied for / served at
   description: string;
   products: string;
   imageUrl: string;
+  imageUrls?: string[];    // all images accumulated from re-applications (slideshow)
   status: "pending" | "approved" | "declined";
   declineReason?: string;
+  reapplyCount?: number;   // how many times this vendor has re-applied
+  previousSnapshot?: {     // state captured right before the last merge
+    description: string;
+    products: string;
+    imageUrl?: string;
+    categories?: string[];
+    status?: string;
+  };
   submittedAt?: Timestamp;
   reviewedAt?: Timestamp | null;
 }
@@ -215,6 +226,80 @@ export async function createVendorApplication(
     reviewedAt: null,
   });
   return ref.id;
+}
+
+export async function getVendorByName(brandName: string): Promise<DanVendor | null> {
+  const snap = await getDocs(
+    query(collection(db, "vendors"), where("brandName", "==", brandName))
+  );
+  if (snap.empty) return null;
+  const d = snap.docs[0];
+  return { id: d.id, ...d.data() } as DanVendor;
+}
+
+export async function upsertVendorApplication(
+  data: Omit<DanVendor, "id" | "status" | "submittedAt" | "reviewedAt">
+): Promise<{ id: string; isUpdate: boolean }> {
+  const existing = await getVendorByName(data.brandName);
+
+  if (existing?.id) {
+    // Merge events (deduplicate) and categories (deduplicate, max 3)
+    const mergedEvents = Array.from(
+      new Set([...(existing.events ?? []), ...(data.events ?? [])])
+    );
+    const existingCats = existing.categories ?? (existing.category ? [existing.category] : []);
+    const mergedCats = Array.from(
+      new Set([...existingCats, ...(data.categories ?? [])])
+    ).slice(0, 3);
+
+    // Accumulate images — keep all unique photos from every application
+    const existingImages = existing.imageUrls?.length
+      ? existing.imageUrls
+      : existing.imageUrl ? [existing.imageUrl] : [];
+    const mergedImages = data.imageUrl && !existingImages.includes(data.imageUrl)
+      ? [...existingImages, data.imageUrl]
+      : existingImages.length ? existingImages : [data.imageUrl];
+
+    // Capture current state as snapshot BEFORE overwriting
+    const previousSnapshot = {
+      description: existing.description,
+      products: existing.products,
+      imageUrl: existing.imageUrl,
+      categories: existingCats,
+      status: existing.status,
+    };
+
+    await updateDoc(doc(db, "vendors", existing.id), {
+      brandName: data.brandName,
+      ownerName: data.ownerName,
+      phone: data.phone,
+      instagram: data.instagram ?? "",
+      description: data.description,
+      products: data.products,
+      imageUrl: data.imageUrl,       // latest image as primary
+      imageUrls: mergedImages,       // full slideshow array
+      categories: mergedCats,
+      events: mergedEvents,
+      status: "pending",             // reset so admin re-reviews
+      declineReason: null,
+      reapplyCount: (existing.reapplyCount ?? 0) + 1,
+      previousSnapshot,
+      submittedAt: serverTimestamp(),
+    });
+    return { id: existing.id, isUpdate: true };
+  }
+
+  // New vendor — create fresh doc
+  const ref = await addDoc(collection(db, "vendors"), {
+    ...data,
+    categories: data.categories ?? [],
+    events: data.events ?? [],
+    imageUrls: data.imageUrl ? [data.imageUrl] : [],
+    status: "pending",
+    submittedAt: serverTimestamp(),
+    reviewedAt: null,
+  });
+  return { id: ref.id, isUpdate: false };
 }
 
 export async function getApprovedVendors(): Promise<DanVendor[]> {
@@ -247,6 +332,7 @@ export async function createVendorDirect(
 ): Promise<string> {
   const ref = await addDoc(collection(db, "vendors"), {
     ...data,
+    imageUrls: data.imageUrls?.length ? data.imageUrls : data.imageUrl ? [data.imageUrl] : [],
     submittedAt: serverTimestamp(),
     reviewedAt: serverTimestamp(),
   });
