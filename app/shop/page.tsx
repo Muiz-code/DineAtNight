@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { motion, useInView, AnimatePresence } from "framer-motion";
-import { ShoppingCart, X, Plus, Minus } from "lucide-react";
+import { ShoppingCart, X, Plus, Minus, Shirt, ShoppingBag, Star, Flame, HardHat } from "lucide-react";
 import Footer from "../_components/Footer";
 import Carousel from "../_components/Carousel";
 
@@ -22,16 +22,16 @@ const SectionFadeIn = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-type CartItem = { id: string; name: string; price: number; qty: number; emoji: string };
+type CartItem = { id: string; name: string; price: number; qty: number };
 type Category = "all" | "tshirts" | "hoodies" | "caps" | "bags" | "stickers" | "limited";
 
 const products = [
-  { id: "tee-1", name: "Night Tee", price: 8500, category: "tshirts" as Category, emoji: "👕", description: "Classic black tee with neon DAN logo. 100% cotton.", limited: false, accent: "#FFFF00", glow: "rgba(255,255,0,0.4)" },
-  { id: "hoodie-1", name: "Neon Hoodie", price: 22000, category: "hoodies" as Category, emoji: "🧥", description: "Premium heavyweight hoodie with glow-in-dark print.", limited: false, accent: "#FF3333", glow: "rgba(255,51,51,0.4)" },
-  { id: "cap-1", name: "Night Cap", price: 7500, category: "caps" as Category, emoji: "🧢", description: "Structured 6-panel cap. Embroidered neon logo.", limited: false, accent: "#00FF41", glow: "rgba(0,255,65,0.4)" },
-  { id: "tote-1", name: "Neon Tote", price: 5500, category: "bags" as Category, emoji: "👜", description: "Heavy canvas tote with screen-printed neon artwork.", limited: false, accent: "#FFFF00", glow: "rgba(255,255,0,0.4)" },
-  { id: "sticker-1", name: "Sticker Pack", price: 2500, category: "stickers" as Category, emoji: "🌟", description: "5 holographic vinyl stickers. Waterproof & durable.", limited: false, accent: "#FF3333", glow: "rgba(255,51,51,0.4)" },
-  { id: "ltd-1", name: "Edition 1 Tee", price: 15000, category: "limited" as Category, emoji: "🔥", description: "Limited edition tee from the first ever Dine At Night. Only 50 remaining.", limited: true, accent: "#FFFF00", glow: "rgba(255,255,0,0.5)" },
+  { id: "tee-1", name: "Night Tee", price: 8500, category: "tshirts" as Category, icon: <Shirt className="w-16 h-16" />, description: "Classic black tee with neon DAN logo. 100% cotton.", limited: false, accent: "#FFFF00", glow: "rgba(255,255,0,0.4)" },
+  { id: "hoodie-1", name: "Neon Hoodie", price: 22000, category: "hoodies" as Category, icon: <Shirt className="w-16 h-16" />, description: "Premium heavyweight hoodie with glow-in-dark print.", limited: false, accent: "#FF3333", glow: "rgba(255,51,51,0.4)" },
+  { id: "cap-1", name: "Night Cap", price: 7500, category: "caps" as Category, icon: <HardHat className="w-16 h-16" />, description: "Structured 6-panel cap. Embroidered neon logo.", limited: false, accent: "#00FF41", glow: "rgba(0,255,65,0.4)" },
+  { id: "tote-1", name: "Neon Tote", price: 5500, category: "bags" as Category, icon: <ShoppingBag className="w-16 h-16" />, description: "Heavy canvas tote with screen-printed neon artwork.", limited: false, accent: "#FFFF00", glow: "rgba(255,255,0,0.4)" },
+  { id: "sticker-1", name: "Sticker Pack", price: 2500, category: "stickers" as Category, icon: <Star className="w-16 h-16" />, description: "5 holographic vinyl stickers. Waterproof & durable.", limited: false, accent: "#FF3333", glow: "rgba(255,51,51,0.4)" },
+  { id: "ltd-1", name: "Edition 1 Tee", price: 15000, category: "limited" as Category, icon: <Flame className="w-16 h-16" />, description: "Limited edition tee from the first ever Dine At Night. Only 50 remaining.", limited: true, accent: "#FFFF00", glow: "rgba(255,255,0,0.5)" },
 ];
 
 const categories: { key: Category; label: string }[] = [
@@ -41,7 +41,7 @@ const categories: { key: Category; label: string }[] = [
   { key: "caps", label: "Caps" },
   { key: "bags", label: "Tote Bags" },
   { key: "stickers", label: "Stickers" },
-  { key: "limited", label: "Limited Drops 🔥" },
+  { key: "limited", label: "Limited Drops" },
 ];
 
 const fmt = (n: number) =>
@@ -64,7 +64,7 @@ export default function ShopPage() {
     setCart((prev) => {
       const existing = prev.find((i) => i.id === product.id);
       if (existing) return prev.map((i) => i.id === product.id ? { ...i, qty: i.qty + 1 } : i);
-      return [...prev, { id: product.id, name: product.name, price: product.price, qty: 1, emoji: product.emoji }];
+      return [...prev, { id: product.id, name: product.name, price: product.price, qty: 1 }];
     });
   };
 
@@ -85,7 +85,7 @@ export default function ShopPage() {
           style={{ background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,255,65,0.06) 0%, transparent 70%)" }}
         />
         <motion.p
-          className="text-xs tracking-[0.4em] uppercase mb-3"
+          className="text-xs tracking-[0.7em] uppercase mb-3"
           style={{ color: "#00FF41", textShadow: "0 0 12px rgba(0,255,65,0.7)" }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -170,13 +170,12 @@ export default function ShopPage() {
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
                 {cart.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center gap-4">
-                    <span className="text-5xl">🛒</span>
+                    <ShoppingCart className="w-12 h-12 text-gray-700" />
                     <p className="text-gray-600 text-sm">Your cart is empty. Add some merch!</p>
                   </div>
                 ) : (
                   cart.map((item) => (
                     <div key={item.id} className="flex items-center gap-4 rounded-lg border border-white/8 p-4">
-                      <span className="text-2xl">{item.emoji}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-white text-sm font-medium truncate">{item.name}</p>
                         <p className="text-gray-500 text-xs mt-0.5">{fmt(item.price)}</p>
@@ -288,10 +287,10 @@ export default function ShopPage() {
 
                       {/* Product visual */}
                       <div
-                        className="h-48 flex items-center justify-center text-7xl"
-                        style={{ background: `radial-gradient(circle, ${product.glow} 0%, transparent 70%)` }}
+                        className="h-48 flex items-center justify-center"
+                        style={{ background: `radial-gradient(circle, ${product.glow} 0%, transparent 70%)`, color: product.accent, filter: `drop-shadow(0 0 16px ${product.glow})` }}
                       >
-                        {product.emoji}
+                        {product.icon}
                       </div>
 
                       <div className="p-5 flex flex-col flex-1">
@@ -356,7 +355,7 @@ export default function ShopPage() {
                 id: "r1",
                 content: (
                   <div className="text-center px-4 py-6">
-                    <p className="text-2xl mb-4">👕</p>
+                    <Shirt className="w-8 h-8 mx-auto mb-4 text-gray-500" />
                     <p className="text-gray-300 text-base sm:text-lg italic leading-relaxed max-w-xl mx-auto">
                       &ldquo;The Night Tee is everything. Wore it to Edition 2 and got stopped three times for photos. Worth every naira.&rdquo;
                     </p>
@@ -368,7 +367,7 @@ export default function ShopPage() {
                 id: "r2",
                 content: (
                   <div className="text-center px-4 py-6">
-                    <p className="text-2xl mb-4">🧥</p>
+                    <Shirt className="w-8 h-8 mx-auto mb-4 text-gray-500" />
                     <p className="text-gray-300 text-base sm:text-lg italic leading-relaxed max-w-xl mx-auto">
                       &ldquo;The Neon Hoodie is genuinely premium — heavyweight fabric, the glow-in-dark print is insane under UV lights. Best merch from any Lagos event.&rdquo;
                     </p>
@@ -380,7 +379,7 @@ export default function ShopPage() {
                 id: "r3",
                 content: (
                   <div className="text-center px-4 py-6">
-                    <p className="text-2xl mb-4">🔥</p>
+                    <Flame className="w-8 h-8 mx-auto mb-4 text-gray-500" />
                     <p className="text-gray-300 text-base sm:text-lg italic leading-relaxed max-w-xl mx-auto">
                       &ldquo;Grabbed the Edition 1 Tee as a collectible. Only 50 exist — when Dine At Night blows up, this will be vintage. Already framing mine.&rdquo;
                     </p>
@@ -392,7 +391,7 @@ export default function ShopPage() {
                 id: "r4",
                 content: (
                   <div className="text-center px-4 py-6">
-                    <p className="text-2xl mb-4">👜</p>
+                    <ShoppingBag className="w-8 h-8 mx-auto mb-4 text-gray-500" />
                     <p className="text-gray-300 text-base sm:text-lg italic leading-relaxed max-w-xl mx-auto">
                       &ldquo;The Neon Tote is my daily carry. Heavy canvas, holds everything, and the print gets compliments on the street. Dine At Night is a lifestyle now.&rdquo;
                     </p>

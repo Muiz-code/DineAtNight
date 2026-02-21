@@ -5,10 +5,24 @@ import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Images } from "@/assets/images";
-import { animate, motion, useInView, useScroll, useTransform } from "framer-motion";
+import {
+  animate,
+  motion,
+  useInView,
+  useScroll,
+  useTransform,
+} from "framer-motion";
 import VendorModal from "../../_components/VendorModal";
 import Antigravity from "@/components/Antigravity";
-import { getActiveEvents, type DanSponsor } from "@/lib/firestore";
+import TestimonialSection from "../../_components/TestimonialSection";
+import {
+  getActiveEvents,
+  getApprovedVendors,
+  type DanSponsor,
+  type DanEvent,
+  type DanVendor,
+} from "@/lib/firestore";
+import { Camera, CalendarDays, MapPin } from "lucide-react";
 
 /* ═══════════════════════════════════════════════
    Motion Variants
@@ -135,8 +149,14 @@ const VideoCard = ({
         >
           {isPlaying ? (
             <div className="flex gap-1.5">
-              <div className="w-1.5 h-5 rounded-full" style={{ backgroundColor: color }} />
-              <div className="w-1.5 h-5 rounded-full" style={{ backgroundColor: color }} />
+              <div
+                className="w-1.5 h-5 rounded-full"
+                style={{ backgroundColor: color }}
+              />
+              <div
+                className="w-1.5 h-5 rounded-full"
+                style={{ backgroundColor: color }}
+              />
             </div>
           ) : (
             <div
@@ -202,6 +222,86 @@ const SectionFadeIn = ({ children }: { children: React.ReactNode }) => {
 };
 
 /* ═══════════════════════════════════════════════
+   Vendor Image Slideshow
+═══════════════════════════════════════════════ */
+function VendorImageSlideshow({
+  images,
+  alt,
+  palette,
+}: {
+  images: string[];
+  alt: string;
+  palette: { color: string; glow: string };
+}) {
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const t = setInterval(() => setIdx((i) => (i + 1) % images.length), 3500);
+    return () => clearInterval(t);
+  }, [images.length]);
+
+  return (
+    <div className="relative h-52 overflow-hidden">
+      {images.length > 0 ? (
+        images.map((src, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={src + i}
+            src={src}
+            alt={`${alt} ${i + 1}`}
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+            style={{ opacity: i === idx ? 1 : 0 }}
+          />
+        ))
+      ) : (
+        <div
+          className="w-full h-full"
+          style={{
+            background: `radial-gradient(ellipse at center, ${palette.color}15, #030303)`,
+          }}
+        />
+      )}
+      <div className="absolute inset-0 bg-black/60 group-hover:bg-black/40 transition-colors duration-500" />
+      <span
+        className="absolute top-0 left-0 w-6 h-6"
+        style={{
+          borderTop: `2px solid ${palette.color}`,
+          borderLeft: `2px solid ${palette.color}`,
+        }}
+      />
+      <span
+        className="absolute bottom-0 right-0 w-6 h-6"
+        style={{
+          borderBottom: `2px solid ${palette.color}`,
+          borderRight: `2px solid ${palette.color}`,
+        }}
+      />
+      {images.length > 1 && (
+        <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+          {images.map((_, i) => (
+            <button
+              key={i}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIdx(i);
+              }}
+              className="rounded-full transition-all duration-300"
+              style={{
+                width: i === idx ? "16px" : "6px",
+                height: "6px",
+                background:
+                  i === idx ? palette.color : "rgba(255,255,255,0.35)",
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
    Data
 ═══════════════════════════════════════════════ */
 const videos = [
@@ -222,81 +322,16 @@ const videos = [
   },
 ];
 
-// Vendors — swap Unsplash URLs for real vendor logo images from client
-const vendors = [
-  {
-    name: "Suya Spot",
-    type: "Grilled Meats",
-    icon: "🔥",
-    color: "#FFFF00",
-    glow: "rgba(255,255,0,0.5)",
-    image:
-      "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    name: "Jollof Wars",
-    type: "Rice & Stews",
-    icon: "🍚",
-    color: "#FF3333",
-    glow: "rgba(255,51,51,0.5)",
-    image:
-      "https://images.unsplash.com/photo-1604329760661-e71dc83f8f1a?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    name: "Boli & Fish",
-    type: "Street Food",
-    icon: "🍌",
-    color: "#00FF41",
-    glow: "rgba(0,255,65,0.5)",
-    image:
-      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    name: "Puff Puff Palace",
-    type: "Snacks & Desserts",
-    icon: "🍩",
-    color: "#FFFF00",
-    glow: "rgba(255,255,0,0.5)",
-    image:
-      "https://images.unsplash.com/photo-1626015449066-133cc6114871?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    name: "Asun Alley",
-    type: "Peppered Goat",
-    icon: "🌶️",
-    color: "#FF3333",
-    glow: "rgba(255,51,51,0.5)",
-    image:
-      "https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    name: "Nkwobi Nights",
-    type: "Delicacies",
-    icon: "🥘",
-    color: "#00FF41",
-    glow: "rgba(0,255,65,0.5)",
-    image:
-      "https://images.unsplash.com/photo-1547592180-85f173990554?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    name: "Small Chops Co",
-    type: "Finger Foods",
-    icon: "🥟",
-    color: "#FFFF00",
-    glow: "rgba(255,255,0,0.5)",
-    image:
-      "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    name: "Chapman Bar",
-    type: "Drinks & Cocktails",
-    icon: "🍹",
-    color: "#FF3333",
-    glow: "rgba(255,51,51,0.5)",
-    image:
-      "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?q=80&w=800&auto=format&fit=crop",
-  },
+// Accent palette for vendor cards
+const VENDOR_PALETTE = [
+  { color: "#FFFF00", glow: "rgba(255,255,0,0.5)" },
+  { color: "#FF3333", glow: "rgba(255,51,51,0.5)" },
+  { color: "#00FF41", glow: "rgba(0,255,65,0.5)" },
 ];
+
+// Get all category strings for a vendor
+const vendorCategoryList = (v: DanVendor): string[] =>
+  v.categories?.length ? v.categories : v.category ? [v.category] : [];
 
 // Sponsor accent colors — cycled by index
 const SPONSOR_COLORS = [
@@ -331,31 +366,6 @@ const stats = [
   },
 ];
 
-// Vendor testimonials from the brief
-const testimonials = [
-  {
-    quote:
-      "The event was well coordinated. Considering it was the first edition, there was a large turnout which was effectively managed. The event organizers were very supportive — overall it was well put together.",
-    author: "Norma",
-    color: "#FFFF00",
-    glow: "rgba(255,255,0,0.4)",
-  },
-  {
-    quote:
-      "DAT was a very welcome novel experience to the Lagos food festival scene. The organisers got the M.O. to the T!! Looking forward to future editions to not only participate but engage in the experience as well.",
-    author: "Topsis Burger Lab",
-    color: "#FF3333",
-    glow: "rgba(255,51,51,0.4)",
-  },
-  {
-    quote:
-      "It was a super fun event — we loved how interactive it was, and how vendors had spotlights that allowed us to be included in the interactivity. Would be excited to work with the Dine At Night team again.",
-    author: "Ensweet",
-    color: "#00FF41",
-    glow: "rgba(0,255,65,0.4)",
-  },
-];
-
 const formatFollowers = (count: number) => {
   if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M+`;
   if (count >= 1_000) return `${Math.round(count / 100) / 10}K+`;
@@ -369,9 +379,12 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const [followers, setFollowers] = useState<string | null>(null);
-  const [activeTestimonial, setActiveTestimonial] = useState(0);
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
   const [eventSponsors, setEventSponsors] = useState<DanSponsor[]>([]);
+  const [activeEvents, setActiveEvents] = useState<DanEvent[]>([]);
+  const [approvedVendors, setApprovedVendors] = useState<DanVendor[]>([]);
+  const [vendorsLoading, setVendorsLoading] = useState(true);
+  const [vendorsError, setVendorsError] = useState(false);
   const { logo } = Images();
 
   // Parallax transforms — logo moves up slower than the page
@@ -385,18 +398,28 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    getActiveEvents().then((evs) => {
-      const sponsors = evs[0]?.sponsors ?? [];
-      if (sponsors.length > 0) setEventSponsors(sponsors);
-    }).catch(() => {});
+    getActiveEvents()
+      .then((evs) => {
+        setActiveEvents(evs);
+        const sponsors = evs[0]?.sponsors ?? [];
+        if (sponsors.length > 0) setEventSponsors(sponsors);
+      })
+      .catch(() => {});
   }, []);
 
-  // Rotate testimonials every 5 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveTestimonial((prev) => (prev + 1) % testimonials.length);
-    }, 5000);
-    return () => clearInterval(interval);
+    getApprovedVendors()
+      .then((data) => {
+        // Pick 3 at random — different on every page load
+        const shuffled = [...data].sort(() => Math.random() - 0.5).slice(0, 3);
+        setApprovedVendors(shuffled);
+        setVendorsError(false);
+      })
+      .catch(() => {
+        setApprovedVendors([]);
+        setVendorsError(true);
+      })
+      .finally(() => setVendorsLoading(false));
   }, []);
 
   useEffect(() => {
@@ -441,7 +464,6 @@ export default function Home() {
           Interactive children override with pointer-events-auto.
          ────────────────────────────────────────── */}
       <section className="relative z-10 flex flex-col items-center justify-center min-h-[100svh] px-4 sm:px-6 text-center bg-black/55 pointer-events-none">
-
         {/* Logo — no hover effect, pure parallax display */}
         <motion.div
           style={{ y: logoY }}
@@ -488,7 +510,12 @@ export default function Home() {
                 "0 0 12px rgba(255,51,51,0.6), 0 0 24px rgba(255,51,51,0.3)",
               ],
             }}
-            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+            transition={{
+              duration: 2.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 0.5,
+            }}
           >
             For Those Who Dine After Dark
           </motion.p>
@@ -502,7 +529,11 @@ export default function Home() {
           className="mt-10 sm:mt-14 flex flex-col sm:flex-row gap-3 sm:gap-5 w-full sm:w-auto px-6 sm:px-0 pointer-events-auto"
         >
           <Link href="/event" className="w-full sm:w-auto">
-            <NeonButton color="#FFFF00" glowColor="rgba(255,255,0,0.65)" delay={0}>
+            <NeonButton
+              color="#FFFF00"
+              glowColor="rgba(255,255,0,0.65)"
+              delay={0}
+            >
               Get Tickets
             </NeonButton>
           </Link>
@@ -518,7 +549,11 @@ export default function Home() {
           </NeonButton>
 
           <Link href="/shop" className="w-full sm:w-auto">
-            <NeonButton color="#00FF41" glowColor="rgba(0,255,65,0.65)" delay={0.5}>
+            <NeonButton
+              color="#00FF41"
+              glowColor="rgba(0,255,65,0.65)"
+              delay={0.5}
+            >
               Get Merch
             </NeonButton>
           </Link>
@@ -533,7 +568,10 @@ export default function Home() {
         >
           <motion.div
             className="w-px h-8 sm:h-10 rounded-full"
-            style={{ background: "linear-gradient(to bottom, rgba(255,255,0,0.8), transparent)" }}
+            style={{
+              background:
+                "linear-gradient(to bottom, rgba(255,255,0,0.8), transparent)",
+            }}
             animate={{ scaleY: [1, 0.4, 1], opacity: [0.8, 0.3, 0.8] }}
             transition={{ duration: 1.5, repeat: Infinity }}
           />
@@ -617,10 +655,213 @@ export default function Home() {
       </SectionFadeIn>
 
       {/* ──────────────────────────────────────────
+          UPCOMING EVENT HIGHLIGHT
+         ────────────────────────────────────────── */}
+      {activeEvents.length > 0 && (
+        <SectionFadeIn>
+          <section className="relative z-10 pt-10 pb-5 px-6 md:px-16 bg-black/85">
+            <div className="max-w-5xl mx-auto">
+              <motion.h2
+                className="text-4xl md:text-6xl uppercase tracking-wider text-center mb-4"
+                style={{
+                  color: "transparent",
+                  WebkitTextStroke: "2px #FFFF00",
+                  textShadow:
+                    "0 0 20px rgba(255,255,0,0.5), 0 0 45px rgba(255,255,0,0.3)",
+                }}
+              >
+                Upcoming Events
+              </motion.h2>
+              <p className="text-gray-500 text-center text-base tracking-widest uppercase mb-12">
+                Secure your spot before it sells out
+              </p>
+
+              <div className="space-y-6 md:flex md:flex-row flex-col gap-10 justify">
+                {activeEvents.map((ev, i) => {
+                  const accentColors = ["#FFFF00", "#FF3333", "#00FF41"];
+                  const accentGlows = [
+                    "rgba(255,255,0,0.5)",
+                    "rgba(255,51,51,0.5)",
+                    "rgba(0,255,65,0.5)",
+                  ];
+                  const c = accentColors[i % accentColors.length];
+                  const g = accentGlows[i % accentGlows.length];
+                  const evDate = ev.date?.toDate();
+                  const dateStr = evDate
+                    ? evDate.toLocaleDateString("en-NG", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })
+                    : "Date TBA";
+                  const timeStr = evDate
+                    ? evDate.toLocaleTimeString("en-NG", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      })
+                    : "";
+                  const remaining = Math.max(
+                    0,
+                    ev.totalTickets - ev.soldTickets,
+                  );
+                  const soldPct =
+                    ev.totalTickets > 0
+                      ? Math.min(
+                          100,
+                          Math.round((ev.soldTickets / ev.totalTickets) * 100),
+                        )
+                      : 0;
+
+                  return (
+                    <motion.div
+                      key={ev.id}
+                      className="relative rounded-2xl border overflow-hidden md:h-[50vh] "
+                      style={{
+                        borderColor: `${c}40`,
+                        boxShadow: `0 0 40px ${g}15`,
+                        background: "linear-gradient(135deg, #080808, #030303)",
+                      }}
+                      initial={{ opacity: 0, y: 30 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: i * 0.1, duration: 0.6 }}
+                    >
+                      {/* Event image banner */}
+                      {ev.imageUrl && (
+                        <div className="relative h-48 sm:h-56 overflow-hidden">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={ev.imageUrl}
+                            alt={ev.title}
+                            className="w-full h-full object-cover"
+                          />
+                          <div
+                            className="absolute inset-0"
+                            style={{
+                              background:
+                                "linear-gradient(to bottom, transparent 40%, #080808 100%)",
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {/* Corner accents */}
+                      <span
+                        className="absolute top-0 left-0 w-10 h-10 pointer-events-none"
+                        style={{
+                          borderTop: `2px solid ${c}`,
+                          borderLeft: `2px solid ${c}`,
+                        }}
+                      />
+                      <span
+                        className="absolute bottom-0 right-0 w-10 h-10 pointer-events-none"
+                        style={{
+                          borderBottom: `2px solid ${c}`,
+                          borderRight: `2px solid ${c}`,
+                        }}
+                      />
+
+                      <div className="p-6 md:p-8 grid md:grid-cols-[1fr_auto] gap-6 items-center">
+                        {/* Left: event info */}
+                        <div className="space-y-4">
+                          <h3
+                            className="text-2xl md:text-4xl font-bold uppercase tracking-wide"
+                            style={{ color: c, textShadow: `0 0 20px ${g}` }}
+                          >
+                            {ev.title}
+                          </h3>
+
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="flex items-center gap-2 text-gray-400 text-sm">
+                              <CalendarDays
+                                className="w-4 h-4 flex-shrink-0"
+                                style={{ color: c }}
+                              />
+                              <span>
+                                {dateStr}
+                                {timeStr && ` · ${timeStr}`}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-gray-400 text-sm">
+                              <MapPin
+                                className="w-4 h-4 flex-shrink-0"
+                                style={{ color: c }}
+                              />
+                              <span>{ev.venue}</span>
+                            </div>
+                          </div>
+
+                          {/* Sold-out progress bar */}
+                          <div className="space-y-1.5 max-w-sm">
+                            <div className="flex justify-between text-xs text-gray-600">
+                              <span>
+                                {remaining > 0
+                                  ? `${remaining.toLocaleString()} ticket${remaining === 1 ? "" : "s"} left`
+                                  : "Sold out"}
+                              </span>
+                              <span>{soldPct}% sold</span>
+                            </div>
+                            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${soldPct}%`,
+                                  background: c,
+                                  boxShadow: `0 0 8px ${g}`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right: price + CTA */}
+                        <div className="flex flex-col items-start md:items-end gap-4">
+                          <div className="md:text-right">
+                            <p className="text-gray-600 text-xs uppercase tracking-widest">
+                              From
+                            </p>
+                            <p
+                              className="text-3xl font-bold"
+                              style={{ color: c, textShadow: `0 0 15px ${g}` }}
+                            >
+                              ₦{ev.ticketPrice.toLocaleString("en-NG")}
+                            </p>
+                          </div>
+                          <Link href="/event" className="pointer-events-auto">
+                            <motion.button
+                              className="px-6 py-3 rounded-full font-bold uppercase tracking-widest text-sm"
+                              style={{
+                                background: c,
+                                color: "#000",
+                                boxShadow: `0 0 20px ${g}`,
+                              }}
+                              whileHover={{
+                                scale: 1.04,
+                                boxShadow: `0 0 35px ${g}`,
+                              }}
+                              whileTap={{ scale: 0.97 }}
+                            >
+                              Get Tickets →
+                            </motion.button>
+                          </Link>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        </SectionFadeIn>
+      )}
+
+      {/* ──────────────────────────────────────────
           WHAT IS DINE AT NIGHT?
          ────────────────────────────────────────── */}
       <SectionFadeIn>
-        <section className="relative z-10 py-24 px-6 md:px-24 bg-black/80">
+        <section className="relative z-10 pt-10 pb-5 px-6 md:px-24 bg-black/80">
           <div className="max-w-4xl mx-auto text-center space-y-8">
             <motion.h2
               className="text-4xl md:text-6xl uppercase tracking-wider"
@@ -659,9 +900,7 @@ export default function Home() {
                   color={video.color}
                   glowColor={video.glow}
                   isPlaying={playingIndex === i}
-                  onPlay={() =>
-                    setPlayingIndex(playingIndex === i ? null : i)
-                  }
+                  onPlay={() => setPlayingIndex(playingIndex === i ? null : i)}
                 />
               ))}
             </div>
@@ -671,8 +910,7 @@ export default function Home() {
               <span
                 className="block h-px flex-1 max-w-25"
                 style={{
-                  background:
-                    "linear-gradient(90deg, transparent, #FF3333)",
+                  background: "linear-gradient(90deg, transparent, #FF3333)",
                   boxShadow: "0 0 10px rgba(255,51,51,0.6)",
                 }}
               />
@@ -687,8 +925,7 @@ export default function Home() {
               <span
                 className="block h-px flex-1 max-w-25"
                 style={{
-                  background:
-                    "linear-gradient(90deg, #FF3333, transparent)",
+                  background: "linear-gradient(90deg, #FF3333, transparent)",
                   boxShadow: "0 0 10px rgba(255,51,51,0.6)",
                 }}
               />
@@ -701,7 +938,7 @@ export default function Home() {
           VENDORS PREVIEW
          ────────────────────────────────────────── */}
       <SectionFadeIn>
-        <section className="relative z-10 py-20 px-6 md:px-16 bg-black/70 overflow-x-hidden">
+        <section className="relative z-10 pt-10 pb-5 px-6 md:px-16 bg-black/70 overflow-x-hidden">
           <div className="max-w-7xl mx-auto">
             <motion.h2
               className="text-4xl md:text-6xl uppercase tracking-wider text-center mb-12"
@@ -715,83 +952,96 @@ export default function Home() {
               Our Vendors
             </motion.h2>
 
-            {/* Horizontal scroll strip — overflow-x-hidden on section keeps it contained */}
-            <div className="flex items-start gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide pointer-events-auto">
-              {vendors.map((vendor, i) => (
-                <motion.div
-                  key={vendor.name}
-                  className="shrink-0 w-64 md:w-72 snap-center group cursor-pointer"
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.07, duration: 0.5 }}
-                >
+            {vendorsLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: 3 }).map((_, i) => (
                   <div
-                    className="relative h-80 rounded-lg overflow-hidden transition-all duration-300"
-                    style={{
-                      border: `2px solid ${vendor.color}`,
-                      boxShadow: `0 0 15px ${vendor.glow}, inset 0 0 10px ${vendor.glow}20`,
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLDivElement).style.boxShadow = `0 0 45px ${vendor.glow}, 0 0 90px ${vendor.glow}50, inset 0 0 30px ${vendor.glow}35`;
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLDivElement).style.boxShadow = `0 0 15px ${vendor.glow}, inset 0 0 10px ${vendor.glow}20`;
-                    }}
+                    key={i}
+                    className="rounded-2xl overflow-hidden border border-white/5 animate-pulse"
                   >
-                    {/* Background image */}
-                    <Image
-                      src={vendor.image}
-                      alt={vendor.name}
-                      fill
-                      className="object-cover transition-transform duration-500 group-hover:scale-110"
-                      unoptimized
-                    />
-
-                    {/* Single overlay — fixed the previous double-overlay bug */}
-                    <div className="absolute inset-0 bg-black/65 backdrop-blur-[1px] flex flex-col items-center justify-center p-6 text-center">
-                      {/* Corner accents */}
-                      <span
-                        className="absolute top-0 left-0 w-6 h-6"
-                        style={{
-                          borderTop: `2px solid ${vendor.color}`,
-                          borderLeft: `2px solid ${vendor.color}`,
-                        }}
-                      />
-                      <span
-                        className="absolute bottom-0 right-0 w-6 h-6"
-                        style={{
-                          borderBottom: `2px solid ${vendor.color}`,
-                          borderRight: `2px solid ${vendor.color}`,
-                        }}
-                      />
-
-                      <div
-                        className="w-16 h-16 rounded-full mb-4 flex items-center justify-center text-2xl"
-                        style={{
-                          border: `2px solid ${vendor.color}`,
-                          boxShadow: `0 0 14px ${vendor.glow}`,
-                        }}
-                      >
-                        {vendor.icon}
-                      </div>
-                      <h3
-                        className="text-xl font-bold uppercase tracking-wide"
-                        style={{
-                          color: vendor.color,
-                          textShadow: `0 0 12px ${vendor.glow}`,
-                        }}
-                      >
-                        {vendor.name}
-                      </h3>
-                      <p className="text-sm text-gray-400 mt-2">
-                        {vendor.type}
-                      </p>
+                    <div className="h-52 bg-white/5" />
+                    <div className="p-5 bg-[#070707] space-y-3">
+                      <div className="h-5 w-2/3 bg-white/5 rounded" />
+                      <div className="h-3 w-1/3 bg-white/5 rounded" />
+                      <div className="h-4 w-full bg-white/5 rounded" />
                     </div>
                   </div>
-                </motion.div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : vendorsError ? (
+              <p className="text-gray-700 text-center text-sm tracking-widest uppercase py-16">
+                Couldn&apos;t load vendors — check Firestore rules for the
+                vendors collection
+              </p>
+            ) : approvedVendors.length === 0 ? (
+              <p className="text-gray-700 text-center text-sm tracking-widest uppercase py-16">
+                Vendor lineup dropping soon — stay tuned
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {approvedVendors.map((vendor, i) => {
+                  const palette = VENDOR_PALETTE[i % VENDOR_PALETTE.length];
+                  return (
+                    <motion.div
+                      key={vendor.id ?? vendor.brandName}
+                      className="relative group rounded-2xl overflow-hidden border"
+                      style={{
+                        borderColor: `${palette.color}25`,
+                        boxShadow: `0 0 15px ${palette.glow}10`,
+                      }}
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: i * 0.05, duration: 0.4 }}
+                      whileHover={{
+                        borderColor: palette.color,
+                        boxShadow: `0 0 35px ${palette.glow}`,
+                      }}
+                    >
+                      <VendorImageSlideshow
+                        images={
+                          vendor.imageUrls?.length
+                            ? vendor.imageUrls
+                            : vendor.imageUrl
+                              ? [vendor.imageUrl]
+                              : []
+                        }
+                        alt={vendor.brandName}
+                        palette={palette}
+                      />
+                      <div className="p-5 bg-[#070707]">
+                        <h3
+                          className="text-xl font-bold uppercase tracking-wide"
+                          style={{
+                            color: palette.color,
+                            textShadow: `0 0 12px ${palette.glow}`,
+                          }}
+                        >
+                          {vendor.brandName}
+                        </h3>
+                        <div className="flex flex-wrap gap-1.5 mt-1.5 mb-3">
+                          {vendorCategoryList(vendor).map((cat) => (
+                            <span
+                              key={cat}
+                              className="text-[9px] px-2 py-0.5 rounded-full border uppercase tracking-wide font-bold"
+                              style={{
+                                borderColor: `${palette.color}35`,
+                                color: `${palette.color}90`,
+                              }}
+                            >
+                              {cat}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="text-gray-400 text-sm leading-relaxed line-clamp-2">
+                          {vendor.description}
+                        </p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="flex justify-center mt-12 pointer-events-auto">
               <Link href="/vendors">
@@ -805,81 +1055,16 @@ export default function Home() {
       </SectionFadeIn>
 
       {/* ──────────────────────────────────────────
-          VENDOR TESTIMONIALS
+          TESTIMONIALS (live from Firestore)
          ────────────────────────────────────────── */}
       <SectionFadeIn>
-        <section className="relative z-10 py-20 px-6 md:px-24 bg-black/82">
-          <div className="max-w-3xl mx-auto text-center">
-            <motion.h2
-              className="text-3xl md:text-5xl uppercase tracking-wider mb-14"
-              style={{
-                color: "transparent",
-                WebkitTextStroke: "1.5px #00FF41",
-                textShadow: "0 0 20px rgba(0,255,65,0.4)",
-              }}
-            >
-              What Vendors Say
-            </motion.h2>
-
-            {/* Testimonial carousel */}
-            <div className="relative min-h-45">
-              {testimonials.map((t, i) => (
-                <motion.div
-                  key={i}
-                  className="absolute inset-0 flex flex-col items-center justify-center"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={
-                    activeTestimonial === i
-                      ? { opacity: 1, y: 0 }
-                      : { opacity: 0, y: -10 }
-                  }
-                  transition={{ duration: 0.6, ease: "easeOut" }}
-                >
-                  <div
-                    className="relative rounded-xl border p-8 md:p-10 bg-black/60"
-                    style={{
-                      borderColor: `${t.color}40`,
-                      boxShadow: `0 0 30px ${t.glow}20`,
-                    }}
-                  >
-                    <span
-                      className="absolute -top-4 left-8 text-4xl leading-none"
-                      style={{ color: t.color, textShadow: `0 0 15px ${t.glow}` }}
-                    >
-                      &ldquo;
-                    </span>
-                    <p className="text-gray-300 text-base md:text-lg leading-relaxed italic">
-                      {t.quote}
-                    </p>
-                    <p
-                      className="mt-5 font-bold tracking-widest uppercase text-sm"
-                      style={{ color: t.color, textShadow: `0 0 10px ${t.glow}` }}
-                    >
-                      — {t.author}
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Dots */}
-            <div className="flex justify-center gap-3 mt-48 md:mt-44">
-              {testimonials.map((t, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveTestimonial(i)}
-                  className="w-2.5 h-2.5 rounded-full transition-all duration-300 pointer-events-auto"
-                  style={{
-                    backgroundColor:
-                      activeTestimonial === i ? t.color : `${t.color}30`,
-                    boxShadow:
-                      activeTestimonial === i
-                        ? `0 0 10px ${t.glow}`
-                        : "none",
-                  }}
-                />
-              ))}
-            </div>
+        <section className="relative z-10 pt-10 pb-5 px-6 md:px-16 bg-black/82">
+          <div className="max-w-5xl mx-auto pointer-events-auto">
+            <TestimonialSection
+              title="What People Say"
+              accentColor="#00FF41"
+              showForm={true}
+            />
           </div>
         </section>
       </SectionFadeIn>
@@ -888,7 +1073,7 @@ export default function Home() {
           SPONSORS & PARTNERS
          ────────────────────────────────────────── */}
       <SectionFadeIn>
-        <section className="relative z-10 py-20 px-6 md:px-16 bg-black/80">
+        <section className="relative z-10 pt-10 pb-5 px-6 md:px-16 bg-black/80">
           <div className="max-w-5xl mx-auto text-center">
             <motion.h2
               className="text-4xl md:text-6xl uppercase tracking-wider mb-4"
@@ -906,7 +1091,9 @@ export default function Home() {
             </p>
 
             {eventSponsors.length === 0 ? (
-              <p className="text-gray-700 text-sm text-center tracking-widest uppercase">Sponsor announcements coming soon</p>
+              <p className="text-gray-700 text-sm text-center tracking-widest uppercase">
+                Sponsor announcements coming soon
+              </p>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-8 items-center justify-items-center">
                 {eventSponsors.map((sponsor, i) => {
@@ -938,7 +1125,10 @@ export default function Home() {
                         ) : (
                           <span
                             className="text-lg md:text-xl font-bold uppercase tracking-wider"
-                            style={{ color: accent.color, textShadow: `0 0 20px ${accent.glow}` }}
+                            style={{
+                              color: accent.color,
+                              textShadow: `0 0 20px ${accent.glow}`,
+                            }}
                           >
                             {sponsor.name}
                           </span>
@@ -968,7 +1158,7 @@ export default function Home() {
           5. Replace the placeholder grid below with real <Image> posts
           ────────────────────────────────────────── */}
       <SectionFadeIn>
-        <section className="relative z-10 py-20 px-6 md:px-16 bg-black/75">
+        <section className="relative z-10pt-10 pb-5 px-6 md:px-16 bg-black/75">
           <div className="max-w-6xl mx-auto text-center">
             <motion.h2
               className="text-4xl md:text-6xl uppercase tracking-wider mb-3"
@@ -981,7 +1171,7 @@ export default function Home() {
               Follow The Night
             </motion.h2>
             <p className="text-gray-500 text-base tracking-widest uppercase mb-12">
-              @dineatnight on Instagram
+              @dineatnight.ng on Instagram
             </p>
 
             {/* Placeholder grid — replace with live posts once IG API is connected */}
@@ -999,21 +1189,19 @@ export default function Home() {
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.07, duration: 0.4 }}
                 >
-                  <span className="text-gray-800 text-2xl group-hover:text-gray-600 transition-colors duration-300">
-                    📸
-                  </span>
+                  <Camera className="w-6 h-6 text-gray-800 group-hover:text-gray-600 transition-colors duration-300" />
                 </motion.div>
               ))}
             </div>
 
             <div className="pointer-events-auto flex justify-center">
               <a
-                href="https://instagram.com/dineatnight"
+                href="https://www.instagram.com/dineatnight.ng/"
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 <NeonButton color="#FFFF00" glowColor="rgba(255,255,0,0.55)">
-                  Follow @dineatnight
+                  Follow @dineatnight.ng
                 </NeonButton>
               </a>
             </div>
@@ -1034,7 +1222,7 @@ export default function Home() {
           4. Wire the form below to submit to that endpoint
           ────────────────────────────────────────── */}
       <SectionFadeIn>
-        <section className="relative z-10 py-20 px-6 md:px-16 bg-black/80 border-t border-white/5">
+        <section className="relative z-10 pt-10 pb-15 px-6 md:px-16 bg-black/80 border-t border-white/5">
           <div className="max-w-3xl mx-auto text-center space-y-6">
             <motion.h2
               className="text-3xl md:text-5xl font-bold uppercase tracking-wider"
@@ -1082,8 +1270,7 @@ export default function Home() {
               under neon lights.
             </p>
             <p className="text-gray-700 text-xs">
-              Powered by{" "}
-              <span className="text-gray-500">Those Who Dine</span>
+              Powered by <span className="text-gray-500">Those Who Dine</span>
             </p>
           </div>
 
@@ -1136,7 +1323,7 @@ export default function Home() {
                 {
                   label: "Instagram",
                   icon: "IG",
-                  href: "https://instagram.com/dineatnight",
+                  href: "https://www.instagram.com/dineatnight.ng/",
                   color: "#FF3333",
                   glow: "rgba(255,51,51,0.5)",
                 },
@@ -1171,11 +1358,14 @@ export default function Home() {
                       social.color;
                     (e.currentTarget as HTMLAnchorElement).style.color =
                       social.color;
-                    (e.currentTarget as HTMLAnchorElement).style.boxShadow = `0 0 18px ${social.glow}`;
+                    (e.currentTarget as HTMLAnchorElement).style.boxShadow =
+                      `0 0 18px ${social.glow}`;
                   }}
                   onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLAnchorElement).style.borderColor = `${social.color}30`;
-                    (e.currentTarget as HTMLAnchorElement).style.color = `${social.color}60`;
+                    (e.currentTarget as HTMLAnchorElement).style.borderColor =
+                      `${social.color}30`;
+                    (e.currentTarget as HTMLAnchorElement).style.color =
+                      `${social.color}60`;
                     (e.currentTarget as HTMLAnchorElement).style.boxShadow =
                       "none";
                   }}

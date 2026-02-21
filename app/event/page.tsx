@@ -7,10 +7,20 @@ import { useRouter } from "next/navigation";
 import VendorModal from "../_components/VendorModal";
 import Footer from "../_components/Footer";
 import Carousel from "../_components/Carousel";
+import TestimonialSection from "../_components/TestimonialSection";
 import { getActiveEvents, getPastEvents, type DanEvent } from "@/lib/firestore";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { X } from "lucide-react";
+import {
+  X,
+  Utensils,
+  Music2,
+  Camera,
+  Wine,
+  Trophy,
+  Moon,
+  MapPin,
+} from "lucide-react";
 
 /* ── helpers ── */
 const SectionFadeIn = ({ children }: { children: React.ReactNode }) => {
@@ -147,9 +157,15 @@ function CardCountdown({ targetDate }: { targetDate: Date }) {
             >
               {String(u.v).padStart(2, "0")}
             </div>
-            <span className="text-[8px] text-gray-600 uppercase tracking-wider mt-0.5">{u.l}</span>
+            <span className="text-[8px] text-gray-600 uppercase tracking-wider mt-0.5">
+              {u.l}
+            </span>
           </div>
-          {i < 3 && <span className="text-gray-700 font-bold pb-3.5 text-[10px]">:</span>}
+          {i < 3 && (
+            <span className="text-gray-700 font-bold pb-3.5 text-[10px]">
+              :
+            </span>
+          )}
         </div>
       ))}
     </div>
@@ -277,7 +293,12 @@ function TicketModal({
                 Get Tickets
               </h2>
               <p className="text-gray-500 text-xs mt-1">
-                {event.date?.toDate?.()?.toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" })} · {event.venue}
+                {event.date?.toDate?.()?.toLocaleDateString("en-NG", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}{" "}
+                · {event.venue}
               </p>
               <p className="text-gray-600 text-xs mt-0.5">
                 {remaining} tickets remaining
@@ -461,69 +482,57 @@ const faqs = [
 const highlights = [
   {
     id: 1,
-    icon: "🍖",
+    icon: <Utensils className="w-12 h-12 mx-auto" />,
     title: "50+ Vendors",
     desc: "Curated food vendors serving the best bites in Lagos.",
     color: "#FFFF00",
+    imageUrl:
+      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80",
   },
   {
     id: 2,
-    icon: "🎵",
+    icon: <Music2 className="w-12 h-12 mx-auto" />,
     title: "Live Music & DJs",
     desc: "A curated soundtrack that keeps the energy high all night.",
     color: "#FF3333",
+    imageUrl:
+      "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&q=80",
   },
   {
     id: 3,
-    icon: "📸",
+    icon: <Camera className="w-12 h-12 mx-auto" />,
     title: "Content Corners",
     desc: "Instagrammable setups designed for the perfect shot.",
     color: "#00FF41",
+    imageUrl:
+      "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=800&q=80",
   },
   {
     id: 4,
-    icon: "🥂",
+    icon: <Wine className="w-12 h-12 mx-auto" />,
     title: "Bar Activations",
     desc: "Signature cocktails and drinks from top brands.",
     color: "#FFFF00",
+    imageUrl:
+      "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=800&q=80",
   },
   {
     id: 5,
-    icon: "🏆",
+    icon: <Trophy className="w-12 h-12 mx-auto" />,
     title: "Vendor Competitions",
     desc: "Watch the best vendors compete for the crowd\u2019s favourite.",
     color: "#FF3333",
+    imageUrl:
+      "https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800&q=80",
   },
   {
     id: 6,
-    icon: "🌙",
+    icon: <Moon className="w-12 h-12 mx-auto" />,
     title: "Open Air Neon Market",
     desc: "An immersive night market unlike anything in Lagos.",
     color: "#00FF41",
-  },
-];
-
-const testimonials = [
-  {
-    id: 1,
-    quote:
-      "The event was well coordinated. Considering it was the first edition, there was a large turnout which was effectively managed.",
-    author: "Norma",
-    color: "#FFFF00",
-  },
-  {
-    id: 2,
-    quote:
-      "DAT was a very welcome novel experience to the Lagos food festival scene. The organisers got the M.O. to the T!!",
-    author: "Topsis Burger Lab",
-    color: "#FF3333",
-  },
-  {
-    id: 3,
-    quote:
-      "It was a super fun event — we loved how interactive it was, and how vendors had spotlights.",
-    author: "Ensweet",
-    color: "#00FF41",
+    imageUrl:
+      "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80",
   },
 ];
 
@@ -536,6 +545,7 @@ export default function EventPage() {
   const [pastEvents, setPastEvents] = useState<DanEvent[]>([]);
   const [soldByEvent, setSoldByEvent] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [heroIdx, setHeroIdx] = useState(0);
 
   useEffect(() => {
     // Fetch events first — tickets are best-effort and must never block event display
@@ -563,6 +573,15 @@ export default function EventPage() {
       });
   }, []);
 
+  // Hero slideshow: collect images from active events (most recent first)
+  const heroImages = activeEvents.filter((e) => e.imageUrl).map((e) => e.imageUrl as string);
+
+  useEffect(() => {
+    if (heroImages.length <= 1) return;
+    const id = setInterval(() => setHeroIdx((i) => (i + 1) % heroImages.length), 5000);
+    return () => clearInterval(id);
+  }, [heroImages.length]);
+
   const nextEventDate =
     activeEvents.length > 0 ? (activeEvents[0].date?.toDate?.() ?? null) : null;
   const countdown = useCountdown(nextEventDate);
@@ -570,16 +589,47 @@ export default function EventPage() {
   return (
     <div className="relative w-full min-h-screen bg-black overflow-x-hidden">
       {/* ── HERO ── */}
-      <section className="relative flex flex-col items-center justify-center min-h-[70svh] px-6 text-center pt-24 pb-16">
+      <section className="relative flex flex-col items-center justify-center min-h-[70svh] px-6 text-center pt-24 pb-16 overflow-hidden">
+        {/* Event image slideshow background */}
+        <AnimatePresence mode="sync">
+          {heroImages.length > 0 && (
+            <motion.div
+              key={heroIdx}
+              className="absolute inset-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.2 }}
+            >
+              <img
+                src={heroImages[heroIdx]}
+                alt=""
+                className="w-full h-full object-cover object-center"
+              />
+              {/* Dark gradient overlay */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.65) 60%, rgba(0,0,0,0.85) 100%)",
+                }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Neon radial glow on top */}
         <div
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-0 pointer-events-none z-[1]"
           style={{
             background:
-              "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,255,0,0.07) 0%, transparent 70%)",
+              "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,255,0,0.06) 0%, transparent 70%)",
           }}
         />
+
+        {/* Text content */}
         <motion.p
-          className="text-xs sm:text-sm tracking-[0.4em] uppercase mb-4"
+          className="relative z-10 text-xs sm:text-sm tracking-[0.7em] uppercase mb-4"
           style={{
             color: "#FFFF00",
             textShadow: "0 0 12px rgba(255,255,0,0.7)",
@@ -590,7 +640,7 @@ export default function EventPage() {
           Dine At Night
         </motion.p>
         <motion.h1
-          className="text-5xl sm:text-7xl md:text-8xl uppercase tracking-tight leading-none"
+          className="relative z-10 text-5xl sm:text-7xl md:text-8xl uppercase tracking-tight leading-none"
           style={{
             color: "transparent",
             WebkitTextStroke: "2px #FFFF00",
@@ -603,7 +653,7 @@ export default function EventPage() {
           Events
         </motion.h1>
         <motion.p
-          className="mt-4 text-lg sm:text-2xl tracking-widest italic"
+          className="relative z-10 mt-4 text-lg sm:text-2xl tracking-widest italic"
           style={{
             color: "#FF3333",
             textShadow: "0 0 15px rgba(255,51,51,0.6)",
@@ -615,7 +665,7 @@ export default function EventPage() {
           The Night Returns
         </motion.p>
         <motion.div
-          className="mt-10 flex flex-col sm:flex-row gap-4 w-full sm:w-auto px-4 sm:px-0"
+          className="relative z-10 mt-10 flex flex-col sm:flex-row gap-4 w-full sm:w-auto px-4 sm:px-0"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.55 }}
@@ -637,11 +687,29 @@ export default function EventPage() {
             Apply to Vend
           </NeonButton>
         </motion.div>
+
+        {/* Slide dot indicators */}
+        {heroImages.length > 1 && (
+          <div className="relative z-10 flex gap-2 mt-8">
+            {heroImages.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setHeroIdx(i)}
+                className="w-2 h-2 rounded-full transition-all duration-300"
+                style={{
+                  background: i === heroIdx ? "#FFFF00" : "rgba(255,255,255,0.3)",
+                  boxShadow: i === heroIdx ? "0 0 8px rgba(255,255,0,0.8)" : "none",
+                  transform: i === heroIdx ? "scale(1.4)" : "scale(1)",
+                }}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ── COUNTDOWN ── */}
       <SectionFadeIn>
-        <section className="relative z-10 py-16 px-6 bg-black/80 border-y border-white/5">
+        <section className="relative z-10 pt-10 pb-5 px-6 bg-black/80 border-y border-white/5">
           <div className="max-w-3xl mx-auto text-center">
             {loading ? (
               <div className="flex items-center justify-center gap-2 text-gray-600 text-sm">
@@ -707,7 +775,7 @@ export default function EventPage() {
       {/* ── ACTIVE EVENTS ── */}
       {!loading && activeEvents.length > 0 && (
         <SectionFadeIn>
-          <section className="relative z-10 py-20 px-6 md:px-16 bg-black/75">
+          <section className="relative z-10 pt-10 pb-5 px-6 md:px-16 bg-black/75">
             <div className="max-w-5xl mx-auto">
               <h2
                 className="text-4xl md:text-5xl uppercase tracking-wider text-center mb-12"
@@ -737,12 +805,15 @@ export default function EventPage() {
                     });
                   const sold = soldByEvent[ev.id ?? ""] ?? ev.soldTickets ?? 0;
                   const remaining = ev.totalTickets - sold;
-                  const pct = ev.totalTickets > 0 ? Math.round((sold / ev.totalTickets) * 100) : 0;
+                  const pct =
+                    ev.totalTickets > 0
+                      ? Math.round((sold / ev.totalTickets) * 100)
+                      : 0;
                   const soldOut = remaining <= 0;
                   return (
                     <motion.div
                       key={ev.id}
-                      className="relative rounded-2xl border p-6 md:p-8"
+                      className="relative rounded-2xl border overflow-hidden"
                       style={{
                         borderColor: "rgba(255,255,0,0.25)",
                         background: "linear-gradient(135deg, #090909, #040404)",
@@ -753,22 +824,54 @@ export default function EventPage() {
                         boxShadow: "0 0 40px rgba(255,255,0,0.12)",
                       }}
                     >
+                      {/* Corner accents */}
                       <span
-                        className="absolute top-0 left-0 w-8 h-8"
+                        className="absolute top-0 left-0 w-8 h-8 z-10"
                         style={{
                           borderTop: "2px solid #FFFF00",
                           borderLeft: "2px solid #FFFF00",
                         }}
                       />
                       <span
-                        className="absolute bottom-0 right-0 w-8 h-8"
+                        className="absolute bottom-0 right-0 w-8 h-8 z-10"
                         style={{
                           borderBottom: "2px solid #FFFF00",
                           borderRight: "2px solid #FFFF00",
                         }}
                       />
-                      <div className="flex flex-col md:flex-row md:items-start gap-6">
-                        <div className="flex-1">
+
+                      {/* Image — full-width, edge-to-edge */}
+                      <div className="relative h-52 sm:h-64 overflow-hidden">
+                        {ev.imageUrl ? (
+                          <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={ev.imageUrl}
+                              alt={ev.title}
+                              className="w-full h-full object-cover"
+                            />
+                            <div
+                              className="absolute inset-0"
+                              style={{
+                                background:
+                                  "linear-gradient(to bottom, transparent 40%, #090909 100%)",
+                              }}
+                            />
+                          </>
+                        ) : (
+                          <div
+                            className="w-full h-full"
+                            style={{
+                              background:
+                                "radial-gradient(ellipse at center, rgba(255,255,0,0.08), #030303)",
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      {/* Content panel */}
+                      <div className="p-6 md:p-8 space-y-4">
+                        <div>
                           <h3
                             className="text-2xl md:text-3xl font-bold uppercase tracking-wide"
                             style={{
@@ -781,53 +884,92 @@ export default function EventPage() {
                           <p className="text-gray-400 text-sm mt-1">
                             {evDate} · {evTime}
                           </p>
-                          <p className="text-gray-500 text-sm mt-0.5">
-                            📍 {ev.venue}
+                          <p className="text-gray-500 text-sm mt-0.5 flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 flex-shrink-0" />{" "}
+                            {ev.venue}
                           </p>
-                          {ev.date?.toDate?.() && (
-                            <div className="mt-3">
-                              <p className="text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Starts in</p>
-                              <CardCountdown targetDate={ev.date.toDate()} />
-                            </div>
-                          )}
-                          <p className="text-gray-400 text-sm mt-3 max-w-lg leading-relaxed">
-                            {ev.description}
-                          </p>
-                          {ev.highlights?.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-4">
-                              {ev.highlights.map((h) => (
-                                <span
-                                  key={h}
-                                  className="text-xs px-3 py-1 rounded-full border"
-                                  style={{
-                                    borderColor: "rgba(255,255,0,0.2)",
-                                    color: "rgba(255,255,0,0.7)",
-                                  }}
-                                >
-                                  {h}
-                                </span>
-                              ))}
-                            </div>
-                          )}
                         </div>
-                        <div className="flex flex-col items-start md:items-end gap-4 md:min-w-52">
+
+                        {ev.date?.toDate?.() && (
                           <div>
-                            <p className="text-gray-600 text-xs uppercase tracking-widest">
-                              Price per ticket
+                            <p className="text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
+                              Starts in
                             </p>
-                            <p
-                              className="text-2xl font-bold"
-                              style={{ color: "#FFFF00" }}
-                            >
-                              ₦{ev.ticketPrice.toLocaleString()}
-                            </p>
+                            <CardCountdown targetDate={ev.date.toDate()} />
                           </div>
-                          <div className="w-full">
+                        )}
+
+                        <p className="text-gray-400 text-sm leading-relaxed">
+                          {ev.description}
+                        </p>
+
+                        {ev.highlights?.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {ev.highlights.map((h) => (
+                              <span
+                                key={h}
+                                className="text-xs px-3 py-1 rounded-full border"
+                                style={{
+                                  borderColor: "rgba(255,255,0,0.2)",
+                                  color: "rgba(255,255,0,0.7)",
+                                }}
+                              >
+                                {h}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Price + progress + CTA */}
+                        <div className="pt-2 space-y-3">
+                          <div className="flex items-center justify-between gap-4">
+                            <div>
+                              <p className="text-gray-600 text-xs uppercase tracking-widest">
+                                Price per ticket
+                              </p>
+                              <p
+                                className="text-2xl font-bold"
+                                style={{ color: "#FFFF00" }}
+                              >
+                                ₦{ev.ticketPrice.toLocaleString()}
+                              </p>
+                            </div>
+                            <motion.button
+                              disabled={soldOut}
+                              onClick={() => !soldOut && setTicketEvent(ev)}
+                              className="px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm flex-shrink-0"
+                              style={{
+                                background: soldOut ? "transparent" : "#FFFF00",
+                                color: soldOut ? "#666" : "#000",
+                                border: soldOut
+                                  ? "2px solid #333"
+                                  : "2px solid #FFFF00",
+                                boxShadow: soldOut
+                                  ? "none"
+                                  : "0 0 20px rgba(255,255,0,0.4)",
+                                cursor: soldOut ? "not-allowed" : "pointer",
+                              }}
+                              whileHover={!soldOut ? { scale: 1.03 } : {}}
+                              whileTap={!soldOut ? { scale: 0.97 } : {}}
+                            >
+                              {soldOut ? "Sold Out" : "Get Tickets →"}
+                            </motion.button>
+                          </div>
+                          <div>
                             <div className="flex justify-between text-xs mb-1">
-                              <span style={{ color: pct >= 90 ? "#FF3333" : "rgba(255,255,255,0.4)" }}>
+                              <span
+                                style={{
+                                  color:
+                                    pct >= 90
+                                      ? "#FF3333"
+                                      : "rgba(255,255,255,0.4)",
+                                }}
+                              >
                                 {pct}% sold
                               </span>
-                              <span className="text-gray-600">{100 - pct}% remaining</span>
+                              <span className="text-gray-600">
+                                {100 - pct}% remaining
+                              </span>
                             </div>
                             <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                               <div
@@ -839,26 +981,6 @@ export default function EventPage() {
                               />
                             </div>
                           </div>
-                          <motion.button
-                            disabled={soldOut}
-                            onClick={() => !soldOut && setTicketEvent(ev)}
-                            className="w-full md:w-auto px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm"
-                            style={{
-                              background: soldOut ? "transparent" : "#FFFF00",
-                              color: soldOut ? "#666" : "#000",
-                              border: soldOut
-                                ? "2px solid #333"
-                                : "2px solid #FFFF00",
-                              boxShadow: soldOut
-                                ? "none"
-                                : "0 0 20px rgba(255,255,0,0.4)",
-                              cursor: soldOut ? "not-allowed" : "pointer",
-                            }}
-                            whileHover={!soldOut ? { scale: 1.03 } : {}}
-                            whileTap={!soldOut ? { scale: 0.97 } : {}}
-                          >
-                            {soldOut ? "Sold Out" : "Get Tickets →"}
-                          </motion.button>
                         </div>
                       </div>
                     </motion.div>
@@ -875,18 +997,28 @@ export default function EventPage() {
         <SectionFadeIn>
           <section className="relative z-10 py-16 px-6 md:px-16 bg-black/80 border-t border-white/5">
             <div className="max-w-4xl mx-auto text-center">
-              <p className="text-xs tracking-[0.4em] uppercase text-gray-600 mb-8">Proudly Supported By</p>
+              <p className="text-xs tracking-[0.4em] uppercase text-gray-600 mb-8">
+                Proudly Supported By
+              </p>
               <div className="flex flex-wrap items-center justify-center gap-6">
                 {(activeEvents[0].sponsors ?? []).map((sp, i) => {
                   const colors = ["#FFFF00", "#00FF41", "#FF3333", "#FFFF00"];
-                  const glows = ["rgba(255,255,0,0.5)", "rgba(0,255,65,0.5)", "rgba(255,51,51,0.5)", "rgba(255,255,0,0.5)"];
+                  const glows = [
+                    "rgba(255,255,0,0.5)",
+                    "rgba(0,255,65,0.5)",
+                    "rgba(255,51,51,0.5)",
+                    "rgba(255,255,0,0.5)",
+                  ];
                   const c = colors[i % colors.length];
                   const g = glows[i % glows.length];
                   return (
                     <motion.div
                       key={sp.name}
                       className="w-36 h-20 md:w-44 md:h-24 flex items-center justify-center rounded-lg overflow-hidden p-3 flex-shrink-0"
-                      style={{ border: `1.5px solid ${c}`, boxShadow: `0 0 18px ${g}, inset 0 0 12px ${g}20` }}
+                      style={{
+                        border: `1.5px solid ${c}`,
+                        boxShadow: `0 0 18px ${g}, inset 0 0 12px ${g}20`,
+                      }}
                       initial={{ opacity: 0, scale: 0.9 }}
                       whileInView={{ opacity: 1, scale: 1 }}
                       viewport={{ once: true }}
@@ -895,9 +1027,16 @@ export default function EventPage() {
                     >
                       {sp.logoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={sp.logoUrl} alt={sp.name} className="max-h-full max-w-full object-contain" />
+                        <img
+                          src={sp.logoUrl}
+                          alt={sp.name}
+                          className="max-h-full max-w-full object-contain"
+                        />
                       ) : (
-                        <span className="text-base font-bold uppercase tracking-wider" style={{ color: c, textShadow: `0 0 15px ${g}` }}>
+                        <span
+                          className="text-base font-bold uppercase tracking-wider"
+                          style={{ color: c, textShadow: `0 0 15px ${g}` }}
+                        >
                           {sp.name}
                         </span>
                       )}
@@ -912,7 +1051,7 @@ export default function EventPage() {
 
       {/* ── WHAT TO EXPECT Carousel ── */}
       <SectionFadeIn>
-        <section className="relative z-10 py-20 px-6 md:px-16 bg-black/75">
+        <section className="relative z-10 pt-10 pb-5 px-6 md:px-16 bg-black/75">
           <div className="max-w-3xl mx-auto">
             <Carousel
               title="What to Expect"
@@ -923,22 +1062,53 @@ export default function EventPage() {
                 id: h.id,
                 content: (
                   <div
-                    className="rounded-xl border p-8 text-center mx-2"
-                    style={{
-                      borderColor: `${h.color}25`,
-                      background: "rgba(10,10,10,0.8)",
-                    }}
+                    className="rounded-xl border overflow-hidden relative mx-2 h-[30vh]"
+                    style={{ borderColor: `${h.color}30` }}
                   >
-                    <div className="text-5xl mb-4">{h.icon}</div>
-                    <h3
-                      className="text-2xl font-bold uppercase tracking-wide mb-3"
-                      style={{ color: h.color }}
-                    >
-                      {h.title}
-                    </h3>
-                    <p className="text-gray-400 text-base leading-relaxed max-w-sm mx-auto">
-                      {h.desc}
-                    </p>
+                    {/* Background image */}
+                    <div className="absolute inset-0">
+                      <img
+                        src={h.imageUrl}
+                        alt={h.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          background: `linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.82) 60%, rgba(0,0,0,0.95) 100%)`,
+                        }}
+                      />
+                      {/* Neon color tint overlay */}
+                      <div
+                        className="absolute inset-0"
+                        style={{ background: `${h.color}0a` }}
+                      />
+                    </div>
+
+                    {/* Content */}
+                    <div className="relative z-10 p-8 text-center">
+                      <div
+                        className="mb-4"
+                        style={{
+                          color: h.color,
+                          filter: `drop-shadow(0 0 12px ${h.color}cc)`,
+                        }}
+                      >
+                        {h.icon}
+                      </div>
+                      <h3
+                        className="text-2xl font-bold uppercase tracking-wide mb-3"
+                        style={{
+                          color: h.color,
+                          textShadow: `0 0 20px ${h.color}80`,
+                        }}
+                      >
+                        {h.title}
+                      </h3>
+                      <p className="text-gray-300 text-base leading-relaxed max-w-sm mx-auto">
+                        {h.desc}
+                      </p>
+                    </div>
                   </div>
                 ),
               }))}
@@ -967,7 +1137,7 @@ export default function EventPage() {
                     id: ev.id!,
                     content: (
                       <div
-                        className="relative rounded-2xl border p-8 md:p-10 overflow-hidden mx-2"
+                        className="relative rounded-2xl border overflow-hidden mx-2"
                         style={{
                           borderColor: "rgba(255,51,51,0.3)",
                           background:
@@ -975,49 +1145,86 @@ export default function EventPage() {
                           boxShadow: "0 0 30px rgba(255,51,51,0.08)",
                         }}
                       >
+                        {/* Corner accents */}
                         <span
-                          className="absolute top-0 left-0 w-8 h-8"
+                          className="absolute top-0 left-0 w-8 h-8 z-10"
                           style={{
                             borderTop: "2px solid #FF3333",
                             borderLeft: "2px solid #FF3333",
                           }}
                         />
                         <span
-                          className="absolute bottom-0 right-0 w-8 h-8"
+                          className="absolute bottom-0 right-0 w-8 h-8 z-10"
                           style={{
                             borderBottom: "2px solid #FF3333",
                             borderRight: "2px solid #FF3333",
                           }}
                         />
-                        <p
-                          className="text-xs tracking-[0.4em] uppercase mb-1"
-                          style={{ color: "#FF3333" }}
-                        >
-                          {evDate}
-                        </p>
-                        <h3
-                          className="text-3xl font-bold uppercase tracking-wide"
-                          style={{
-                            color: "#FF3333",
-                            textShadow: "0 0 20px rgba(255,51,51,0.5)",
-                          }}
-                        >
-                          {ev.edition}
-                        </h3>
-                        <p className="text-gray-500 text-sm mb-4 tracking-widest">
-                          {ev.venue}
-                        </p>
-                        <p className="text-gray-300 text-base leading-relaxed">
-                          {ev.description}
-                        </p>
-                        <div className="flex gap-4 mt-6 flex-wrap text-xs text-gray-500">
-                          <span>{soldByEvent[ev.id ?? ""] ?? ev.soldTickets}+ tickets sold</span>
-                          <Link
-                            href="/gallery"
-                            className="text-[#FF3333] hover:underline"
+
+                        {/* Image */}
+                        <div className="relative h-48 sm:h-56 overflow-hidden">
+                          {ev.imageUrl ? (
+                            <>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={ev.imageUrl}
+                                alt={ev.title}
+                                className="w-full h-full object-cover"
+                              />
+                              <div
+                                className="absolute inset-0"
+                                style={{
+                                  background:
+                                    "linear-gradient(to bottom, transparent 40%, #080808 100%)",
+                                }}
+                              />
+                            </>
+                          ) : (
+                            <div
+                              className="w-full h-full"
+                              style={{
+                                background:
+                                  "radial-gradient(ellipse at center, rgba(255,51,51,0.1), #030303)",
+                              }}
+                            />
+                          )}
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 md:p-8">
+                          <p
+                            className="text-xs tracking-[0.4em] uppercase mb-1"
+                            style={{ color: "#FF3333" }}
                           >
-                            View Gallery →
-                          </Link>
+                            {evDate}
+                          </p>
+                          <h3
+                            className="text-3xl font-bold uppercase tracking-wide"
+                            style={{
+                              color: "#FF3333",
+                              textShadow: "0 0 20px rgba(255,51,51,0.5)",
+                            }}
+                          >
+                            {ev.edition}
+                          </h3>
+                          <p className="text-gray-500 text-sm mb-4 tracking-widest">
+                            {ev.venue}
+                          </p>
+                          <p className="text-gray-300 text-base leading-relaxed">
+                            {ev.description}
+                          </p>
+                          <div className="flex gap-4 mt-6 flex-wrap text-xs text-gray-500">
+                            <span>
+                              {soldByEvent[ev.id ?? ""] ?? ev.soldTickets}+
+                              tickets sold
+                            </span>
+                            <Link
+                              href="/gallery"
+                              className="text-[#FF3333] hover:underline"
+                            >
+                              View Gallery →
+                            </Link>
+                          </div>
                         </div>
                       </div>
                     ),
@@ -1029,43 +1236,14 @@ export default function EventPage() {
         </SectionFadeIn>
       )}
 
-      {/* ── TESTIMONIALS Carousel ── */}
+      {/* ── TESTIMONIALS (live from Firestore) ── */}
       <SectionFadeIn>
-        <section className="relative z-10 py-20 px-6 md:px-16 bg-black/75 border-t border-white/5">
-          <div className="max-w-3xl mx-auto">
-            <Carousel
-              title="What Vendors Say"
+        <section className="relative z-10 pt-10 pb-5 px-6 md:px-16 bg-black/75 border-t border-white/5">
+          <div className="max-w-5xl mx-auto">
+            <TestimonialSection
+              title="What They Say"
               accentColor="#00FF41"
-              glowColor="rgba(0,255,65,0.4)"
-              autoPlayInterval={6000}
-              items={testimonials.map((t) => ({
-                id: t.id,
-                content: (
-                  <div
-                    className="relative rounded-xl border p-8 md:p-10 bg-black/60 mx-2"
-                    style={{
-                      borderColor: `${t.color}25`,
-                      boxShadow: `0 0 25px ${t.color}10`,
-                    }}
-                  >
-                    <span
-                      className="absolute -top-4 left-8 text-4xl leading-none"
-                      style={{ color: t.color }}
-                    >
-                      &ldquo;
-                    </span>
-                    <p className="text-gray-300 text-base md:text-lg leading-relaxed italic">
-                      {t.quote}
-                    </p>
-                    <p
-                      className="mt-5 font-bold tracking-widest uppercase text-sm"
-                      style={{ color: t.color }}
-                    >
-                      — {t.author}
-                    </p>
-                  </div>
-                ),
-              }))}
+              showForm={true}
             />
           </div>
         </section>
@@ -1073,7 +1251,7 @@ export default function EventPage() {
 
       {/* ── FAQ ── */}
       <SectionFadeIn>
-        <section className="relative z-10 py-20 px-6 md:px-16 bg-black/75">
+        <section className="relative z-10 pt-10 pb-5 px-6 md:px-16 bg-black/75">
           <div className="max-w-3xl mx-auto">
             <h2
               className="text-4xl md:text-5xl uppercase tracking-wider text-center mb-14"
@@ -1136,7 +1314,7 @@ export default function EventPage() {
 
       {/* ── SUBSCRIBE CTA ── */}
       <SectionFadeIn>
-        <section className="relative z-10 py-20 px-6 text-center bg-black/90 border-t border-white/5">
+        <section className="relative z-10 pt-10 pb-5 px-6 text-center bg-black/90 border-t border-white/5">
           <div className="max-w-2xl mx-auto space-y-6">
             <h2
               className="text-3xl sm:text-5xl font-bold uppercase tracking-wider"
@@ -1145,7 +1323,7 @@ export default function EventPage() {
                 textShadow: "0 0 30px rgba(255,255,0,0.5)",
               }}
             >
-              Don&apos;t Miss Edition 2
+              Don&apos;t Miss {activeEvents[0]?.title ?? "The Next Edition"}
             </h2>
             <p className="text-gray-400 text-base">
               Subscribe for early-bird access, vendor reveals, and exclusive

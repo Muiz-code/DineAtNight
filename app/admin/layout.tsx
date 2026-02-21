@@ -6,7 +6,7 @@ import { getAuthClient } from "@/lib/firebase";
 import { useRouter, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { LayoutDashboard, Calendar, Ticket, QrCode, Store, LogOut } from "lucide-react";
+import { LayoutDashboard, Calendar, Ticket, QrCode, Store, MessageSquare, LogOut } from "lucide-react";
 
 const NAV = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -14,6 +14,7 @@ const NAV = [
   { label: "Tickets", href: "/admin/tickets", icon: Ticket },
   { label: "Confirm", href: "/admin/confirm", icon: QrCode },
   { label: "Vendors", href: "/admin/vendors", icon: Store },
+  { label: "Reviews", href: "/admin/testimonials", icon: MessageSquare },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

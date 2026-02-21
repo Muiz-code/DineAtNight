@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { getTicketByReference, getEventById, type DanTicket, type DanSponsor } from "@/lib/firestore";
+import { CheckCircle2 } from "lucide-react";
 
 const fmt = (kobo: number) => "₦" + (kobo / 100).toLocaleString("en-NG");
 
@@ -109,11 +110,11 @@ export default function TicketPage() {
           <div className="px-7 pt-8 pb-4 text-center">
             {ticket.status === "confirmed" && (
               <motion.div
-                className="text-4xl mb-2"
+                className="flex justify-center mb-2"
                 animate={{ scale: [0.9, 1.1, 1] }}
                 transition={{ duration: 0.5 }}
               >
-                ✅
+                <CheckCircle2 className="w-10 h-10" style={{ color: "#00FF41", filter: "drop-shadow(0 0 10px rgba(0,255,65,0.7))" }} />
               </motion.div>
             )}
             <p

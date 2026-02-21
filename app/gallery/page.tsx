@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, useInView, AnimatePresence } from "framer-motion";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Camera, Film, Flame, Music2, Utensils, Users } from "lucide-react";
 import Footer from "../_components/Footer";
 import Carousel from "../_components/Carousel";
+import { getPastEvents } from "@/lib/firestore";
 
 const SectionFadeIn = ({ children }: { children: React.ReactNode }) => {
   const ref = useRef(null);
@@ -45,6 +46,13 @@ const galleryItems = [
 export default function GalleryPage() {
   const [filter, setFilter] = useState<MediaType>("all");
   const [lightbox, setLightbox] = useState<number | null>(null);
+  const [pastEventTitle, setPastEventTitle] = useState("");
+
+  useEffect(() => {
+    getPastEvents()
+      .then((evs) => { if (evs[0]?.title) setPastEventTitle(evs[0].title); })
+      .catch(() => {});
+  }, []);
   const videoRefs = useRef<Record<number, HTMLVideoElement | null>>({});
 
   const filtered = filter === "all" ? galleryItems : galleryItems.filter((i) => i.type === filter.slice(0, -1));
@@ -75,12 +83,12 @@ export default function GalleryPage() {
           style={{ background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,255,65,0.05) 0%, transparent 70%)" }}
         />
         <motion.p
-          className="text-xs tracking-[0.4em] uppercase mb-3"
+          className="text-xs tracking-[0.7em] uppercase mb-3 text-center"
           style={{ color: "#00FF41", textShadow: "0 0 12px rgba(0,255,65,0.7)" }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
         >
-          Edition 1
+          Live in the Moment
         </motion.p>
         <motion.h1
           className="text-5xl sm:text-7xl uppercase tracking-tight"
@@ -101,7 +109,7 @@ export default function GalleryPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.25 }}
         >
-          Relive the night. Edition 1 through photos and video — the energy, the food, the people.
+          Relive the night. {pastEventTitle || "Edition 1"} through photos and video — the energy, the food, the people.
         </motion.p>
       </section>
 
@@ -121,7 +129,7 @@ export default function GalleryPage() {
                   background: filter === type ? "rgba(0,255,65,0.08)" : "transparent",
                 }}
               >
-                {type === "all" ? "All" : type === "photos" ? "📸 Photos" : "🎬 Videos"}
+                {type === "all" ? "All" : type === "photos" ? <span className="flex items-center gap-1.5"><Camera className="w-3.5 h-3.5" />Photos</span> : <span className="flex items-center gap-1.5"><Film className="w-3.5 h-3.5" />Videos</span>}
               </button>
             ))}
           </div>
@@ -274,15 +282,15 @@ export default function GalleryPage() {
         <section className="py-20 px-6 md:px-16 border-t border-white/5 bg-black/80">
           <div className="max-w-3xl mx-auto">
             <Carousel
-              title="Edition 1 Highlights"
+              title={pastEventTitle ? `${pastEventTitle} Highlights` : "Edition 1 Highlights"}
               accentColor="#FFFF00"
               glowColor="rgba(255,255,0,0.4)"
               autoPlayInterval={5000}
               items={[
-                { id: 1, content: (<div className="text-center py-10 px-6 rounded-xl border mx-2" style={{ borderColor: "rgba(255,255,0,0.2)", background: "rgba(10,10,10,0.8)" }}><div className="text-5xl mb-3">🔥</div><h3 className="text-xl font-bold uppercase tracking-wide" style={{ color: "#FFFF00" }}>The Night</h3><p className="text-gray-400 text-sm mt-2 leading-relaxed">Lagos had never seen a night food market like this. Neon lights, great food, unforgettable energy.</p></div>) },
-                { id: 2, content: (<div className="text-center py-10 px-6 rounded-xl border mx-2" style={{ borderColor: "rgba(255,51,51,0.2)", background: "rgba(10,10,10,0.8)" }}><div className="text-5xl mb-3">🎵</div><h3 className="text-xl font-bold uppercase tracking-wide" style={{ color: "#FF3333" }}>The Music</h3><p className="text-gray-400 text-sm mt-2 leading-relaxed">DJs and live performances kept the crowd moving all night. The soundtrack was as good as the food.</p></div>) },
-                { id: 3, content: (<div className="text-center py-10 px-6 rounded-xl border mx-2" style={{ borderColor: "rgba(0,255,65,0.2)", background: "rgba(10,10,10,0.8)" }}><div className="text-5xl mb-3">🍖</div><h3 className="text-xl font-bold uppercase tracking-wide" style={{ color: "#00FF41" }}>The Food</h3><p className="text-gray-400 text-sm mt-2 leading-relaxed">Over 30 vendors. 90% sold out. The best of Lagos street food elevated under neon lights.</p></div>) },
-                { id: 4, content: (<div className="text-center py-10 px-6 rounded-xl border mx-2" style={{ borderColor: "rgba(255,255,0,0.2)", background: "rgba(10,10,10,0.8)" }}><div className="text-5xl mb-3">👥</div><h3 className="text-xl font-bold uppercase tracking-wide" style={{ color: "#FFFF00" }}>The Community</h3><p className="text-gray-400 text-sm mt-2 leading-relaxed">850+ attendees. New friendships. Old memories. The DAN community is unlike any other.</p></div>) },
+                { id: 1, content: (<div className="text-center py-10 px-6 rounded-xl border mx-2" style={{ borderColor: "rgba(255,255,0,0.2)", background: "rgba(10,10,10,0.8)" }}><div className="flex justify-center mb-3" style={{ color: "#FFFF00", filter: "drop-shadow(0 0 10px rgba(255,255,0,0.5))" }}><Flame className="w-12 h-12" /></div><h3 className="text-xl font-bold uppercase tracking-wide" style={{ color: "#FFFF00" }}>The Night</h3><p className="text-gray-400 text-sm mt-2 leading-relaxed">Lagos had never seen a night food market like this. Neon lights, great food, unforgettable energy.</p></div>) },
+                { id: 2, content: (<div className="text-center py-10 px-6 rounded-xl border mx-2" style={{ borderColor: "rgba(255,51,51,0.2)", background: "rgba(10,10,10,0.8)" }}><div className="flex justify-center mb-3" style={{ color: "#FF3333", filter: "drop-shadow(0 0 10px rgba(255,51,51,0.5))" }}><Music2 className="w-12 h-12" /></div><h3 className="text-xl font-bold uppercase tracking-wide" style={{ color: "#FF3333" }}>The Music</h3><p className="text-gray-400 text-sm mt-2 leading-relaxed">DJs and live performances kept the crowd moving all night. The soundtrack was as good as the food.</p></div>) },
+                { id: 3, content: (<div className="text-center py-10 px-6 rounded-xl border mx-2" style={{ borderColor: "rgba(0,255,65,0.2)", background: "rgba(10,10,10,0.8)" }}><div className="flex justify-center mb-3" style={{ color: "#00FF41", filter: "drop-shadow(0 0 10px rgba(0,255,65,0.5))" }}><Utensils className="w-12 h-12" /></div><h3 className="text-xl font-bold uppercase tracking-wide" style={{ color: "#00FF41" }}>The Food</h3><p className="text-gray-400 text-sm mt-2 leading-relaxed">Over 30 vendors. 90% sold out. The best of Lagos street food elevated under neon lights.</p></div>) },
+                { id: 4, content: (<div className="text-center py-10 px-6 rounded-xl border mx-2" style={{ borderColor: "rgba(255,255,0,0.2)", background: "rgba(10,10,10,0.8)" }}><div className="flex justify-center mb-3" style={{ color: "#FFFF00", filter: "drop-shadow(0 0 10px rgba(255,255,0,0.5))" }}><Users className="w-12 h-12" /></div><h3 className="text-xl font-bold uppercase tracking-wide" style={{ color: "#FFFF00" }}>The Community</h3><p className="text-gray-400 text-sm mt-2 leading-relaxed">850+ attendees. New friendships. Old memories. The DAN community is unlike any other.</p></div>) },
               ]}
             />
           </div>

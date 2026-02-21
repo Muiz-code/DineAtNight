@@ -22,7 +22,7 @@ const FOOD_CATEGORIES = [
 const EMPTY_FORM = {
   brandName: "", ownerName: "", email: "", phone: "", instagram: "",
   categories: [] as string[], events: [] as string[],
-  description: "", products: "", imageUrl: "",
+  description: "", products: "", logoUrl: "", imageUrl: "",
   status: "approved" as DanVendor["status"],
 };
 
@@ -297,7 +297,7 @@ export default function AdminVendorsPage() {
                 key={v.id}
                 className="flex flex-col sm:flex-row sm:items-center gap-4 px-5 py-4 rounded-xl border border-white/8 bg-white/[0.02] group"
               >
-                {/* Thumbnail with optional photo count badge */}
+                {/* Thumbnail — logo circle overlaid on food photo */}
                 <div className="relative flex-shrink-0">
                   {v.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -309,7 +309,13 @@ export default function AdminVendorsPage() {
                       <Store className="w-6 h-6 text-gray-700" />
                     </div>
                   )}
-                  {(v.imageUrls?.length ?? 0) > 1 && (
+                  {v.logoUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={v.logoUrl} alt="logo"
+                      className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full object-contain border border-[#FFFF00]/40 bg-[#080808] p-0.5"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  )}
+                  {!v.logoUrl && (v.imageUrls?.length ?? 0) > 1 && (
                     <span className="absolute -bottom-1 -right-1 text-[8px] font-bold px-1 py-0.5 rounded bg-[#FFFF00] text-black leading-none">
                       {v.imageUrls!.length}
                     </span>
@@ -512,10 +518,21 @@ export default function AdminVendorsPage() {
                   </div>
                 )}
 
-                {/* Brand + owner */}
-                <div>
-                  <h3 className="text-xl font-bold text-white">{detailVendor.brandName}</h3>
-                  <p className="text-gray-500 text-sm mt-0.5">{detailVendor.ownerName}</p>
+                {/* Brand + owner + logo */}
+                <div className="flex items-center gap-4">
+                  {detailVendor.logoUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={detailVendor.logoUrl}
+                      alt={`${detailVendor.brandName} logo`}
+                      className="w-14 h-14 rounded-full object-contain border border-[#FFFF00]/20 bg-white/5 p-1 flex-shrink-0"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                  )}
+                  <div>
+                    <h3 className="text-xl font-bold text-white">{detailVendor.brandName}</h3>
+                    <p className="text-gray-500 text-sm mt-0.5">{detailVendor.ownerName}</p>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3">
@@ -759,6 +776,19 @@ export default function AdminVendorsPage() {
                 <div>
                   <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">Products / Menu *</label>
                   <textarea name="products" value={form.products} onChange={handleChange} required rows={2} placeholder="e.g. Suya, Chicken Wings, Peppered Fish" className={`${inputCls} resize-none`} />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">Brand Logo URL <span className="text-gray-700 normal-case">(optional)</span></label>
+                  <input name="logoUrl" type="url" value={form.logoUrl} onChange={handleChange} placeholder="https://... (square logo)" className={inputCls} />
+                  {form.logoUrl && (
+                    <div className="mt-2 flex items-center gap-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={form.logoUrl} alt="logo"
+                        className="w-10 h-10 rounded-full object-contain border border-white/10 bg-white/5 p-1"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      <span className="text-gray-600 text-xs">Logo preview</span>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">Photo URL *</label>

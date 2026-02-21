@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Check } from "lucide-react";
+import { X, Check, CheckCircle2 } from "lucide-react";
 import { upsertVendorApplication, getActiveEvents, type DanEvent } from "@/lib/firestore";
 
 interface VendorModalProps {
@@ -52,6 +52,7 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
     eventTitle: "",
     description: "",
     products: "",
+    logoUrl: "",
     imageUrl: "",
   };
 
@@ -100,6 +101,7 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
         events: form.eventTitle ? [form.eventTitle] : [],
         description: form.description,
         products: form.products,
+        logoUrl: form.logoUrl || undefined,
         imageUrl: form.imageUrl,
       });
       setIsUpdate(result.isUpdate);
@@ -200,11 +202,11 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                   transition={{ type: "spring", damping: 20 }}
                 >
                   <motion.div
-                    className="text-6xl mb-5"
+                    className="flex justify-center mb-5"
                     animate={{ scale: [0.8, 1.2, 1] }}
                     transition={{ duration: 0.6 }}
                   >
-                    ✅
+                    <CheckCircle2 className="w-16 h-16" style={{ color: "#00FF41", filter: "drop-shadow(0 0 12px rgba(0,255,65,0.6))" }} />
                   </motion.div>
                   <h3
                     className="text-2xl font-bold uppercase tracking-wide mb-3"
@@ -370,6 +372,32 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                       placeholder="e.g. Suya, Grilled Chicken, Peppered Fish, Spiced Wings"
                       className={`${inputCls} resize-none`}
                     />
+                  </Field>
+
+                  <Field label="Brand Logo URL">
+                    <input
+                      name="logoUrl"
+                      type="url"
+                      value={form.logoUrl}
+                      onChange={handleChange}
+                      placeholder="https://example.com/your-logo.png"
+                      className={inputCls}
+                    />
+                    {form.logoUrl && (
+                      <div className="mt-2 flex items-center gap-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={form.logoUrl}
+                          alt="logo preview"
+                          className="w-12 h-12 rounded-full object-contain border border-white/10 bg-white/5 p-1"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                        <p className="text-gray-600 text-xs">Logo preview</p>
+                      </div>
+                    )}
+                    <p className="text-gray-700 text-xs mt-1">
+                      Square logo shown in the vendor logo strip. Optional but recommended.
+                    </p>
                   </Field>
 
                   <Field label="Brand / Food Photo URL" required>

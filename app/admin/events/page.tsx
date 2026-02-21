@@ -8,7 +8,7 @@ import { db } from "@/lib/firebase";
 import {
   getAllEvents, createEvent, updateEvent, deleteEvent, type DanEvent, type DanTicket, type DanSponsor,
 } from "@/lib/firestore";
-import { Plus, Pencil, Trash2, X } from "lucide-react";
+import { Plus, Pencil, Trash2, X, AlertTriangle } from "lucide-react";
 
 const inputCls = "w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700";
 
@@ -272,7 +272,7 @@ export default function AdminEventsPage() {
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="absolute inset-0 bg-black/80" onClick={() => setDeleteConfirm(null)} />
             <motion.div className="relative z-10 bg-[#0a0a0a] border border-[#FF3333]/30 rounded-2xl p-7 max-w-sm w-full mx-4 text-center" initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}>
-              <div className="text-4xl mb-4">⚠️</div>
+              <AlertTriangle className="w-10 h-10 mx-auto mb-4" style={{ color: "#FF3333" }} />
               <h3 className="text-white font-bold uppercase tracking-wide mb-2">Delete Event?</h3>
               <p className="text-gray-500 text-sm mb-6">This action cannot be undone. All data for this event will be lost.</p>
               <div className="flex gap-3">

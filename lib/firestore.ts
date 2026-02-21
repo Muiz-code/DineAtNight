@@ -9,6 +9,8 @@ import {
   getDocs,
   query,
   where,
+  orderBy,
+  onSnapshot,
   Timestamp,
   increment,
   serverTimestamp,
@@ -200,6 +202,7 @@ export interface DanVendor {
   events?: string[];       // event titles vendor has applied for / served at
   description: string;
   products: string;
+  logoUrl?: string;        // brand logo (square/circular, separate from food photos)
   imageUrl: string;
   imageUrls?: string[];    // all images accumulated from re-applications (slideshow)
   status: "pending" | "approved" | "declined";
@@ -278,6 +281,7 @@ export async function upsertVendorApplication(
       products: data.products,
       imageUrl: data.imageUrl,       // latest image as primary
       imageUrls: mergedImages,       // full slideshow array
+      logoUrl: data.logoUrl ?? existing.logoUrl ?? null,
       categories: mergedCats,
       events: mergedEvents,
       status: "pending",             // reset so admin re-reviews
@@ -341,4 +345,63 @@ export async function createVendorDirect(
 
 export async function deleteVendor(id: string): Promise<void> {
   await deleteDoc(doc(db, "vendors", id));
+}
+
+/* ═══════════════════════════════════════════════
+   Testimonials
+═══════════════════════════════════════════════ */
+export interface DanTestimonial {
+  id?: string;
+  name: string;           // Display name or brand name
+  type: "vendor" | "user" | "admin";  // Badge label
+  role: string;           // "Vendor", "Event Attendee", or custom admin role
+  quote: string;          // Testimonial text
+  eventTitle?: string;    // Which event (optional)
+  createdBy: "user" | "admin"; // Only admin-created ones can be edited
+  submittedAt?: Timestamp;
+}
+
+export async function createTestimonial(
+  data: Omit<DanTestimonial, "id" | "submittedAt">
+): Promise<string> {
+  const ref = await addDoc(collection(db, "testimonials"), {
+    ...data,
+    submittedAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateTestimonial(
+  id: string,
+  data: Partial<Pick<DanTestimonial, "name" | "role" | "quote" | "eventTitle" | "type">>
+): Promise<void> {
+  await updateDoc(doc(db, "testimonials", id), data);
+}
+
+export async function deleteTestimonial(id: string): Promise<void> {
+  await deleteDoc(doc(db, "testimonials", id));
+}
+
+export async function getAllTestimonials(): Promise<DanTestimonial[]> {
+  const snap = await getDocs(
+    query(collection(db, "testimonials"), orderBy("submittedAt", "desc"))
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as DanTestimonial));
+}
+
+/** Real-time listener — returns an unsubscribe function. */
+export function subscribeToTestimonials(
+  callback: (testimonials: DanTestimonial[]) => void
+): () => void {
+  const q = query(
+    collection(db, "testimonials"),
+    orderBy("submittedAt", "desc")
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DanTestimonial)));
+    },
+    () => callback([])
+  );
 }

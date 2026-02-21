@@ -187,10 +187,10 @@ function ConfirmContent() {
       {/* Result */}
       <AnimatePresence mode="wait">
         {state !== "idle" && state !== "loading" && (
-          <TicketResult ticket={ticket} state={state} />
+          <TicketResult key="ticket-result" ticket={ticket} state={state} />
         )}
         {state !== "idle" && state !== "loading" && (
-          <motion.div className="text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <motion.div key="confirm-another" className="text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <button
               onClick={() => { setState("idle"); setTicket(null); setReference(""); setErrorMsg(""); }}
               className="text-gray-600 hover:text-gray-400 text-xs uppercase tracking-widest transition-colors"
@@ -200,7 +200,7 @@ function ConfirmContent() {
           </motion.div>
         )}
         {state === "error" && (
-          <motion.p className="text-center text-[#FF3333] text-xs" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <motion.p key="error-msg" className="text-center text-[#FF3333] text-xs" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             {errorMsg}
           </motion.p>
         )}
