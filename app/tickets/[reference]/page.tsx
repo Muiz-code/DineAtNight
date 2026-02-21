@@ -10,17 +10,21 @@ import { getTicketByReference, getEventById, type DanTicket, type DanSponsor } f
 const fmt = (kobo: number) => "₦" + (kobo / 100).toLocaleString("en-NG");
 
 function QRCode({ value, size = 200 }: { value: string; size?: number }) {
-  // Uses qrserver.com — no npm package needed
-  const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(value)}&bgcolor=000000&color=00FF41&qzone=2`;
+  // Black on white — the only colour scheme all phone QR scanners read reliably.
+  // Coloured / inverted QR codes (e.g. green on black) fail on iOS Camera and many Android scanners.
+  const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(value)}&bgcolor=ffffff&color=000000&qzone=2`;
   return (
-    <Image
-      src={url}
-      alt="Ticket QR Code"
-      width={size}
-      height={size}
-      className="rounded-lg"
-      unoptimized
-    />
+    // White padding border so the QR quiet-zone is clearly visible on the dark ticket card
+    <div className="rounded-xl p-3 bg-white" style={{ display: "inline-block" }}>
+      <Image
+        src={url}
+        alt="Ticket QR Code"
+        width={size}
+        height={size}
+        className="rounded-md block"
+        unoptimized
+      />
+    </div>
   );
 }
 
