@@ -213,8 +213,7 @@ export default function AdminVendorsPage() {
           declineReason,
         }),
       )
-      .then(() => console.log("[EmailJS] vendor status email sent →", v.email))
-      .catch((err) => console.error("[EmailJS] vendor status email FAILED:", err));
+      .catch(() => {});
   };
 
   /* ── Actions ── */
@@ -1031,45 +1030,27 @@ export default function AdminVendorsPage() {
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold uppercase tracking-widest mb-1" style={{ color: "#FF3333" }}>
+              <h3
+                className="text-lg font-bold uppercase tracking-widest mb-1"
+                style={{ color: "#FF3333" }}
+              >
                 Decline Vendor
               </h3>
-              <p className="text-gray-500 text-sm mb-3">
+              <p className="text-gray-500 text-sm mb-4">
                 {declineTarget.brandName} — provide a reason (optional)
               </p>
-              {/* Suggestion chips */}
-              <div className="flex flex-wrap gap-2 mb-3">
-                {[
-                  "Category already at capacity for this edition.",
-                  "Food type not aligned with this edition's theme.",
-                  "Application details incomplete — please reapply with more info.",
-                  "Slot limit reached for new vendors.",
-                  "Please reapply for the next edition.",
-                ].map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setDeclineReason(s)}
-                    className="text-[10px] px-2.5 py-1 rounded-full border transition-all"
-                    style={{
-                      borderColor: declineReason === s ? "#FF3333" : "rgba(255,51,51,0.25)",
-                      color: declineReason === s ? "#FF3333" : "#666",
-                      background: declineReason === s ? "rgba(255,51,51,0.1)" : "transparent",
-                    }}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
               <textarea
                 rows={3}
                 value={declineReason}
                 onChange={(e) => setDeclineReason(e.target.value)}
-                placeholder="Or type a custom reason…"
+                placeholder="e.g. Category already at capacity, please reapply next edition."
                 className={`${inputCls} resize-none mb-4`}
               />
               <div className="flex gap-3 justify-end">
-                <button onClick={() => setDeclineTarget(null)} className="px-5 py-2.5 rounded-lg text-sm border border-white/10 text-gray-400">
+                <button
+                  onClick={() => setDeclineTarget(null)}
+                  className="px-5 py-2.5 rounded-lg text-sm border border-white/10 text-gray-400"
+                >
                   Cancel
                 </button>
                 <button
@@ -1078,7 +1059,9 @@ export default function AdminVendorsPage() {
                   className="px-5 py-2.5 rounded-lg text-sm font-bold uppercase tracking-widest border flex items-center gap-2"
                   style={{ borderColor: "#FF3333", color: "#FF3333" }}
                 >
-                  {declining && <span className="w-3.5 h-3.5 border-2 border-[#FF3333] border-t-transparent rounded-full animate-spin" />}
+                  {declining && (
+                    <span className="w-3.5 h-3.5 border-2 border-[#FF3333] border-t-transparent rounded-full animate-spin" />
+                  )}
                   Confirm Decline
                 </button>
               </div>
@@ -1105,41 +1088,21 @@ export default function AdminVendorsPage() {
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold uppercase tracking-widest mb-1" style={{ color: "#FF3333" }}>
+              <h3
+                className="text-lg font-bold uppercase tracking-widest mb-1"
+                style={{ color: "#FF3333" }}
+              >
                 Revoke Approval
               </h3>
-              <p className="text-gray-500 text-sm mb-3">
-                {revokeTarget.brandName} — reason will be sent to the vendor
+              <p className="text-gray-500 text-sm mb-4">
+                {revokeTarget.brandName} — provide a reason to send to the
+                vendor
               </p>
-              {/* Suggestion chips */}
-              <div className="flex flex-wrap gap-2 mb-3">
-                {[
-                  "Slot no longer available due to event changes.",
-                  "Vendor did not confirm participation in time.",
-                  "Venue capacity has been reduced.",
-                  "Event logistics change — please reapply.",
-                  "Vendor requirements no longer met.",
-                ].map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setRevokeReason(s)}
-                    className="text-[10px] px-2.5 py-1 rounded-full border transition-all"
-                    style={{
-                      borderColor: revokeReason === s ? "#FF3333" : "rgba(255,51,51,0.25)",
-                      color: revokeReason === s ? "#FF3333" : "#666",
-                      background: revokeReason === s ? "rgba(255,51,51,0.1)" : "transparent",
-                    }}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
               <textarea
                 rows={3}
                 value={revokeReason}
                 onChange={(e) => setRevokeReason(e.target.value)}
-                placeholder="Or type a custom reason…"
+                placeholder="e.g. Slot no longer available for this edition, please reapply next time."
                 className={`${inputCls} resize-none mb-4`}
               />
               <div className="flex gap-3 justify-end">
