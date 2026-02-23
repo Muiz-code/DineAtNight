@@ -42,6 +42,21 @@ function VerifyContent() {
         if (data.ok && data.ticket) {
           setTicket(data.ticket);
           setState("success");
+          // Send ticket confirmation email via EmailJS (client-side)
+          // Await so the HTTP request completes before navigation
+          try {
+            const { sendTicketConfirmationEmail } = await import("@/lib/emailjs");
+            await sendTicketConfirmationEmail({
+              name:       data.ticket.name,
+              email:      data.ticket.email,
+              eventTitle: data.ticket.eventTitle,
+              quantity:   data.ticket.quantity,
+              amount:     data.ticket.amount,
+              reference:  data.ticket.reference,
+            });
+          } catch {
+            // email failure is non-critical — still redirect
+          }
           // Redirect to the ticket view page
           router.replace(`/tickets/${reference}`);
         } else {

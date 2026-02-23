@@ -1247,11 +1247,20 @@ export default function Home() {
                   if (!subEmail) return;
                   setSubStatus("loading");
                   try {
-                    await fetch("/api/subscribe", {
+                    const res = await fetch("/api/subscribe", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ email: subEmail }),
                     });
+                    const data = await res.json();
+                    // Send welcome email only on first subscription
+                    if (data.isNew) {
+                      import("@/lib/emailjs")
+                        .then(({ sendNewsletterWelcomeEmail }) =>
+                          sendNewsletterWelcomeEmail(subEmail),
+                        )
+                        .catch(() => {});
+                    }
                   } finally {
                     setSubStatus("done");
                   }
