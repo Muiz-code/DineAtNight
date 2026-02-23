@@ -106,6 +106,20 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
       });
       setIsUpdate(result.isUpdate);
       setSubmitted(true);
+
+      // Send vendor application confirmation via EmailJS (fire-and-forget)
+      if (!result.isUpdate) {
+        import("@/lib/emailjs")
+          .then(({ sendVendorAppliedEmail }) =>
+            sendVendorAppliedEmail({
+              ownerName:  form.ownerName,
+              brandName:  form.brandName,
+              email:      form.email,
+              categories: form.categories,
+            }),
+          )
+          .catch(() => {});
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       if (msg.includes("permission") || msg.includes("insufficient")) {

@@ -110,6 +110,11 @@ export default function AdminVendorsPage() {
   const [declineReason, setDeclineReason] = useState("");
   const [declining, setDeclining] = useState(false);
 
+  // Revoke reason modal
+  const [revokeTarget, setRevokeTarget] = useState<DanVendor | null>(null);
+  const [revokeReason, setRevokeReason] = useState("");
+  const [revoking, setRevoking] = useState(false);
+
   const load = async () => {
     setLoading(true);
     try { setVendors(await getAllVendors()); }
@@ -125,12 +130,32 @@ export default function AdminVendorsPage() {
     reapplying: vendors.filter((v) => (v.reapplyCount ?? 0) > 0),
   };
 
+  /* ── Email helper (EmailJS — client-side) ── */
+  const sendVendorEmail = (
+    status: "approved" | "declined",
+    v: DanVendor,
+    declineReason?: string,
+  ) => {
+    import("@/lib/emailjs")
+      .then(({ sendVendorStatusEmail }) =>
+        sendVendorStatusEmail({
+          ownerName: v.ownerName,
+          brandName: v.brandName,
+          email: v.email,
+          status,
+          declineReason,
+        }),
+      )
+      .catch(() => {});
+  };
+
   /* ── Actions ── */
   const handleApprove = async (v: DanVendor) => {
     await updateVendorStatus(v.id!, "approved");
     const updated = { ...v, status: "approved" as const };
     setVendors((prev) => prev.map((x) => x.id === v.id ? updated : x));
     if (detailVendor?.id === v.id) setDetailVendor(updated);
+    sendVendorEmail("approved", v);
   };
 
   const openDecline = (v: DanVendor) => { setDeclineTarget(v); setDeclineReason(""); };
@@ -142,6 +167,7 @@ export default function AdminVendorsPage() {
     const updated = { ...declineTarget, status: "declined" as const, declineReason };
     setVendors((prev) => prev.map((x) => x.id === declineTarget.id ? updated : x));
     if (detailVendor?.id === declineTarget.id) setDetailVendor(updated);
+    sendVendorEmail("declined", declineTarget, declineReason);
     setDeclineTarget(null);
     setDeclining(false);
   };
@@ -154,11 +180,19 @@ export default function AdminVendorsPage() {
     setActiveTab("pending");
   };
 
-  const handleRevoke = async (v: DanVendor) => {
-    await updateVendorStatus(v.id!, "declined", "Revoked by admin");
-    const updated = { ...v, status: "declined" as const, declineReason: "Revoked by admin" };
-    setVendors((prev) => prev.map((x) => x.id === v.id ? updated : x));
-    if (detailVendor?.id === v.id) setDetailVendor(updated);
+  const openRevoke = (v: DanVendor) => { setRevokeTarget(v); setRevokeReason(""); };
+
+  const confirmRevoke = async () => {
+    if (!revokeTarget) return;
+    setRevoking(true);
+    const reason = revokeReason.trim() || "Approval revoked by admin";
+    await updateVendorStatus(revokeTarget.id!, "declined", reason);
+    const updated = { ...revokeTarget, status: "declined" as const, declineReason: reason };
+    setVendors((prev) => prev.map((x) => x.id === revokeTarget.id ? updated : x));
+    if (detailVendor?.id === revokeTarget.id) setDetailVendor(updated);
+    sendVendorEmail("declined", revokeTarget, reason);
+    setRevokeTarget(null);
+    setRevoking(false);
   };
 
   const handleDelete = async (v: DanVendor) => {
@@ -380,7 +414,7 @@ export default function AdminVendorsPage() {
                       )}
 
                       {effectiveStatus === "approved" && (
-                        <button onClick={() => handleRevoke(v)}
+                        <button onClick={() => openRevoke(v)}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border transition-all"
                           style={{ borderColor: "rgba(255,51,51,0.4)", color: "#FF3333" }}>
                           <X className="w-3.5 h-3.5" /> Revoke
@@ -664,6 +698,35 @@ export default function AdminVendorsPage() {
                   style={{ borderColor: "#FF3333", color: "#FF3333" }}>
                   {declining && <span className="w-3.5 h-3.5 border-2 border-[#FF3333] border-t-transparent rounded-full animate-spin" />}
                   Confirm Decline
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── REVOKE REASON MODAL ── */}
+      <AnimatePresence>
+        {revokeTarget && (
+          <motion.div className="fixed inset-0 z-[400] flex items-center justify-center"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setRevokeTarget(null)}>
+            <div className="absolute inset-0 bg-black/80" />
+            <motion.div className="relative w-full max-w-md bg-[#0a0a0a] border border-[#FF3333]/30 rounded-2xl p-6 mx-4"
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-bold uppercase tracking-widest mb-1" style={{ color: "#FF3333" }}>Revoke Approval</h3>
+              <p className="text-gray-500 text-sm mb-4">{revokeTarget.brandName} — provide a reason to send to the vendor</p>
+              <textarea rows={3} value={revokeReason} onChange={(e) => setRevokeReason(e.target.value)}
+                placeholder="e.g. Slot no longer available for this edition, please reapply next time."
+                className={`${inputCls} resize-none mb-4`} />
+              <div className="flex gap-3 justify-end">
+                <button onClick={() => setRevokeTarget(null)} className="px-5 py-2.5 rounded-lg text-sm border border-white/10 text-gray-400">Cancel</button>
+                <button onClick={confirmRevoke} disabled={revoking}
+                  className="px-5 py-2.5 rounded-lg text-sm font-bold uppercase tracking-widest border flex items-center gap-2"
+                  style={{ borderColor: "#FF3333", color: "#FF3333" }}>
+                  {revoking && <span className="w-3.5 h-3.5 border-2 border-[#FF3333] border-t-transparent rounded-full animate-spin" />}
+                  Confirm Revoke
                 </button>
               </div>
             </motion.div>

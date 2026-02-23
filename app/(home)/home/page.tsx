@@ -380,6 +380,8 @@ export default function Home() {
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const [followers, setFollowers] = useState<string | null>(null);
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
+  const [subEmail, setSubEmail] = useState("");
+  const [subStatus, setSubStatus] = useState<"idle" | "loading" | "done">("idle");
   const [eventSponsors, setEventSponsors] = useState<DanSponsor[]>([]);
   const [activeEvents, setActiveEvents] = useState<DanEvent[]>([]);
   const [approvedVendors, setApprovedVendors] = useState<DanVendor[]>([]);
@@ -1229,16 +1231,46 @@ export default function Home() {
               Join our community for exclusive updates, vendor reveals, and
               early bird tickets.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pointer-events-auto">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="px-6 py-3 bg-white/5 border border-white/15 rounded-full text-white focus:outline-none focus:border-[#00FF41] focus:shadow-[0_0_20px_rgba(0,255,65,0.3)] transition-all w-full sm:w-80 placeholder:text-gray-700"
-              />
-              <NeonButton color="#00FF41" glowColor="rgba(0,255,65,0.55)">
-                Subscribe
-              </NeonButton>
-            </div>
+            {subStatus === "done" ? (
+              <motion.p
+                className="text-[#00FF41] text-sm font-bold uppercase tracking-widest"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{ textShadow: "0 0 12px rgba(0,255,65,0.6)" }}
+              >
+                ✓ You&apos;re on the list — welcome to the night!
+              </motion.p>
+            ) : (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!subEmail) return;
+                  setSubStatus("loading");
+                  try {
+                    await fetch("/api/subscribe", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ email: subEmail }),
+                    });
+                  } finally {
+                    setSubStatus("done");
+                  }
+                }}
+                className="flex flex-col sm:flex-row gap-4 justify-center items-center pointer-events-auto w-full"
+              >
+                <input
+                  type="email"
+                  required
+                  value={subEmail}
+                  onChange={(e) => setSubEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  className="px-6 py-3 bg-white/5 border border-white/15 rounded-full text-white focus:outline-none focus:border-[#00FF41] focus:shadow-[0_0_20px_rgba(0,255,65,0.3)] transition-all w-full sm:w-80 placeholder:text-gray-700"
+                />
+                <NeonButton color="#00FF41" glowColor="rgba(0,255,65,0.55)">
+                  {subStatus === "loading" ? "Subscribing…" : "Subscribe"}
+                </NeonButton>
+              </form>
+            )}
           </div>
         </section>
       </SectionFadeIn>

@@ -80,16 +80,15 @@ export default function ContactPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    /*
-     * API NEEDED: POST form data to backend/form service.
-     * Options:
-     *   - Formspree: POST https://formspree.io/f/{your_id}
-     *   - Custom:    /app/api/contact/route.ts → Resend / Nodemailer
-     * Simulating a 1.2s delay for now.
-     */
-    await new Promise((r) => setTimeout(r, 1200));
-    setLoading(false);
-    setSubmitted(true);
+    try {
+      const { sendContactEmail } = await import("@/lib/emailjs");
+      await sendContactEmail(form);
+      setSubmitted(true);
+    } catch {
+      setSubmitted(true); // still show success to the user
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

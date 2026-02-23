@@ -208,7 +208,7 @@ function TeamModal({
 
         {/* Panel */}
         <motion.div
-          className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border"
+          className="relative w-full max-w-2xl max-h-[90vh] rounded-2xl border flex flex-col"
           style={{
             background: "linear-gradient(160deg, #0c0c0c, #060606)",
             borderColor: `${team.color}30`,
@@ -219,31 +219,33 @@ function TeamModal({
           exit={{ opacity: 0, y: 20, scale: 0.96 }}
           transition={{ duration: 0.35, ease: "easeOut" }}
         >
-          {/* Corner accents */}
+          {/* Corner accents — outside the scroll container so they stay fixed */}
           <span
-            className="absolute top-0 left-0 w-8 h-8"
+            className="absolute top-0 left-0 w-8 h-8 pointer-events-none z-10"
             style={{
               borderTop: `2px solid ${team.color}`,
               borderLeft: `2px solid ${team.color}`,
             }}
           />
           <span
-            className="absolute bottom-0 right-0 w-8 h-8"
+            className="absolute bottom-0 right-0 w-8 h-8 pointer-events-none z-10"
             style={{
               borderBottom: `2px solid ${team.color}`,
               borderRight: `2px solid ${team.color}`,
             }}
           />
 
-          {/* Close button */}
+          {/* Close button — also outside scroll container */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center border transition-colors z-10"
+            className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center border transition-colors z-20"
             style={{ borderColor: `${team.color}40`, color: team.color }}
           >
             <X className="w-4 h-4" />
           </button>
 
+          {/* Scrollable content area */}
+          <div className="overflow-y-auto flex-1">
           <div className="p-7 pt-6">
             {/* Header */}
             <div className="flex items-center gap-4 mb-2">
@@ -331,6 +333,7 @@ function TeamModal({
               ))}
             </div>
           </div>
+          </div>{/* end overflow-y-auto */}
         </motion.div>
       </motion.div>
     </AnimatePresence>
