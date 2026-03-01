@@ -12,7 +12,7 @@ import type { NextRequest } from "next/server";
  * - Direct URL access without JavaScript
  * - Admin email list from appearing in the client bundle (moved to ADMIN_EMAILS server env var)
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow the login page and all non-admin routes through

@@ -16,9 +16,9 @@ import * as XLSX from "xlsx";
 /* ── Helpers ─────────────────────────────────────────────────── */
 
 /** Flatten a Firestore document for full export — converts timestamps, arrays, nested objects */
-const flattenDoc = (obj: Record<string, unknown>): Record<string, string | number | boolean> => {
+const flattenDoc = (input: unknown): Record<string, string | number | boolean> => {
   const out: Record<string, string | number | boolean> = {};
-  for (const [k, v] of Object.entries(obj)) {
+  for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
     if (v == null) {
       out[k] = "";
     } else if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
@@ -102,15 +102,20 @@ export default function AdminDashboard() {
     return () => unsub();
   }, []);
 
-  const { totalRevenue, confirmedTickets, paidTickets, soldByEvent } = useMemo(() => {
+  const { totalRevenue, confirmedTickets, paidTickets, soldByEvent, revenueByEvent } = useMemo(() => {
     const paid = tickets.filter((t) => t.status !== "pending");
     const byEvent: Record<string, number> = {};
-    for (const t of paid) byEvent[t.eventId] = (byEvent[t.eventId] ?? 0) + t.quantity;
+    const revByEvent: Record<string, number> = {};
+    for (const t of paid) {
+      byEvent[t.eventId]   = (byEvent[t.eventId]   ?? 0) + t.quantity;
+      revByEvent[t.eventId]= (revByEvent[t.eventId] ?? 0) + t.amount / 100;
+    }
     return {
       totalRevenue:     paid.reduce((s, t) => s + t.amount, 0) / 100,
       confirmedTickets: tickets.filter((t) => t.status === "confirmed").reduce((s, t) => s + t.quantity, 0),
       paidTickets:      paid.reduce((s, t) => s + t.quantity, 0),
       soldByEvent:      byEvent,
+      revenueByEvent:   revByEvent,
     };
   }, [tickets]);
 
@@ -138,7 +143,7 @@ export default function AdminDashboard() {
           : "—",
       }));
     }
-    return rows.map((t) => flattenDoc(t as Record<string, unknown>));
+    return rows.map((t) => flattenDoc(t));
   }, [tickets, exportMode]);
 
   const previewSampleCols = useMemo(
@@ -238,21 +243,54 @@ export default function AdminDashboard() {
         ), "Vendors");
 
       } else {
-        /* ── Full: all document fields flattened ─────────────── */
+        /* ── Full: every stored field + computed analytics ───── */
 
+        // Events — all document fields + computed ticket/revenue metrics
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
-          events.map((ev) => flattenDoc(ev as Record<string, unknown>))
+          events.map((ev) => {
+            const sold      = soldByEvent[ev.id ?? ""] ?? 0;
+            const remaining = ev.totalTickets - sold;
+            const revenue   = revenueByEvent[ev.id ?? ""] ?? 0;
+            return {
+              ...flattenDoc(ev),                        // every stored field
+              "computed_tickets_sold":      sold,
+              "computed_tickets_remaining": remaining,
+              "computed_fill_pct":          ev.totalTickets > 0 ? Math.round((sold / ev.totalTickets) * 100) + "%" : "—",
+              "computed_revenue_ngn":       revenue,
+            };
+          })
         ), "Events");
 
+        // Tickets — every stored field (name, email, phone, reference,
+        //   eventId, eventTitle, ticketType, quantity, amount, status,
+        //   purchasedAt, confirmedAt, and any future fields)
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
-          tickets.map((t) => flattenDoc(t as Record<string, unknown>))
+          tickets.map((t) => flattenDoc(t))
         ), "Tickets");
 
+        // Merch Orders — all stored fields + each item expanded into
+        //   its own columns (Item 1 Name, Item 1 Qty, Item 1 Price, …)
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
-          orders.map((o) => flattenDoc(o as Record<string, unknown>))
+          orders.map((o) => {
+            const { items, ...orderWithoutItems } = o;
+            const flat = flattenDoc(orderWithoutItems);          // base fields
+            items.forEach((item, idx) => {
+              const n  = idx + 1;
+              const it = item as Record<string, unknown>;
+              flat[`item_${n}_name`] = String(it.name      ?? "");
+              flat[`item_${n}_qty`]  = Number(it.quantity  ?? 0);
+              if (it.price  !== undefined) flat[`item_${n}_price_ngn`] = Number(it.price ?? 0);
+              if (it.size)               flat[`item_${n}_size`]       = String(it.size);
+              if (it.color)              flat[`item_${n}_color`]      = String(it.color);
+              if (it.image)              flat[`item_${n}_image`]      = String(it.image);
+            });
+            return flat;
+          })
         ), "Merch Orders");
 
-        // Vendors full (fresh fetch — include doc id)
+        // Vendors — all stored fields (brandName, contactName, email, phone,
+        //   instagram, foodCategories, menu, mainImage, logoUrl, status,
+        //   eventApplied, description, appliedAt, declineReason, …)
         const vendorSnap = await getDocs(collection(db, "vendors"));
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
           vendorSnap.docs.map((d) => flattenDoc({ id: d.id, ...d.data() }))
@@ -604,7 +642,13 @@ export default function AdminDashboard() {
                                 {BASIC_FIELDS[s.sheet].join("  ·  ")}
                               </p>
                             ) : (
-                              <p className="text-gray-600 text-[10px] mt-0.5">All document fields — IDs, timestamps, nested data</p>
+                              <p className="text-gray-600 text-[10px] mt-0.5 leading-relaxed">
+                                {s.sheet === "Events"        && "All stored fields + computed: tickets sold, remaining, fill %, revenue"}
+                                {s.sheet === "Tickets"       && "All stored fields: name, email, phone, reference, eventId, ticketType, amount, purchasedAt, confirmedAt…"}
+                                {s.sheet === "Merch Orders"  && "All stored fields + each cart item expanded into individual columns (name, qty, price, size, color)"}
+                                {s.sheet === "Vendors"       && "All stored fields: brand, contact, menu, images, food categories, status, declineReason, appliedAt…"}
+                                {s.sheet === "Summary"       && "Key metrics snapshot"}
+                              </p>
                             )}
                           </div>
                         </div>
