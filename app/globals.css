@@ -4,11 +4,13 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-html {
+html,
+body {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-html::-webkit-scrollbar {
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
   display: none;
 }
 
