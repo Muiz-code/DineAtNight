@@ -39,6 +39,7 @@ function GalleryContent() {
 
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const resolvedRef = useRef(false);
+  const touchStartX = useRef<number | null>(null);
 
   useEffect(() => {
     resolvedRef.current = false;
@@ -650,60 +651,76 @@ function GalleryContent() {
             onClick={closeLightbox}
           >
             <div className="absolute inset-0 bg-black/95 backdrop-blur-md" />
-            <button
-              className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full border border-white/15 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/40 transition-all"
-              onClick={closeLightbox}
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <button
-              className="absolute left-4 z-10 w-10 h-10 rounded-full border border-white/15 flex items-center justify-center text-gray-400 hover:text-white transition-all"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(-1);
-              }}
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <button
-              className="absolute right-4 z-10 w-10 h-10 rounded-full border border-white/15 flex items-center justify-center text-gray-400 hover:text-white transition-all"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(1);
-              }}
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
+
             <motion.div
-              className="relative z-10 max-w-4xl w-full mx-4"
+              className="relative z-10 w-full max-w-4xl mx-2 sm:mx-4"
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
             >
-              {lightboxItem.type === "video" ? (
-                <video
-                  src={lightboxItem.src}
-                  className="w-full max-h-[80vh] rounded-xl object-contain"
-                  controls
-                  autoPlay
-                  style={{ border: "2px solid rgba(0,255,65,0.3)" }}
-                />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={lightboxItem.src}
-                  alt={lightboxItem.caption}
-                  className="w-full max-h-[80vh] rounded-xl object-contain"
-                  style={{ border: "2px solid rgba(0,255,65,0.3)" }}
-                />
-              )}
-              <p className="mt-3 text-center text-sm text-gray-400 tracking-wide">
+              {/* Media wrapper — all controls overlaid on the image */}
+              <div
+                className="relative"
+                onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+                onTouchEnd={(e) => {
+                  if (touchStartX.current === null) return;
+                  const diff = touchStartX.current - e.changedTouches[0].clientX;
+                  if (Math.abs(diff) > 40) navigate(diff > 0 ? 1 : -1);
+                  touchStartX.current = null;
+                }}
+              >
+                {/* Close — top-right corner of image */}
+                <button
+                  className="absolute top-2 right-2 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all"
+                  style={{ background: "rgba(0,0,0,0.65)", color: "rgba(255,255,255,0.85)" }}
+                  onClick={closeLightbox}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Prev — left edge, vertically centred */}
+                <button
+                  className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all"
+                  style={{ background: "rgba(0,0,0,0.65)", color: "rgba(255,255,255,0.85)" }}
+                  onClick={(e) => { e.stopPropagation(); navigate(-1); }}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+
+                {/* Next — right edge, vertically centred */}
+                <button
+                  className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all"
+                  style={{ background: "rgba(0,0,0,0.65)", color: "rgba(255,255,255,0.85)" }}
+                  onClick={(e) => { e.stopPropagation(); navigate(1); }}
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+
+                {lightboxItem.type === "video" ? (
+                  <video
+                    src={lightboxItem.src}
+                    className="w-full max-h-[80svh] sm:max-h-[82vh] rounded-xl object-contain"
+                    controls
+                    autoPlay
+                    style={{ border: "2px solid rgba(0,255,65,0.3)" }}
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={lightboxItem.src}
+                    alt={lightboxItem.caption}
+                    className="w-full max-h-[80svh] sm:max-h-[82vh] rounded-xl object-contain"
+                    style={{ border: "2px solid rgba(0,255,65,0.3)" }}
+                  />
+                )}
+              </div>
+
+              <p className="mt-2 text-center text-sm text-gray-400 tracking-wide px-10 line-clamp-1">
                 {lightboxItem.caption}
               </p>
-              <p className="text-center text-[10px] tracking-[0.3em] uppercase text-gray-600 mt-1">
-                {currentIndex + 1} / {overlayItems.length} ·{" "}
-                {lightboxItem.eventTitle}
+              <p className="text-center text-[10px] tracking-[0.3em] uppercase text-gray-600 mt-0.5">
+                {currentIndex + 1} / {overlayItems.length} · {lightboxItem.eventTitle}
               </p>
             </motion.div>
           </motion.div>
