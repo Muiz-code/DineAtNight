@@ -14,6 +14,7 @@ import {
   Flame,
   Star,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import Footer from "../_components/Footer";
 import Carousel from "../_components/Carousel";
@@ -175,6 +176,12 @@ export default function ShopPage() {
       ];
     });
   };
+
+  const removeFromCart = (id: string) => {
+    setCart((prev) => prev.filter((i) => i.id !== id));
+  };
+
+  const clearCart = () => setCart([]);
 
   const updateQty = (id: string, delta: number) => {
     setCart((prev) =>
@@ -353,12 +360,23 @@ export default function ShopPage() {
                     </span>
                   )}
                 </h2>
-                <button
-                  onClick={() => setCartOpen(false)}
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-3">
+                  {cart.length > 0 && (
+                    <button
+                      onClick={clearCart}
+                      className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#FF3333] transition-colors uppercase tracking-widest"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Clear
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setCartOpen(false)}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
                 {cart.length === 0 ? (
@@ -397,6 +415,12 @@ export default function ShopPage() {
                           className="w-7 h-7 rounded-full border border-white/15 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/40 transition-all"
                         >
                           <Plus className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => removeFromCart(item.id)}
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-gray-600 hover:text-[#FF3333] transition-colors ml-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
