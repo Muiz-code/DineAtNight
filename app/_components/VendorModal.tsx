@@ -370,7 +370,8 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
           );
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
+      console.error("[VendorModal] submit failed:", err);
+      const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("permission") || msg.includes("insufficient")) {
         setError(
           "Submission is temporarily unavailable. Please try again shortly or contact us directly.",
