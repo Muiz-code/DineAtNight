@@ -208,17 +208,16 @@ export default function AdminDashboard() {
         type OX = DanMerchOrder & Record<string, unknown>;
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
           orders.map((o) => {
-            const ox = o as OX;
             return {
               Name:              o.name,
               Email:             o.email,
-              Phone:             (ox.phone as string) ?? "",
-              Items:             o.items.map((i) => `${i.name} x${i.quantity}`).join("; "),
+              Phone:             o.phone ?? "",
+              Items:             o.items.map((i) => `${i.productName} x${i.qty}`).join("; "),
               "Total (₦)":       o.total,
               "Payment Status":  o.status,
               "Delivery Status": o.deliveryStatus ?? "pending",
-              Address:           (ox.address as string) ?? "",
-              Reference:         (ox.reference as string) ?? "",
+              Address:           o.address ? `${o.address.street}, ${o.address.city}, ${o.address.state}` : "",
+              Reference:         o.reference ?? "",
             };
           })
         ), "Merch Orders");
