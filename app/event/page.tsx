@@ -1,14 +1,22 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { motion, useInView, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import SectionFadeIn from "../_components/SectionFadeIn";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import VendorModal from "../_components/VendorModal";
 import Footer from "../_components/Footer";
 import Carousel from "../_components/Carousel";
 import TestimonialSection from "../_components/TestimonialSection";
-import { getActiveEvents, getPastEvents, type DanEvent } from "@/lib/firestore";
+import CardCountdown, { useCountdown } from "../_components/CardCountdown";
+import NeonMarquee from "../_components/NeonMarquee";
+import {
+  subscribeActiveEvents,
+  subscribePastEvents,
+  type DanEvent,
+} from "@/lib/firestore";
+import { getCache, setCache } from "@/lib/cache";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
@@ -21,22 +29,6 @@ import {
   Moon,
   MapPin,
 } from "lucide-react";
-
-/* ── helpers ── */
-const SectionFadeIn = ({ children }: { children: React.ReactNode }) => {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-80px" });
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: 50 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.9, ease: "easeOut" }}
-    >
-      {children}
-    </motion.div>
-  );
-};
 
 const NeonButton = ({
   children,
@@ -83,28 +75,7 @@ const NeonButton = ({
   );
 };
 
-/* ── Countdown ── */
-const useCountdown = (target: Date | null) => {
-  const calc = () => {
-    if (!target) return { days: 0, hours: 0, minutes: 0, seconds: 0 };
-    const diff = target.getTime() - Date.now();
-    if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0 };
-    return {
-      days: Math.floor(diff / 86400000),
-      hours: Math.floor((diff % 86400000) / 3600000),
-      minutes: Math.floor((diff % 3600000) / 60000),
-      seconds: Math.floor((diff % 60000) / 1000),
-    };
-  };
-  const [time, setTime] = useState(calc);
-  useEffect(() => {
-    const id = setInterval(() => setTime(calc()), 1000);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target?.getTime()]);
-  return time;
-};
-
+/* ── CountdownUnit (hero display only) ── */
 const CountdownUnit = ({
   value,
   label,
@@ -133,45 +104,6 @@ const CountdownUnit = ({
   </div>
 );
 
-function CardCountdown({ targetDate }: { targetDate: Date }) {
-  const cd = useCountdown(targetDate);
-  const units = [
-    { v: cd.days, l: "D" },
-    { v: cd.hours, l: "H" },
-    { v: cd.minutes, l: "M" },
-    { v: cd.seconds, l: "S" },
-  ];
-  return (
-    <div className="flex items-center gap-1 sm:gap-1.5">
-      {units.map((u, i) => (
-        <div key={u.l} className="flex items-center gap-1 sm:gap-1.5">
-          <div className="flex flex-col items-center">
-            <div
-              className="w-9 h-9 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold border"
-              style={{
-                borderColor: "#FFFF00",
-                color: "#FFFF00",
-                background: "rgba(0,0,0,0.6)",
-                boxShadow: "0 0 8px rgba(255,255,0,0.2)",
-              }}
-            >
-              {String(u.v).padStart(2, "0")}
-            </div>
-            <span className="text-[8px] text-gray-600 uppercase tracking-wider mt-0.5">
-              {u.l}
-            </span>
-          </div>
-          {i < 3 && (
-            <span className="text-gray-700 font-bold pb-3.5 text-[10px]">
-              :
-            </span>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /* ── Ticket Modal ── */
 const inputCls =
   "w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700";
@@ -193,6 +125,23 @@ function TicketModal({
   const remaining = event.totalTickets - soldCount;
   const router = useRouter();
 
+  const hasTiers = (event.ticketTypes?.length ?? 0) > 0;
+  const defaultTier = hasTiers ? event.ticketTypes![0].name : "";
+  const [ticketType, setTicketType] = useState(defaultTier);
+
+  // When the selected event changes, reset ticket type to first tier (or empty)
+  const selectedTier = hasTiers
+    ? (event.ticketTypes!.find((t) => t.name === ticketType) ??
+      event.ticketTypes![0])
+    : null;
+  const activePrice = selectedTier ? selectedTier.price : event.ticketPrice;
+
+  // Per-tier remaining = min(overall remaining, tier limit if set)
+  const tierRemaining =
+    selectedTier?.limit != null
+      ? Math.min(remaining, selectedTier.limit)
+      : remaining;
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -213,8 +162,8 @@ function TicketModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (remaining < form.quantity) {
-      setError("Not enough tickets remaining.");
+    if (tierRemaining < form.quantity) {
+      setError("Not enough tickets remaining for this tier.");
       return;
     }
     setLoading(true);
@@ -227,7 +176,8 @@ function TicketModal({
           eventId: event.id,
           eventTitle: event.title,
           ...form,
-          ticketPrice: event.ticketPrice,
+          ticketPrice: activePrice,
+          ticketType: hasTiers ? (selectedTier?.name ?? "") : undefined,
         }),
       });
       const data = await res.json();
@@ -243,7 +193,7 @@ function TicketModal({
     }
   };
 
-  const total = event.ticketPrice * form.quantity;
+  const total = activePrice * form.quantity;
 
   return (
     <motion.div
@@ -301,7 +251,9 @@ function TicketModal({
                 · {event.venue}
               </p>
               <p className="text-gray-600 text-xs mt-0.5">
-                {remaining} tickets remaining
+                {hasTiers
+                  ? `${tierRemaining} ${selectedTier?.name ?? ""} tickets remaining`
+                  : `${remaining} tickets remaining`}
               </p>
             </div>
             <button
@@ -334,6 +286,78 @@ function TicketModal({
                 </select>
               </div>
             )}
+
+            {/* Ticket type selector — only shown when the event has multiple tiers */}
+            {hasTiers && (
+              <div>
+                <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
+                  Ticket Type
+                </label>
+                <div
+                  className="grid gap-2"
+                  style={{
+                    gridTemplateColumns: `repeat(${Math.min(event.ticketTypes!.length, 3)}, 1fr)`,
+                  }}
+                >
+                  {event.ticketTypes!.map((tier, tierIdx) => {
+                    const active = ticketType === tier.name;
+                    return (
+                      <button
+                        key={`${tier.name}-${tierIdx}`}
+                        type="button"
+                        onClick={() => setTicketType(tier.name)}
+                        className="flex flex-col items-center gap-0.5 py-3 px-2 rounded-xl border text-center transition-all duration-200"
+                        style={{
+                          borderColor: active
+                            ? "#FFFF00"
+                            : "rgba(255,255,255,0.1)",
+                          background: active
+                            ? "rgba(255,255,0,0.07)"
+                            : "rgba(255,255,255,0.02)",
+                          boxShadow: active
+                            ? "0 0 12px rgba(255,255,0,0.15)"
+                            : "none",
+                        }}
+                      >
+                        <span
+                          className="text-xs font-bold uppercase tracking-widest"
+                          style={{
+                            color: active
+                              ? "#FFFF00"
+                              : "rgba(255,255,255,0.55)",
+                          }}
+                        >
+                          {tier.name}
+                        </span>
+                        <span
+                          className="text-[11px] font-medium"
+                          style={{
+                            color: active
+                              ? "#FFFF00"
+                              : "rgba(255,255,255,0.35)",
+                          }}
+                        >
+                          ₦{tier.price.toLocaleString()}
+                        </span>
+                        {tier.limit != null && (
+                          <span
+                            className="text-[9px] uppercase tracking-widest"
+                            style={{
+                              color: active
+                                ? "rgba(255,255,0,0.6)"
+                                : "rgba(255,255,255,0.2)",
+                            }}
+                          >
+                            {tier.limit} slots
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
                 Full Name *
@@ -386,7 +410,7 @@ function TicketModal({
                 className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all cursor-pointer"
               >
                 {Array.from(
-                  { length: Math.min(10, remaining) },
+                  { length: Math.min(10, tierRemaining) },
                   (_, i) => i + 1,
                 ).map((n) => (
                   <option key={n} value={n} className="bg-[#0a0a0a]">
@@ -398,11 +422,11 @@ function TicketModal({
             <div className="rounded-lg border border-[#FFFF00]/15 p-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">
-                  {form.quantity}x ticket @ ₦
-                  {event.ticketPrice.toLocaleString()}
+                  {form.quantity}x {hasTiers ? selectedTier?.name : "ticket"} @
+                  ₦{activePrice.toLocaleString()}
                 </span>
                 <span className="text-gray-300">
-                  ₦{(event.ticketPrice * form.quantity).toLocaleString()}
+                  ₦{(activePrice * form.quantity).toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between font-bold border-t border-white/8 pt-2">
@@ -546,15 +570,37 @@ export default function EventPage() {
   const [soldByEvent, setSoldByEvent] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [heroIdx, setHeroIdx] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+  const pastResolvedRef = useRef(false);
 
   useEffect(() => {
-    // Fetch events first — tickets are best-effort and must never block event display
-    Promise.all([getActiveEvents(), getPastEvents()])
-      .then(([active, past]) => {
-        setActiveEvents(active);
-        setPastEvents(past);
-      })
-      .finally(() => setLoading(false));
+    setIsMobile(window.innerWidth < 768);
+  }, []);
+
+  useEffect(() => {
+    pastResolvedRef.current = false;
+    // Serve from cache immediately — network picks up in background
+    const cachedActive = getCache<DanEvent[]>("dan_active_events");
+    if (cachedActive) setActiveEvents(cachedActive);
+    const cachedPast = getCache<DanEvent[]>("dan_past_events");
+    if (cachedPast) {
+      setPastEvents(cachedPast);
+      setLoading(false);
+      pastResolvedRef.current = true;
+    }
+
+    const unsubActive = subscribeActiveEvents((evs) => {
+      setActiveEvents(evs);
+      setCache("dan_active_events", evs);
+    });
+    const unsubPast = subscribePastEvents((evs) => {
+      setPastEvents(evs);
+      setCache("dan_past_events", evs);
+      if (!pastResolvedRef.current) {
+        setLoading(false);
+        pastResolvedRef.current = true;
+      }
+    });
 
     // Fetch tickets separately — if rules block this it won't affect events showing
     getDocs(collection(db, "tickets"))
@@ -571,14 +617,24 @@ export default function EventPage() {
       .catch(() => {
         // Silently fall back to ev.soldTickets for sold counts
       });
+
+    return () => {
+      unsubActive();
+      unsubPast();
+    };
   }, []);
 
   // Hero slideshow: collect images from active events (most recent first)
-  const heroImages = activeEvents.filter((e) => e.imageUrl).map((e) => e.imageUrl as string);
+  const heroImages = activeEvents
+    .filter((e) => e.imageUrl)
+    .map((e) => e.imageUrl as string);
 
   useEffect(() => {
     if (heroImages.length <= 1) return;
-    const id = setInterval(() => setHeroIdx((i) => (i + 1) % heroImages.length), 5000);
+    const id = setInterval(
+      () => setHeroIdx((i) => (i + 1) % heroImages.length),
+      5000,
+    );
     return () => clearInterval(id);
   }, [heroImages.length]);
 
@@ -606,12 +662,14 @@ export default function EventPage() {
                 alt=""
                 className="w-full h-full object-cover object-center"
               />
-              {/* Dark gradient overlay */}
+              {/* Dark overlay */}
+              <div className="absolute inset-0 bg-black/45" />
+              {/* Bottom-to-black gradient */}
               <div
                 className="absolute inset-0"
                 style={{
                   background:
-                    "linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.65) 60%, rgba(0,0,0,0.85) 100%)",
+                    "linear-gradient(to top, #000000 0%, rgba(0,0,0,0.75) 22%, rgba(0,0,0,0.2) 55%, transparent 100%)",
                 }}
               />
             </motion.div>
@@ -697,8 +755,10 @@ export default function EventPage() {
                 onClick={() => setHeroIdx(i)}
                 className="w-2 h-2 rounded-full transition-all duration-300"
                 style={{
-                  background: i === heroIdx ? "#FFFF00" : "rgba(255,255,255,0.3)",
-                  boxShadow: i === heroIdx ? "0 0 8px rgba(255,255,0,0.8)" : "none",
+                  background:
+                    i === heroIdx ? "#FFFF00" : "rgba(255,255,255,0.3)",
+                  boxShadow:
+                    i === heroIdx ? "0 0 8px rgba(255,255,0,0.8)" : "none",
                   transform: i === heroIdx ? "scale(1.4)" : "scale(1)",
                 }}
               />
@@ -706,6 +766,8 @@ export default function EventPage() {
           </div>
         )}
       </section>
+
+      <NeonMarquee />
 
       {/* ── COUNTDOWN ── */}
       <SectionFadeIn>
@@ -772,11 +834,140 @@ export default function EventPage() {
         </section>
       </SectionFadeIn>
 
+      {/* ── SPONSORS ── */}
+      {(() => {
+        const allSponsors = [...activeEvents, ...pastEvents]
+          .flatMap((ev) => ev.sponsors ?? [])
+          .filter(
+            (sp, idx, arr) => arr.findIndex((s) => s.name === sp.name) === idx,
+          );
+        if (loading || allSponsors.length === 0) return null;
+        const colors = ["#FFFF00", "#00FF41", "#FF3333", "#FFFF00"];
+        const glows = [
+          "rgba(255,255,0,0.5)",
+          "rgba(0,255,65,0.5)",
+          "rgba(255,51,51,0.5)",
+          "rgba(255,255,0,0.5)",
+        ];
+        const useMarquee = isMobile || allSponsors.length > 4;
+        const marqueeDuration = allSponsors.length * (isMobile ? 2 : 5);
+
+        const SponsorCard = ({
+          sp,
+          i,
+          keyPrefix,
+        }: {
+          sp: { name: string; logoUrl?: string };
+          i: number;
+          keyPrefix: string;
+        }) => {
+          const c = colors[i % colors.length];
+          const g = glows[i % glows.length];
+          return (
+            <motion.div
+              key={`${keyPrefix}-${sp.name}`}
+              className="w-36 h-20 md:w-44 md:h-24 flex items-center justify-center rounded-lg overflow-hidden p-3 flex-shrink-0"
+              style={{
+                border: `1.5px solid ${c}`,
+                boxShadow: `0 0 18px ${g}, inset 0 0 12px ${g}20`,
+              }}
+              whileHover={{ scale: 1.05 }}
+            >
+              {sp.logoUrl ? (
+                <div className="flex flex-col items-center justify-center gap-1 w-full h-full">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={sp.logoUrl}
+                    alt={sp.name}
+                    className={`max-w-full object-contain ${sp.name ? "max-h-[65%]" : "max-h-full"}`}
+                  />
+                  {sp.name && (
+                    <span
+                      className="text-[10px] font-bold uppercase tracking-wider text-center leading-tight"
+                      style={{ color: c, textShadow: `0 0 10px ${g}` }}
+                    >
+                      {sp.name}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <span
+                  className="text-base font-bold uppercase tracking-wider"
+                  style={{ color: c, textShadow: `0 0 15px ${g}` }}
+                >
+                  {sp.name}
+                </span>
+              )}
+            </motion.div>
+          );
+        };
+
+        return (
+          <SectionFadeIn>
+            <section className="relative z-10 py-14 px-6 md:px-16 bg-black/80 border-t border-white/5">
+              <div className="text-center mb-8">
+                <p className="text-xs tracking-[0.4em] uppercase text-gray-600">
+                  Proudly Supported By
+                </p>
+              </div>
+              {useMarquee ? (
+                <div className="relative overflow-hidden -mx-6 md:-mx-16">
+                  <div
+                    className="pointer-events-none absolute inset-y-0 left-0 w-20 z-10"
+                    style={{
+                      background:
+                        "linear-gradient(to right, #000 0%, transparent 100%)",
+                    }}
+                  />
+                  <div
+                    className="pointer-events-none absolute inset-y-0 right-0 w-20 z-10"
+                    style={{
+                      background:
+                        "linear-gradient(to left, #000 0%, transparent 100%)",
+                    }}
+                  />
+                  <motion.div
+                    className="flex gap-6"
+                    style={{ width: "max-content" }}
+                    animate={{ x: ["0%", "-50%"] }}
+                    transition={{
+                      duration: marqueeDuration,
+                      ease: "linear",
+                      repeat: Infinity,
+                    }}
+                  >
+                    {[...allSponsors, ...allSponsors].map((sp, i) => (
+                      <SponsorCard
+                        key={`${i}-${sp.name}`}
+                        sp={sp}
+                        i={i % allSponsors.length}
+                        keyPrefix={String(i)}
+                      />
+                    ))}
+                  </motion.div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-center gap-6">
+                  {allSponsors.map((sp, i) => (
+                    <SponsorCard
+                      key={sp.name}
+                      sp={sp}
+                      i={i}
+                      keyPrefix="static"
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </SectionFadeIn>
+        );
+      })()}
+
       {/* ── ACTIVE EVENTS ── */}
       {!loading && activeEvents.length > 0 && (
         <SectionFadeIn>
           <section className="relative z-10 pt-10 pb-5 px-6 md:px-16 bg-black/75">
-            <div className="max-w-5xl mx-auto">
+            <div className="max-w-4xl mx-auto">
               <h2
                 className="text-4xl md:text-5xl uppercase tracking-wider text-center mb-12"
                 style={{
@@ -813,7 +1004,7 @@ export default function EventPage() {
                   return (
                     <motion.div
                       key={ev.id}
-                      className="relative rounded-2xl border overflow-hidden"
+                      className="relative rounded-2xl border overflow-hidden flex flex-col md:flex-row"
                       style={{
                         borderColor: "rgba(255,255,0,0.25)",
                         background: "linear-gradient(135deg, #090909, #040404)",
@@ -827,57 +1018,49 @@ export default function EventPage() {
                       {/* Corner accents */}
                       <span
                         className="absolute top-0 left-0 w-8 h-8 z-10"
-                        style={{
-                          borderTop: "2px solid #FFFF00",
-                          borderLeft: "2px solid #FFFF00",
-                        }}
+                        style={{ borderTop: "2px solid #FFFF00", borderLeft: "2px solid #FFFF00" }}
                       />
                       <span
                         className="absolute bottom-0 right-0 w-8 h-8 z-10"
-                        style={{
-                          borderBottom: "2px solid #FFFF00",
-                          borderRight: "2px solid #FFFF00",
-                        }}
+                        style={{ borderBottom: "2px solid #FFFF00", borderRight: "2px solid #FFFF00" }}
                       />
 
-                      {/* Image — full-width, edge-to-edge */}
-                      <div className="relative h-52 sm:h-64 overflow-hidden">
+                      {/* Image — full width on mobile, full height left column on desktop */}
+                      <div className="relative h-64 sm:h-72 md:h-auto md:w-2/5 lg:w-[45%] flex-shrink-0 overflow-hidden">
                         {ev.imageUrl ? (
                           <>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={ev.imageUrl}
                               alt={ev.title}
-                              className="w-full h-full object-cover"
+                              className="absolute inset-0 w-full h-full object-cover object-center"
                             />
+                            {/* Mobile: fade bottom into card */}
                             <div
-                              className="absolute inset-0"
-                              style={{
-                                background:
-                                  "linear-gradient(to bottom, transparent 40%, #090909 100%)",
-                              }}
+                              className="absolute inset-0 md:hidden"
+                              style={{ background: "linear-gradient(to bottom, transparent 45%, #090909 100%)" }}
+                            />
+                            {/* Desktop: fade right edge into card */}
+                            <div
+                              className="absolute inset-0 hidden md:block"
+                              style={{ background: "linear-gradient(to right, transparent 55%, #090909 100%)" }}
                             />
                           </>
                         ) : (
                           <div
-                            className="w-full h-full"
-                            style={{
-                              background:
-                                "radial-gradient(ellipse at center, rgba(255,255,0,0.08), #030303)",
-                            }}
+                            className="w-full h-full min-h-[200px]"
+                            style={{ background: "radial-gradient(ellipse at center, rgba(255,255,0,0.08), #030303)" }}
                           />
                         )}
                       </div>
 
-                      {/* Content panel */}
-                      <div className="p-6 md:p-8 space-y-4">
+                      {/* Content panel — scrolls naturally, fills remaining space */}
+                      <div className="flex-1 flex flex-col gap-4 p-6 md:p-8">
+                        {/* Title + meta */}
                         <div>
                           <h3
                             className="text-2xl md:text-3xl font-bold uppercase tracking-wide"
-                            style={{
-                              color: "#FFFF00",
-                              textShadow: "0 0 20px rgba(255,255,0,0.5)",
-                            }}
+                            style={{ color: "#FFFF00", textShadow: "0 0 20px rgba(255,255,0,0.5)" }}
                           >
                             {ev.title}
                           </h3>
@@ -885,34 +1068,33 @@ export default function EventPage() {
                             {evDate} · {evTime}
                           </p>
                           <p className="text-gray-500 text-sm mt-0.5 flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 flex-shrink-0" />{" "}
-                            {ev.venue}
+                            <MapPin className="w-3.5 h-3.5 flex-shrink-0" /> {ev.venue}
                           </p>
                         </div>
 
+                        {/* Countdown */}
                         {ev.date?.toDate?.() && (
                           <div>
                             <p className="text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
-                              Starts in
+                              Happening in
                             </p>
                             <CardCountdown targetDate={ev.date.toDate()} />
                           </div>
                         )}
 
+                        {/* Description */}
                         <p className="text-gray-400 text-sm leading-relaxed">
                           {ev.description}
                         </p>
 
+                        {/* Highlights */}
                         {ev.highlights?.length > 0 && (
                           <div className="flex flex-wrap gap-2">
                             {ev.highlights.map((h) => (
                               <span
                                 key={h}
                                 className="text-xs px-3 py-1 rounded-full border"
-                                style={{
-                                  borderColor: "rgba(255,255,0,0.2)",
-                                  color: "rgba(255,255,0,0.7)",
-                                }}
+                                style={{ borderColor: "rgba(255,255,0,0.2)", color: "rgba(255,255,0,0.7)" }}
                               >
                                 {h}
                               </span>
@@ -920,33 +1102,60 @@ export default function EventPage() {
                           </div>
                         )}
 
-                        {/* Price + progress + CTA */}
-                        <div className="pt-2 space-y-3">
-                          <div className="flex items-center justify-between gap-4">
-                            <div>
-                              <p className="text-gray-600 text-xs uppercase tracking-widest">
-                                Price per ticket
-                              </p>
-                              <p
-                                className="text-2xl font-bold"
-                                style={{ color: "#FFFF00" }}
-                              >
-                                ₦{ev.ticketPrice.toLocaleString()}
-                              </p>
-                            </div>
+                        {/* Pricing + CTA — pushed to bottom */}
+                        <div className="mt-auto pt-2 space-y-3">
+                          {/* Ticket tiers OR single price + Buy button */}
+                          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                            {ev.ticketTypes && ev.ticketTypes.length > 0 ? (
+                              <div className="flex-1">
+                                <p className="text-gray-600 text-xs uppercase tracking-widest mb-2">
+                                  Ticket Types
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {ev.ticketTypes.map((tier, tierIdx) => (
+                                    <div
+                                      key={`${ev.id}-${tier.name}-${tierIdx}`}
+                                      className="flex flex-col items-start px-3 py-2 rounded-xl border"
+                                      style={{
+                                        borderColor: "rgba(255,255,0,0.25)",
+                                        background: "rgba(255,255,0,0.05)",
+                                      }}
+                                    >
+                                      <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#FFFF00" }}>
+                                        {tier.name}
+                                      </span>
+                                      <span className="text-base font-bold text-white">
+                                        ₦{tier.price.toLocaleString()}
+                                      </span>
+                                      {tier.limit != null && (
+                                        <span className="text-[9px] text-gray-600 uppercase tracking-widest">
+                                          {tier.limit} slots
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="text-gray-600 text-xs uppercase tracking-widest">
+                                  Price per ticket
+                                </p>
+                                <p className="text-2xl font-bold" style={{ color: "#FFFF00" }}>
+                                  ₦{ev.ticketPrice.toLocaleString()}
+                                </p>
+                              </div>
+                            )}
+
                             <motion.button
                               disabled={soldOut}
                               onClick={() => !soldOut && setTicketEvent(ev)}
-                              className="px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm flex-shrink-0"
+                              className="w-full sm:w-auto px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm flex-shrink-0"
                               style={{
                                 background: soldOut ? "transparent" : "#FFFF00",
                                 color: soldOut ? "#666" : "#000",
-                                border: soldOut
-                                  ? "2px solid #333"
-                                  : "2px solid #FFFF00",
-                                boxShadow: soldOut
-                                  ? "none"
-                                  : "0 0 20px rgba(255,255,0,0.4)",
+                                border: soldOut ? "2px solid #333" : "2px solid #FFFF00",
+                                boxShadow: soldOut ? "none" : "0 0 20px rgba(255,255,0,0.4)",
                                 cursor: soldOut ? "not-allowed" : "pointer",
                               }}
                               whileHover={!soldOut ? { scale: 1.03 } : {}}
@@ -955,29 +1164,19 @@ export default function EventPage() {
                               {soldOut ? "Sold Out" : "Get Tickets →"}
                             </motion.button>
                           </div>
+
+                          {/* Progress bar */}
                           <div>
                             <div className="flex justify-between text-xs mb-1">
-                              <span
-                                style={{
-                                  color:
-                                    pct >= 90
-                                      ? "#FF3333"
-                                      : "rgba(255,255,255,0.4)",
-                                }}
-                              >
+                              <span style={{ color: pct >= 90 ? "#FF3333" : "rgba(255,255,255,0.4)" }}>
                                 {pct}% sold
                               </span>
-                              <span className="text-gray-600">
-                                {100 - pct}% remaining
-                              </span>
+                              <span className="text-gray-600">{remaining} remaining</span>
                             </div>
                             <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                               <div
                                 className="h-full rounded-full transition-all duration-700"
-                                style={{
-                                  width: `${pct}%`,
-                                  background: pct >= 90 ? "#FF3333" : "#FFFF00",
-                                }}
+                                style={{ width: `${pct}%`, background: pct >= 90 ? "#FF3333" : "#FFFF00" }}
                               />
                             </div>
                           </div>
@@ -992,63 +1191,7 @@ export default function EventPage() {
         </SectionFadeIn>
       )}
 
-      {/* ── SPONSORS ── */}
-      {!loading && (activeEvents[0]?.sponsors?.length ?? 0) > 0 && (
-        <SectionFadeIn>
-          <section className="relative z-10 py-16 px-6 md:px-16 bg-black/80 border-t border-white/5">
-            <div className="max-w-4xl mx-auto text-center">
-              <p className="text-xs tracking-[0.4em] uppercase text-gray-600 mb-8">
-                Proudly Supported By
-              </p>
-              <div className="flex flex-wrap items-center justify-center gap-6">
-                {(activeEvents[0].sponsors ?? []).map((sp, i) => {
-                  const colors = ["#FFFF00", "#00FF41", "#FF3333", "#FFFF00"];
-                  const glows = [
-                    "rgba(255,255,0,0.5)",
-                    "rgba(0,255,65,0.5)",
-                    "rgba(255,51,51,0.5)",
-                    "rgba(255,255,0,0.5)",
-                  ];
-                  const c = colors[i % colors.length];
-                  const g = glows[i % glows.length];
-                  return (
-                    <motion.div
-                      key={sp.name}
-                      className="w-36 h-20 md:w-44 md:h-24 flex items-center justify-center rounded-lg overflow-hidden p-3 flex-shrink-0"
-                      style={{
-                        border: `1.5px solid ${c}`,
-                        boxShadow: `0 0 18px ${g}, inset 0 0 12px ${g}20`,
-                      }}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      whileInView={{ opacity: 1, scale: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: i * 0.1 }}
-                      whileHover={{ scale: 1.05 }}
-                    >
-                      {sp.logoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={sp.logoUrl}
-                          alt={sp.name}
-                          className="max-h-full max-w-full object-contain"
-                        />
-                      ) : (
-                        <span
-                          className="text-base font-bold uppercase tracking-wider"
-                          style={{ color: c, textShadow: `0 0 15px ${g}` }}
-                        >
-                          {sp.name}
-                        </span>
-                      )}
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-        </SectionFadeIn>
-      )}
-
+      <NeonMarquee />
       {/* ── WHAT TO EXPECT Carousel ── */}
       <SectionFadeIn>
         <section className="relative z-10 pt-10 pb-5 px-6 md:px-16 bg-black/75">
@@ -1117,13 +1260,15 @@ export default function EventPage() {
         </section>
       </SectionFadeIn>
 
+      <NeonMarquee />
+
       {/* ── PAST EDITIONS Carousel (from Firebase) ── */}
       {!loading && pastEvents.length > 0 && (
         <SectionFadeIn>
           <section className="relative z-10 py-20 px-6 md:px-16 bg-black/85 border-t border-white/5">
             <div className="max-w-4xl mx-auto">
               <Carousel
-                title="Past Editions"
+                title="Past Events"
                 accentColor="#FF3333"
                 glowColor="rgba(255,51,51,0.4)"
                 items={pastEvents.map((ev) => {
@@ -1137,11 +1282,9 @@ export default function EventPage() {
                     id: ev.id!,
                     content: (
                       <div
-                        className="relative rounded-2xl border overflow-hidden mx-2"
+                        className="relative rounded-2xl border overflow-hidden mx-2 min-h-[420px] flex flex-col justify-end"
                         style={{
                           borderColor: "rgba(255,51,51,0.3)",
-                          background:
-                            "linear-gradient(135deg, #080808, #030303)",
                           boxShadow: "0 0 30px rgba(255,51,51,0.08)",
                         }}
                       >
@@ -1161,37 +1304,35 @@ export default function EventPage() {
                           }}
                         />
 
-                        {/* Image */}
-                        <div className="relative h-48 sm:h-56 overflow-hidden">
-                          {ev.imageUrl ? (
-                            <>
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={ev.imageUrl}
-                                alt={ev.title}
-                                className="w-full h-full object-cover"
-                              />
-                              <div
-                                className="absolute inset-0"
-                                style={{
-                                  background:
-                                    "linear-gradient(to bottom, transparent 40%, #080808 100%)",
-                                }}
-                              />
-                            </>
-                          ) : (
+                        {/* Full-height background image */}
+                        {ev.imageUrl ? (
+                          <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={ev.imageUrl}
+                              alt={ev.title}
+                              className="absolute inset-0 w-full h-full object-cover object-center"
+                            />
                             <div
-                              className="w-full h-full"
+                              className="absolute inset-0"
                               style={{
                                 background:
-                                  "radial-gradient(ellipse at center, rgba(255,51,51,0.1), #030303)",
+                                  "linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.92) 100%)",
                               }}
                             />
-                          )}
-                        </div>
+                          </>
+                        ) : (
+                          <div
+                            className="absolute inset-0"
+                            style={{
+                              background:
+                                "radial-gradient(ellipse at center, rgba(255,51,51,0.12), #030303)",
+                            }}
+                          />
+                        )}
 
-                        {/* Content */}
-                        <div className="p-6 md:p-8">
+                        {/* Content overlaid at bottom */}
+                        <div className="relative z-10 p-6 md:p-8">
                           <p
                             className="text-xs tracking-[0.4em] uppercase mb-1"
                             style={{ color: "#FF3333" }}
@@ -1207,21 +1348,18 @@ export default function EventPage() {
                           >
                             {ev.edition}
                           </h3>
-                          <p className="text-gray-500 text-sm mb-4 tracking-widest">
+                          <p className="text-gray-400 text-sm mb-3 tracking-widest">
                             {ev.venue}
                           </p>
-                          <p className="text-gray-300 text-base leading-relaxed">
+                          <p className="text-gray-300 text-sm leading-relaxed line-clamp-3">
                             {ev.description}
                           </p>
-                          <div className="flex gap-4 mt-6 flex-wrap text-xs text-gray-500">
-                            <span>
-                              {soldByEvent[ev.id ?? ""] ?? ev.soldTickets}+
-                              tickets sold
-                            </span>
+                          <div className="flex gap-4 mt-5 flex-wrap text-xs">
                             <Link
-                              href="/gallery"
-                              className="text-[#FF3333] hover:underline"
+                              href={`/gallery?event=${ev.id}`}
+                              className="flex items-center gap-1 text-[#FF3333] hover:underline"
                             >
+                              <Camera className="w-3 h-3" />
                               View Gallery →
                             </Link>
                           </div>
@@ -1235,6 +1373,7 @@ export default function EventPage() {
           </section>
         </SectionFadeIn>
       )}
+      <NeonMarquee />
 
       {/* ── TESTIMONIALS (live from Firestore) ── */}
       <SectionFadeIn>
@@ -1248,6 +1387,7 @@ export default function EventPage() {
           </div>
         </section>
       </SectionFadeIn>
+      <NeonMarquee />
 
       {/* ── FAQ ── */}
       <SectionFadeIn>
@@ -1342,6 +1482,7 @@ export default function EventPage() {
           </div>
         </section>
       </SectionFadeIn>
+      <NeonMarquee />
 
       <Footer />
 

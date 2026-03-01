@@ -1,40 +1,187 @@
 import emailjs from "@emailjs/browser";
 
-const SERVICE   = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID!;
-const PUB_KEY   = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY!;
-const T_CONTACT = process.env.NEXT_PUBLIC_EMAILJS_CONTACT_TEMPLATE!;
-const T_VENDOR  = process.env.NEXT_PUBLIC_EMAILJS_VENDOR_TEMPLATE!;
+// ── Environment ───────────────────────────────────────────────────────────────
+const SERVICE  = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID               ?? "";
+const PUB_KEY  = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY                ?? "";
+/** Template 1 — Notification → hardcoded admin inbox */
+const T_NOTIFY  = process.env.NEXT_PUBLIC_EMAILJS_NOTIFICATION_TEMPLATE   ?? "";
+/** Template 2 — Confirmation → {{to_email}} variable */
+const T_CONFIRM = process.env.NEXT_PUBLIC_EMAILJS_CONFIRMATION_TEMPLATE   ?? "";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dineatnight.com";
+if (process.env.NODE_ENV !== "production") {
+  const missing = [
+    !SERVICE  && "NEXT_PUBLIC_EMAILJS_SERVICE_ID",
+    !PUB_KEY  && "NEXT_PUBLIC_EMAILJS_PUBLIC_KEY",
+    !T_NOTIFY && "NEXT_PUBLIC_EMAILJS_NOTIFICATION_TEMPLATE",
+    !T_CONFIRM && "NEXT_PUBLIC_EMAILJS_CONFIRMATION_TEMPLATE",
+  ].filter(Boolean);
+  if (missing.length) {
+    console.warn("[EmailJS] Missing env vars:", missing.join(", "), "— emails will silently fail.");
+  }
+}
 
-/* ── Contact form — sends to DAN team ──────────────────────────────── */
-export async function sendContactEmail(data: {
+const APP_URL = (
+  process.env.NEXT_PUBLIC_APP_URL ?? "https://dine-at-night.vercel.app"
+).replace(/\/$/, "");
+const SEP = "──────────────────────────────";
+
+// ── Internal senders ──────────────────────────────────────────────────────────
+function notify(params: {
+  subject: string;
+  message: string;
+  from_name: string;
+  reply_to: string;
+}) {
+  return emailjs.send(
+    SERVICE,
+    T_NOTIFY,
+    params,
+    PUB_KEY,
+  );
+}
+
+function confirmUser(params: {
+  to_email: string;
+  subject: string;
+  message: string;
+}) {
+  return emailjs.send(
+    SERVICE,
+    T_CONFIRM,
+    params,
+    PUB_KEY,
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ADMIN NOTIFICATIONS  (Template 1 → T_NOTIFY → hardcoded admin inbox)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// A. Contact form submitted
+export async function notifyAdminContact(data: {
   name: string;
   email: string;
   topic: string;
   message: string;
 }) {
-  return emailjs.send(
-    SERVICE,
-    T_CONTACT,
-    {
-      from_name:  data.name,
-      from_email: data.email,
-      topic:      data.topic,
-      message:    data.message,
-      reply_to:   data.email,
-    },
-    PUB_KEY,
-  );
+  return notify({
+    subject: `New Contact: ${data.topic} — ${data.name}`,
+    from_name: data.name,
+    reply_to: data.email,
+    message: `
+New contact message received via the Dine At Night website.
+
+${SEP}
+From:   ${data.name}
+Email:  ${data.email}
+Topic:  ${data.topic}
+${SEP}
+
+Message:
+${data.message}
+
+${SEP}
+Reply directly to ${data.name} at ${data.email}.
+Sent via dineatnight.com
+    `.trim(),
+  });
 }
 
-/* ── Ticket confirmation — sent from verify page after payment ──────── */
+// B. Vendor application submitted
+export async function notifyAdminVendorApplied(data: {
+  ownerName: string;
+  brandName: string;
+  email: string;
+  phone?: string;
+  instagram?: string;
+  categories?: string[];
+  description?: string;
+}) {
+  return notify({
+    subject: `New Vendor Application — ${data.brandName}`,
+    from_name: data.ownerName,
+    reply_to: data.email,
+    message: `
+New vendor application received via the Dine At Night website.
+
+${SEP}
+Brand:      ${data.brandName}
+Owner:      ${data.ownerName}
+Email:      ${data.email}${data.phone ? `\nPhone:      ${data.phone}` : ""}${data.instagram ? `\nInstagram:  ${data.instagram}` : ""}${data.categories?.length ? `\nCategories: ${data.categories.join(", ")}` : ""}
+${SEP}
+${data.description ? `\nDescription:\n${data.description}\n` : ""}
+Review at: ${APP_URL}/admin/vendors
+Sent via dineatnight.com
+    `.trim(),
+  });
+}
+
+// C. Testimonial posted
+export async function notifyAdminTestimonial(data: {
+  name: string;
+  type: "vendor" | "user";
+  quote: string;
+  eventTitle?: string;
+}) {
+  return notify({
+    subject: `New Testimonial — ${data.name}`,
+    from_name: "Dine At Night Site",
+    reply_to: "noreply@dineatnight.com",
+    message: `
+New testimonial submitted on the Dine At Night website.
+
+${SEP}
+Name:  ${data.name}
+Type:  ${data.type === "vendor" ? "Vendor" : "Event Attendee"}${data.eventTitle ? `\nEvent: ${data.eventTitle}` : ""}
+${SEP}
+
+Review:
+"${data.quote}"
+
+${SEP}
+Manage at: ${APP_URL}/admin/testimonials
+Sent via dineatnight.com
+    `.trim(),
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// USER CONFIRMATIONS  (Template 2 → T_CONFIRM → {{to_email}})
+// ══════════════════════════════════════════════════════════════════════════════
+
+// 1. Contact thank-you
+export async function sendContactConfirmationEmail(data: {
+  name: string;
+  email: string;
+  topic: string;
+}) {
+  return confirmUser({
+    to_email: data.email,
+    subject: `We got your message — Dine At Night`,
+    message: `
+Dear ${data.name},
+
+Thank you for reaching out to Dine At Night.
+
+We have received your message regarding "${data.topic}" and will get back to you within 24–48 hours.
+
+For urgent matters, DM us on any of our social media.
+
+Regards,
+Dine At Night Team
+${APP_URL}
+    `.trim(),
+  });
+}
+
+// 2. Ticket confirmation
 export async function sendTicketConfirmationEmail(data: {
   name: string;
   email: string;
   eventTitle: string;
+  eventDate?: Date;
   quantity: number;
-  amount: number; // kobo
+  amount: number; // in kobo
   reference: string;
 }) {
   const amountNaira = (data.amount / 100).toLocaleString("en-NG", {
@@ -43,108 +190,160 @@ export async function sendTicketConfirmationEmail(data: {
     maximumFractionDigits: 0,
   });
 
-  // The QR code value matches what the ticket page and gate scanner expects
-  const qrValue = `${APP_URL}/admin/confirm?ref=${data.reference}`;
-  const qrUrl =
-    `https://api.qrserver.com/v1/create-qr-code/` +
-    `?size=250x250&data=${encodeURIComponent(qrValue)}&bgcolor=ffffff&color=000000&qzone=2`;
+  return confirmUser({
+    to_email: data.email,
+    subject: `Your Ticket — ${data.eventTitle} | Dine At Night`,
+    message: `
+Dear ${data.name},
 
-  return emailjs.send(
-    SERVICE,
-    T_VENDOR,
-    {
-      to_email:   data.email,
-      owner_name: data.name,
-      subject:    `🎟️ Your Dine At Night Ticket — ${data.eventTitle}`,
-      message:
-        `Your payment is confirmed! Here are your ticket details:<br><br>` +
-        `<strong>Event:</strong> ${data.eventTitle}<br>` +
-        `<strong>Tickets:</strong> ${data.quantity}x<br>` +
-        `<strong>Amount Paid:</strong> ${amountNaira}<br>` +
-        `<strong>Reference:</strong> ${data.reference}<br><br>` +
-        `<strong>Your QR Code — scan this at the gate:</strong><br>` +
-        `<img src="${qrUrl}" alt="Ticket QR Code" width="200" height="200" ` +
-        `style="display:block;margin:12px 0;border:4px solid white;border-radius:8px;" /><br>` +
-        `<a href="${APP_URL}/tickets/${data.reference}">View full e-ticket online</a><br><br>` +
-        `See you under the neon lights! 🌙`,
-    },
-    PUB_KEY,
-  );
+Your payment has been confirmed. You're officially coming to ${data.eventTitle}!
+
+${SEP}
+Event:      ${data.eventTitle}${data.eventDate ? `\nDate:       ${data.eventDate.toDateString()}` : ""}
+Tickets:    ${data.quantity}×
+Amount:     ${amountNaira}
+Reference:  ${data.reference}
+${SEP}
+
+Your e-ticket with QR code is ready. Show it at the gate for entry.
+
+View your ticket: ${APP_URL}/tickets/${data.reference}
+
+See you under the neon lights!
+
+Dine At Night Team
+${APP_URL}
+    `.trim(),
+  });
 }
 
-/* ── Newsletter welcome — sent after successful subscription ────────── */
-export async function sendNewsletterWelcomeEmail(email: string) {
-  return emailjs.send(
-    SERVICE,
-    T_VENDOR,
-    {
-      to_email:   email,
-      owner_name: "Night Owl",
-      subject:    "Welcome to the Dine At Night community 🌙",
-      message:
-        `You've joined the Dine At Night community!\n\n` +
-        `You'll be the first to know about new event dates, vendor reveals, ` +
-        `early bird tickets, and exclusive announcements.\n\n` +
-        `See upcoming events at:\n${APP_URL}/event`,
-    },
-    PUB_KEY,
-  );
-}
-
-/* ── Vendor application received — confirmation to vendor ───────────── */
+// 3. Vendor application received (user acknowledgement)
 export async function sendVendorAppliedEmail(data: {
-  ownerName:   string;
-  brandName:   string;
-  email:       string;
+  ownerName: string;
+  brandName: string;
+  email: string;
   categories?: string[];
 }) {
-  return emailjs.send(
-    SERVICE,
-    T_VENDOR,
-    {
-      to_email:   data.email,
-      owner_name: data.ownerName,
-      subject:    `Application Received — ${data.brandName}`,
-      message:
-        `We received your application for ${data.brandName}` +
-        (data.categories?.length ? ` (${data.categories.join(", ")})` : "") +
-        `.\n\nOur vendor relations team reviews every application carefully ` +
-        `and we'll get back to you within 5 business days.\n\n` +
-        `Follow us on Instagram @dineatnight.ng for updates.`,
-    },
-    PUB_KEY,
-  );
+  return confirmUser({
+    to_email: data.email,
+    subject: `Application Received — ${data.brandName} | Dine At Night`,
+    message: `
+Dear ${data.ownerName},
+
+Your application for ${data.brandName} has been received.
+
+We review all applications carefully and will get back to you within 3–5 business days.
+
+What happens next:
+1. Application received — your details are in our system
+2. Review (3–5 business days) — our team reviews every application carefully
+3. Decision email — we will notify you with the outcome
+
+Follow us for updates: @dineatnight on Instagram.
+
+Dine At Night Team
+${APP_URL}
+    `.trim(),
+  });
 }
 
-/* ── Vendor approved or declined — sends to vendor ──────────────────── */
+// 4. Vendor status — approved / declined / revoked
 export async function sendVendorStatusEmail(data: {
-  ownerName:      string;
-  brandName:      string;
-  email:          string;
-  status:         "approved" | "declined";
-  declineReason?: string;
+  ownerName: string;
+  brandName: string;
+  email: string;
+  status: "approved" | "declined" | "revoked";
+  reason?: string;
 }) {
-  const isApproved = data.status === "approved";
+  let subject: string;
+  let message: string;
 
-  return emailjs.send(
-    SERVICE,
-    T_VENDOR,
-    {
-      to_email:   data.email,
-      owner_name: data.ownerName,
-      subject:    isApproved
-        ? `✅ You're approved to vend at Dine At Night!`
-        : `Update on your Dine At Night application`,
-      message: isApproved
-        ? `Congratulations! ${data.brandName} has been approved to vend at Dine At Night.\n\n` +
-          `Our team will reach out with your spot assignment, setup time, and logistics ` +
-          `as the event date approaches. Keep an eye on your inbox and DMs.\n\n` +
-          `See you on the floor! 🌙`
-        : `Thank you for applying. After reviewing your application for ${data.brandName}, ` +
-          `we're unable to offer you a spot at this edition.` +
-          (data.declineReason ? `\n\nFeedback: ${data.declineReason}` : "") +
-          `\n\nThis doesn't close the door permanently — we encourage you to reapply for future editions.`,
-    },
-    PUB_KEY,
-  );
+  if (data.status === "approved") {
+    subject = `You're approved — ${data.brandName} | Dine At Night`;
+    message = `
+Dear ${data.ownerName},
+
+Great news! ${data.brandName} has been approved to vend at Dine At Night.
+
+Our team will reach out with your spot assignment, setup time, and logistics details as the event date approaches. Keep an eye on your inbox and Instagram DMs.
+
+See you on the floor!
+
+Dine At Night Team
+${APP_URL}/event
+    `.trim();
+  } else if (data.status === "declined") {
+    subject = `Application update — ${data.brandName} | Dine At Night`;
+    message = `
+Dear ${data.ownerName},
+
+Thank you for your interest in vending at Dine At Night.
+
+After carefully reviewing your application for ${data.brandName}, we are unable to offer a vendor spot at this edition.
+${data.reason ? `\nReason:\n${data.reason}\n` : ""}
+This is not the end — we run multiple editions a year and you are welcome to reapply for a future edition.
+
+Dine At Night Team
+${APP_URL}/vendors
+    `.trim();
+  } else {
+    subject = `Approval revoked — ${data.brandName} | Dine At Night`;
+    message = `
+Dear ${data.ownerName},
+
+We are writing to let you know that the previously granted approval for ${data.brandName} to vend at Dine At Night has been revoked.
+${data.reason ? `\nReason:\n${data.reason}\n` : ""}
+Your spot for this edition is no longer reserved. If circumstances change or you would like to be considered for a future edition, you are welcome to reapply.
+
+We apologise for any inconvenience caused.
+
+Dine At Night Team
+${APP_URL}/vendors
+    `.trim();
+  }
+
+  return confirmUser({ to_email: data.email, subject, message });
+}
+
+// 5. Newsletter welcome
+export async function sendNewsletterWelcomeEmail(email: string) {
+  return confirmUser({
+    to_email: email,
+    subject: `Welcome to Dine At Night`,
+    message: `
+You are now on the Dine At Night list!
+
+You will be the first to know about new event dates, vendor reveals, early bird tickets, and exclusive announcements.
+
+What you will get:
+- Early bird ticket drops before public sale
+- Exclusive vendor lineup reveals
+- Event date announcements first
+- Behind-the-scenes content
+
+See upcoming events: ${APP_URL}/event
+
+Dine At Night Team
+${APP_URL}
+    `.trim(),
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CONTACT FORM — fires both admin notification + user confirmation in parallel
+// ══════════════════════════════════════════════════════════════════════════════
+export async function sendContactEmail(data: {
+  name: string;
+  email: string;
+  topic: string;
+  message: string;
+}) {
+  await Promise.allSettled([
+    notifyAdminContact(data),
+    sendContactConfirmationEmail({
+      name: data.name,
+      email: data.email,
+      topic: data.topic,
+    }),
+  ]);
 }

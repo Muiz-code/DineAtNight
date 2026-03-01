@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
+import Carousel from "./Carousel";
 import {
   createTestimonial,
   subscribeToTestimonials,
@@ -94,6 +95,18 @@ export default function TestimonialSection({
         createdBy: "user",
       });
       setSubmitted(true);
+
+      // Notify admin (fire-and-forget)
+      import("@/lib/emailjs")
+        .then(({ notifyAdminTestimonial }) =>
+          notifyAdminTestimonial({
+            name:       displayName,
+            type:       form.type,
+            quote:      form.quote.trim(),
+            eventTitle: form.eventTitle.trim() || undefined,
+          })
+        )
+        .catch((err) => console.error("[EmailJS] notifyAdminTestimonial failed:", err));
       setForm({
         name: "",
         type: "user",
@@ -143,105 +156,83 @@ export default function TestimonialSection({
           Be the first to share your experience
         </p>
       ) : (
-        <motion.div
-          layout
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto"
-        >
-          <AnimatePresence>
-            {testimonials.map((t, i) => {
+        <div className="max-w-2xl mx-auto">
+          <Carousel
+            accentColor={accentColor}
+            glowColor={glowColor}
+            autoPlay
+            autoPlayInterval={6000}
+            showDots
+            showArrows
+            items={testimonials.map((t, i) => {
               const palette = ACCENT_COLORS[i % ACCENT_COLORS.length];
               const isVendor = t.type === "vendor";
               const isAdmin = t.type === "admin";
-              return (
-                <motion.div
-                  key={t.id}
-                  layout
-                  className="relative rounded-2xl border p-6 flex flex-col gap-3"
-                  style={{
-                    borderColor: `${palette.color}18`,
-                    background: "linear-gradient(135deg, #0a0a0a, #050505)",
-                    boxShadow: `0 0 20px ${palette.glow}06`,
-                  }}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ delay: Math.min(i * 0.04, 0.3), duration: 0.4 }}
-                  whileHover={{
-                    borderColor: `${palette.color}40`,
-                    boxShadow: `0 0 30px ${palette.glow}20`,
-                  }}
-                >
-                  {/* Opening quote mark */}
-                  <span
-                    className="absolute -top-3 left-5 text-3xl leading-none pointer-events-none"
-                    style={{ color: palette.color }}
-                  >
-                    &ldquo;
-                  </span>
-
-                  {/* Badges row */}
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    {/* Type badge */}
-                    <span
-                      className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border"
-                      style={
-                        isAdmin
-                          ? {
-                              color: "#FFFF00",
-                              borderColor: "rgba(255,255,0,0.3)",
-                              background: "rgba(255,255,0,0.08)",
-                            }
-                          : isVendor
-                            ? {
-                                color: "#FF3333",
-                                borderColor: "rgba(255,51,51,0.3)",
-                                background: "rgba(255,51,51,0.08)",
-                              }
-                            : {
-                                color: "#00FF41",
-                                borderColor: "rgba(0,255,65,0.3)",
-                                background: "rgba(0,255,65,0.08)",
-                              }
-                      }
-                    >
-                      {isAdmin ? "Team" : isVendor ? "Vendor" : "Attendee"}
-                    </span>
-
-                    {/* Event chip */}
-                    {t.eventTitle && (
-                      <span className="text-[9px] text-gray-600 uppercase tracking-wide truncate max-w-[130px]">
-                        {t.eventTitle}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Quote */}
-                  <p className="text-gray-300 text-sm leading-relaxed italic flex-1">
-                    {t.quote}
-                  </p>
-
-                  {/* Author */}
-                  <div>
-                    <p
-                      className="font-bold text-xs uppercase tracking-widest"
+              return {
+                id: t.id ?? i,
+                content: (
+                  <div className="px-2 py-1 flex justify-center">
+                    <div
+                      className="relative rounded-2xl border p-6 flex flex-col gap-3 w-full"
                       style={{
-                        color: palette.color,
-                        textShadow: `0 0 10px ${palette.glow}`,
+                        borderColor: `${palette.color}25`,
+                        background: "linear-gradient(135deg, #0a0a0a, #050505)",
+                        boxShadow: `0 0 30px ${palette.glow}12`,
                       }}
                     >
-                      — {t.name}
-                    </p>
-                    {t.role && !isAdmin && (
-                      <p className="text-gray-600 text-[10px] mt-0.5">
-                        {t.role}
+                      {/* Opening quote mark */}
+                      <span
+                        className="absolute -top-3 left-5 text-3xl leading-none pointer-events-none"
+                        style={{ color: palette.color }}
+                      >
+                        &ldquo;
+                      </span>
+
+                      {/* Badges row */}
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span
+                          className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border"
+                          style={
+                            isAdmin
+                              ? { color: "#FFFF00", borderColor: "rgba(255,255,0,0.3)", background: "rgba(255,255,0,0.08)" }
+                              : isVendor
+                                ? { color: "#FF3333", borderColor: "rgba(255,51,51,0.3)", background: "rgba(255,51,51,0.08)" }
+                                : { color: "#00FF41", borderColor: "rgba(0,255,65,0.3)", background: "rgba(0,255,65,0.08)" }
+                          }
+                        >
+                          {isAdmin ? "Team" : isVendor ? "Vendor" : "Attendee"}
+                        </span>
+                        {t.eventTitle && (
+                          <span className="text-[9px] text-gray-600 uppercase tracking-wide truncate max-w-[160px]">
+                            {t.eventTitle}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Quote */}
+                      <p className="text-gray-300 text-sm leading-relaxed italic flex-1">
+                        {t.quote}
                       </p>
-                    )}
+
+                      {/* Author */}
+                      <div>
+                        <p
+                          className="font-bold text-xs uppercase tracking-widest"
+                          style={{ color: palette.color, textShadow: `0 0 10px ${palette.glow}` }}
+                        >
+                          — {t.name}
+                        </p>
+                        {t.role && !isAdmin && (
+                          <p className="text-gray-600 text-[10px] mt-0.5">{t.role}</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </motion.div>
-              );
+                ),
+              };
             })}
-          </AnimatePresence>
-        </motion.div>
+          />
+        </div>
       )}
 
       {/* Submission form */}
@@ -309,7 +300,7 @@ export default function TestimonialSection({
                       onChange={(e) =>
                         setForm((p) => ({
                           ...p,
-                          type: e.target.value as "vendor" | "user",
+                          type: (e.target.value === "vendor" || e.target.value === "user") ? e.target.value : "user",
                         }))
                       }
                       className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all cursor-pointer"

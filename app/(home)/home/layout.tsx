@@ -5,7 +5,13 @@ export const metadata: Metadata = {
   title: "Dine At Night — Lagos's Premier Nighttime Food Market",
   description:
     "Dine At Night is Lagos's premier nighttime food market — an outdoor experience combining the best local food vendors, live music, and neon-lit vibes. Get your tickets now.",
-  alternates: { canonical: "/home" },
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "Dine At Night — Lagos's Premier Nighttime Food Market",
+    description:
+      "Lagos's premier nighttime food market. Local vendors, live music, neon-lit vibes. Get your tickets now.",
+    url: "/",
+  },
 };
 
 export default function PagesLayout({ children }: { children: ReactNode }) {

@@ -86,6 +86,10 @@ export default function AdminTestimonialsPage() {
   // Filter
   const [filter, setFilter] = useState<"all" | "vendor" | "user" | "admin">("all");
 
+  // Delete confirm modal
+  const [deleteTarget, setDeleteTarget] = useState<DanTestimonial | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const load = async () => {
     setLoading(true);
     try {
@@ -171,10 +175,16 @@ export default function AdminTestimonialsPage() {
     }
   };
 
-  const handleDelete = async (t: DanTestimonial) => {
-    if (!confirm(`Delete review from "${t.name}"?`)) return;
-    await deleteTestimonial(t.id!);
-    setTestimonials((prev) => prev.filter((x) => x.id !== t.id));
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteTestimonial(deleteTarget.id!);
+      setTestimonials((prev) => prev.filter((x) => x.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const filtered =
@@ -314,7 +324,7 @@ export default function AdminTestimonialsPage() {
                   )}
                   {/* Delete — any */}
                   <button
-                    onClick={() => handleDelete(t)}
+                    onClick={() => setDeleteTarget(t)}
                     className="w-8 h-8 rounded-lg border transition-all border-white/8 text-gray-600 hover:text-[#FF3333] hover:border-red-400/25 flex items-center justify-center"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -580,6 +590,65 @@ export default function AdminTestimonialsPage() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── DELETE CONFIRM MODAL ── */}
+      <AnimatePresence>
+        {deleteTarget && (
+          <motion.div
+            className="fixed inset-0 z-[400] flex items-center justify-center px-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              onClick={() => setDeleteTarget(null)}
+            />
+            <motion.div
+              className="relative w-full max-w-sm rounded-2xl border p-6 space-y-5"
+              style={{ background: "#0a0a0a", borderColor: "rgba(255,51,51,0.35)" }}
+              initial={{ scale: 0.94, y: 16 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.94, y: 16 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold uppercase tracking-widest text-red-500">
+                  Delete Review
+                </h2>
+                <button onClick={() => setDeleteTarget(null)}>
+                  <X className="w-4 h-4 text-gray-600 hover:text-white transition-colors" />
+                </button>
+              </div>
+
+              <p className="text-gray-400 text-sm leading-relaxed">
+                Delete review from{" "}
+                <span className="text-white font-bold">{deleteTarget.name}</span>?
+                This action{" "}
+                <span className="text-red-400 font-bold">cannot be undone.</span>
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteTarget(null)}
+                  className="flex-1 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest border"
+                  style={{ borderColor: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={deleting}
+                  className="flex-1 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest disabled:opacity-50"
+                  style={{ background: "#FF3333", color: "#fff" }}
+                >
+                  {deleting ? "Deleting…" : "Delete"}
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

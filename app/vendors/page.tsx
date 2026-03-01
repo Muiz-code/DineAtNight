@@ -1,15 +1,21 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { motion, useInView, AnimatePresence } from "framer-motion";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import SectionFadeIn from "../_components/SectionFadeIn";
 import VendorModal from "../_components/VendorModal";
 import Footer from "../_components/Footer";
+import NeonMarquee from "../_components/NeonMarquee";
 import TestimonialSection from "../_components/TestimonialSection";
 import {
-  getApprovedVendors,
-  getActiveEvents,
+  subscribeApprovedVendors,
+  subscribeActiveEvents,
+  getVendorCategories,
   type DanVendor,
+  type DanEvent,
 } from "@/lib/firestore";
+import { getCache, setCache } from "@/lib/cache";
+import { useScrollLock } from "@/lib/useScrollLock";
 import {
   UtensilsCrossed,
   X,
@@ -18,22 +24,9 @@ import {
   Calendar,
   Phone,
   Mail,
+  BookOpen,
 } from "lucide-react";
 
-const SectionFadeIn = ({ children }: { children: React.ReactNode }) => {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-80px" });
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: 50 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.9, ease: "easeOut" }}
-    >
-      {children}
-    </motion.div>
-  );
-};
 
 // Map a single Firestore category string to filter key
 const categoryToFilter = (cat: string): string => {
@@ -48,9 +41,6 @@ const categoryToFilter = (cat: string): string => {
   return "other";
 };
 
-// Get all category strings for a vendor (handles both legacy `category` and new `categories` array)
-const vendorCategoryList = (v: DanVendor): string[] =>
-  v.categories?.length ? v.categories : v.category ? [v.category] : [];
 
 // ── Vendor Detail Modal ───────────────────────────────────────────────────────
 function VendorDetailModal({
@@ -78,13 +68,7 @@ function VendorDetailModal({
     return () => clearInterval(t);
   }, [images.length]);
 
-  // Lock body scroll while open
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, []);
+  useScrollLock(true);
 
   const products = vendor.products
     ? vendor.products
@@ -210,7 +194,7 @@ function VendorDetailModal({
               {vendor.brandName}
             </h2>
             <div className="flex flex-wrap gap-1.5 mt-1.5">
-              {vendorCategoryList(vendor).map((cat) => (
+              {getVendorCategories(vendor).map((cat) => (
                 <span
                   key={cat}
                   className="text-[9px] px-2 py-0.5 rounded-full border uppercase tracking-wide font-bold"
@@ -255,6 +239,47 @@ function VendorDetailModal({
                   >
                     {p}
                   </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Structured Menu */}
+          {(vendor.menu?.length ?? 0) > 0 && (
+            <div>
+              <div className="flex items-center gap-1.5 text-gray-600 text-[10px] uppercase tracking-widest mb-3">
+                <BookOpen className="w-3 h-3" /> Menu
+              </div>
+              <div className="space-y-4">
+                {vendor.menu!.map((cat, ci) => (
+                  <div key={ci}>
+                    <p
+                      className="text-[10px] font-bold uppercase tracking-widest mb-2"
+                      style={{ color: palette.color }}
+                    >
+                      {cat.name}
+                    </p>
+                    <div className="space-y-1.5">
+                      {cat.items.map((item, ii) => (
+                        <div
+                          key={ii}
+                          className="flex items-center justify-between gap-4 py-1.5 border-b border-white/5 last:border-0"
+                        >
+                          <span className="text-gray-300 text-sm">
+                            {item.name}
+                          </span>
+                          {item.price && (
+                            <span
+                              className="text-sm font-bold flex-shrink-0 tabular-nums"
+                              style={{ color: palette.color }}
+                            >
+                              ₦{item.price}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -365,21 +390,22 @@ function VendorLogoStrip({ logoVendors }: { logoVendors: DanVendor[] }) {
   const measureRef = useRef<HTMLDivElement>(null);
   const [isMarquee, setIsMarquee] = useState(false);
 
+  const measure = useCallback(() => {
+    if (measureRef.current && containerRef.current) {
+      setIsMarquee(
+        measureRef.current.scrollWidth > containerRef.current.clientWidth,
+      );
+    }
+  }, []);
+
   useEffect(() => {
-    const measure = () => {
-      if (measureRef.current && containerRef.current) {
-        setIsMarquee(
-          measureRef.current.scrollWidth > containerRef.current.clientWidth,
-        );
-      }
-    };
     const t = setTimeout(measure, 60); // small delay for images
     window.addEventListener("resize", measure);
     return () => {
       clearTimeout(t);
       window.removeEventListener("resize", measure);
     };
-  }, [logoVendors.length]);
+  }, [measure, logoVendors.length]);
 
   const duration = Math.max(logoVendors.length * 3, 16);
   // Triple the list so the loop is visually seamless (translateX -33.333%)
@@ -553,29 +579,28 @@ export default function VendorsPage() {
   } | null>(null);
 
   useEffect(() => {
-    getApprovedVendors()
-      .then((data) => {
-        setVendors(data);
-        setVendorLoadError(false);
-      })
-      .catch(() => {
-        setVendors([]);
-        setVendorLoadError(true);
-      })
-      .finally(() => setLoadingVendors(false));
+    // Real-time subscription: vendor list stays live while the tab is open.
+    // If the admin approves a new vendor, it appears instantly without a refresh.
+    const unsub = subscribeApprovedVendors((data) => {
+      setVendors(data);
+      setVendorLoadError(false);
+      setLoadingVendors(false);
+    });
+    return unsub;
   }, []);
 
   useEffect(() => {
-    getActiveEvents()
-      .then((evs) => {
-        if (evs[0]?.title) setActiveEventTitle(evs[0].title);
-      })
-      .catch(() => {});
+    const cached = getCache<DanEvent[]>("dan_active_events");
+    if (cached?.[0]?.title) setActiveEventTitle(cached[0].title);
+    return subscribeActiveEvents((evs) => {
+      setCache("dan_active_events", evs);
+      if (evs[0]?.title) setActiveEventTitle(evs[0].title);
+    });
   }, []);
 
   const filtered = vendors.filter((v) => {
     if (activeFilter === "all") return true;
-    return vendorCategoryList(v).some(
+    return getVendorCategories(v).some(
       (cat) => categoryToFilter(cat) === activeFilter,
     );
   });
@@ -667,6 +692,8 @@ export default function VendorsPage() {
         </motion.div>
       </section>
 
+      <NeonMarquee />
+
       {/* ── VENDOR LOGO STRIP ── */}
       {vendors.some((v) => v.logoUrl) && (
         <section className="py-10 border-y border-white/5">
@@ -740,16 +767,6 @@ export default function VendorsPage() {
                   onClick={() => {
                     setVendorLoadError(false);
                     setLoadingVendors(true);
-                    getApprovedVendors()
-                      .then((data) => {
-                        setVendors(data);
-                        setVendorLoadError(false);
-                      })
-                      .catch(() => {
-                        setVendors([]);
-                        setVendorLoadError(true);
-                      })
-                      .finally(() => setLoadingVendors(false));
                   }}
                   className="mt-4 px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest border border-white/15 text-gray-500 hover:text-white hover:border-white/30 transition-all"
                 >
@@ -816,7 +833,7 @@ export default function VendorsPage() {
                         </h3>
                         {/* Category chips */}
                         <div className="flex flex-wrap gap-1.5 mt-1.5 mb-3">
-                          {vendorCategoryList(vendor).map((cat) => (
+                          {getVendorCategories(vendor).map((cat) => (
                             <span
                               key={cat}
                               className="text-[9px] px-2 py-0.5 rounded-full border uppercase tracking-wide font-bold"

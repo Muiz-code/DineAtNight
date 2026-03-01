@@ -7,6 +7,7 @@ import {
   updateVendorStatus,
   createVendorDirect,
   deleteVendor,
+  getVendorCategories,
   type DanVendor,
 } from "@/lib/firestore";
 import {
@@ -24,6 +25,7 @@ import {
   FileText,
   ShoppingBag,
   Calendar,
+  BookOpen,
 } from "lucide-react";
 
 const inputCls =
@@ -177,6 +179,10 @@ export default function AdminVendorsPage() {
   const [revokeReason, setRevokeReason] = useState("");
   const [revoking, setRevoking] = useState(false);
 
+  // Delete confirm modal
+  const [deleteTarget, setDeleteTarget] = useState<DanVendor | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const load = async () => {
     setLoading(true);
     try {
@@ -210,7 +216,7 @@ export default function AdminVendorsPage() {
           brandName: v.brandName,
           email: v.email,
           status,
-          declineReason,
+          reason: declineReason,
         }),
       )
       .catch(() => {});
@@ -256,33 +262,11 @@ export default function AdminVendorsPage() {
     setActiveTab("pending");
   };
 
-  // const confirmRevoke = async () => {
-  //   if (!revokeTarget) return;
-  //   setRevoking(true);
-  //   const reason = revokeReason.trim() || "Approval revoked by admin";
-  //   await updateVendorStatus(revokeTarget.id!, "declined", reason);
-  //   const updated = {
-  //     ...revokeTarget,
-  //     status: "declined" as const,
-  //     declineReason: reason,
-  //   };
-  //   setVendors((prev) =>
-  //     prev.map((x) => (x.id === revokeTarget.id ? updated : x)),
-  //   );
-  //   if (detailVendor?.id === revokeTarget.id) setDetailVendor(updated);
-  //   sendVendorEmail("declined", revokeTarget, reason);
-  //   setRevokeTarget(null);
-  //   setRevoking(false);
-  // };
-
   const openRevoke = (v: DanVendor) => {
     setRevokeTarget(v);
     setRevokeReason("");
   };
 
-  const handleRevoke = (v: DanVendor) => {
-    openRevoke(v); // just calls the function you already have
-  };
 
   const confirmRevoke = async () => {
     if (!revokeTarget) return;
@@ -303,11 +287,17 @@ export default function AdminVendorsPage() {
     setRevoking(false);
   };
 
-  const handleDelete = async (v: DanVendor) => {
-    if (!confirm(`Delete "${v.brandName}"? This cannot be undone.`)) return;
-    await deleteVendor(v.id!);
-    setVendors((prev) => prev.filter((x) => x.id !== v.id));
-    if (detailVendor?.id === v.id) setDetailVendor(null);
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteVendor(deleteTarget.id!);
+      setVendors((prev) => prev.filter((x) => x.id !== deleteTarget.id));
+      if (detailVendor?.id === deleteTarget.id) setDetailVendor(null);
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleChange = (
@@ -516,12 +506,7 @@ export default function AdminVendorsPage() {
                   </div>
                   {/* Category chips */}
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {(v.categories?.length
-                      ? v.categories
-                      : v.category
-                        ? [v.category]
-                        : []
-                    ).map((cat) => (
+                    {getVendorCategories(v).map((cat) => (
                       <span
                         key={cat}
                         className="text-[9px] px-1.5 py-0.5 rounded border border-white/10 text-gray-500 uppercase tracking-wide"
@@ -623,7 +608,7 @@ export default function AdminVendorsPage() {
                       )}
 
                       <button
-                        onClick={() => handleDelete(v)}
+                        onClick={() => setDeleteTarget(v)}
                         className="w-8 h-8 rounded-lg border transition-all border-white/8 text-gray-600 hover:text-[#FF3333] hover:border-red-400/25 flex items-center justify-center"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -922,6 +907,42 @@ export default function AdminVendorsPage() {
                       </p>
                     </div>
                   )}
+                  {(detailVendor.menu?.length ?? 0) > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 text-gray-600 text-[10px] uppercase tracking-widest mb-2">
+                        <BookOpen className="w-3 h-3" /> Structured Menu
+                      </div>
+                      <div className="space-y-3">
+                        {detailVendor.menu!.map((cat, ci) => (
+                          <div
+                            key={ci}
+                            className="rounded-lg border border-white/8 bg-white/[0.02] p-3"
+                          >
+                            <p className="text-[11px] font-bold text-[#FFFF00] uppercase tracking-widest mb-2">
+                              {cat.name}
+                            </p>
+                            <div className="space-y-1.5">
+                              {cat.items.map((item, ii) => (
+                                <div
+                                  key={ii}
+                                  className="flex items-center justify-between gap-4"
+                                >
+                                  <span className="text-gray-300 text-xs">
+                                    {item.name}
+                                  </span>
+                                  {item.price && (
+                                    <span className="text-gray-500 text-xs font-medium flex-shrink-0">
+                                      ₦{item.price}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {detailVendor.declineReason &&
                     detailVendor.status === "declined" && (
                       <div className="rounded-lg border border-[#FF3333]/20 bg-[#FF3333]/5 p-3">
@@ -981,7 +1002,7 @@ export default function AdminVendorsPage() {
                 )}
                 {detailVendor.status === "approved" && (
                   <button
-                    onClick={() => handleRevoke(detailVendor)}
+                    onClick={() => openRevoke(detailVendor)}
                     className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-bold uppercase tracking-widest border flex-1 justify-center transition-all"
                     style={{
                       borderColor: "rgba(255,51,51,0.4)",
@@ -1001,7 +1022,7 @@ export default function AdminVendorsPage() {
                   </button>
                 )}
                 <button
-                  onClick={() => handleDelete(detailVendor)}
+                  onClick={() => setDeleteTarget(detailVendor)}
                   className="w-10 h-10 rounded-lg border border-white/10 flex items-center justify-center text-gray-500 hover:text-[#FF3333] hover:border-red-400/25 transition-all flex-shrink-0"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -1436,6 +1457,65 @@ export default function AdminVendorsPage() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── DELETE CONFIRM MODAL ── */}
+      <AnimatePresence>
+        {deleteTarget && (
+          <motion.div
+            className="fixed inset-0 z-[500] flex items-center justify-center px-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              onClick={() => setDeleteTarget(null)}
+            />
+            <motion.div
+              className="relative w-full max-w-sm rounded-2xl border p-6 space-y-5"
+              style={{ background: "#0a0a0a", borderColor: "rgba(255,51,51,0.35)" }}
+              initial={{ scale: 0.94, y: 16 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.94, y: 16 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold uppercase tracking-widest text-red-500">
+                  Delete Vendor
+                </h2>
+                <button onClick={() => setDeleteTarget(null)}>
+                  <X className="w-4 h-4 text-gray-600 hover:text-white transition-colors" />
+                </button>
+              </div>
+
+              <p className="text-gray-400 text-sm leading-relaxed">
+                Delete{" "}
+                <span className="text-white font-bold">{deleteTarget.brandName}</span>?
+                This action{" "}
+                <span className="text-red-400 font-bold">cannot be undone.</span>
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteTarget(null)}
+                  className="flex-1 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest border"
+                  style={{ borderColor: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={deleting}
+                  className="flex-1 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest disabled:opacity-50"
+                  style={{ background: "#FF3333", color: "#fff" }}
+                >
+                  {deleting ? "Deleting…" : "Delete"}
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

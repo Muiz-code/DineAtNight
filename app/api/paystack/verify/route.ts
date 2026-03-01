@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { doc, updateDoc, increment, getDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import type { DanTicket } from "@/lib/firestore";
+import { markTicketPaid, type DanTicket } from "@/lib/firestore";
 
-const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY!;
+const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
+if (!PAYSTACK_SECRET) throw new Error("Missing env var: PAYSTACK_SECRET_KEY");
 
 export async function GET(req: NextRequest) {
   const reference = req.nextUrl.searchParams.get("reference");
@@ -43,31 +44,23 @@ export async function GET(req: NextRequest) {
   const eventId = metadata?.eventId as string | undefined;
   const quantity = Number(metadata?.quantity ?? 1);
 
-  // ── Step 2: Mark ticket as paid in Firestore ─────────────────────────
-  try {
-    await updateDoc(doc(db, "tickets", reference), { status: "paid" });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[verify] Failed to update ticket status:", msg);
-    return NextResponse.json(
-      { error: `Ticket update failed: ${msg}` },
-      { status: 500 }
-    );
-  }
-
-  // ── Step 3: Increment soldTickets on event (best-effort) ──────────────
+  // ── Step 2: Mark ticket paid (idempotent transaction) ─────────────────
+  // markTicketPaid uses a Firestore transaction that checks status first,
+  // so a concurrent webhook call will not double-increment soldTickets.
   if (eventId) {
     try {
-      await updateDoc(doc(db, "events", eventId), {
-        soldTickets: increment(quantity),
-      });
+      await markTicketPaid(reference, eventId, quantity);
     } catch (err) {
-      // Non-fatal — ticket is already marked paid, just log this
-      console.warn("[verify] Could not increment soldTickets:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[verify] markTicketPaid failed:", msg);
+      return NextResponse.json(
+        { error: `Ticket update failed: ${msg}` },
+        { status: 500 }
+      );
     }
   }
 
-  // ── Step 4: Return ticket data ────────────────────────────────────────
+  // ── Step 3: Return ticket data ────────────────────────────────────────
   try {
     const snap = await getDoc(doc(db, "tickets", reference));
     const ticket = snap.exists() ? ({ id: snap.id, ...snap.data() } as DanTicket) : null;

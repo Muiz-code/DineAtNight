@@ -18,10 +18,6 @@ export default function AdminLoginPage() {
     setError("");
     setLoading(true);
 
-    const allowed = (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "admin@dineatnight.com")
-      .split(",")
-      .map((s) => s.trim());
-
     try {
       const auth = getAuthClient();
       if (!auth) {
@@ -29,12 +25,24 @@ export default function AdminLoginPage() {
         return;
       }
       const cred = await signInWithEmailAndPassword(auth, email, password);
-      if (!allowed.includes(cred.user.email ?? "")) {
+
+      // Get the Firebase ID token and send it to the server-side session API.
+      // The server verifies the token, checks the email against ADMIN_EMAILS
+      // (a server-only env var, never sent to the browser), and sets an httpOnly cookie.
+      const idToken = await cred.user.getIdToken();
+      const sessionRes = await fetch("/api/admin/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      });
+
+      if (!sessionRes.ok) {
         await auth.signOut();
-        setError("This account is not authorised as an admin.");
-        setLoading(false);
+        const { error } = await sessionRes.json();
+        setError(error === "Not authorised" ? "This account is not authorised as an admin." : "Sign-in failed. Please try again.");
         return;
       }
+
       router.push("/admin");
     } catch {
       setError("Invalid email or password.");

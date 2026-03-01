@@ -1,10 +1,12 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
+import { useScrollLock } from "@/lib/useScrollLock";
 import { motion, useInView, animate, AnimatePresence } from "framer-motion";
-import { useEffect } from "react";
+import SectionFadeIn from "../_components/SectionFadeIn";
 import Footer from "../_components/Footer";
 import Carousel from "../_components/Carousel";
+import NeonMarquee from "../_components/NeonMarquee";
 import VendorModal from "../_components/VendorModal";
 import { useState } from "react";
 import Link from "next/link";
@@ -18,21 +20,6 @@ import {
   TrendingUp,
   X,
 } from "lucide-react";
-
-const SectionFadeIn = ({ children }: { children: React.ReactNode }) => {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-80px" });
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: 50 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.9, ease: "easeOut" }}
-    >
-      {children}
-    </motion.div>
-  );
-};
 
 const Counter = ({
   value,
@@ -185,12 +172,7 @@ function TeamModal({
   team: TeamGroup;
   onClose: () => void;
 }) {
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, []);
+  useScrollLock(true);
 
   return (
     <AnimatePresence>
@@ -458,6 +440,8 @@ export default function AboutPage() {
           world-class nighttime food experience. So we built it.
         </motion.p>
       </section>
+
+      <NeonMarquee />
 
       {/* ── STATS ── */}
       <SectionFadeIn>

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import Loader from "./loader";
 import Image from "next/image";
 import { Images } from "@/assets/images";
 
@@ -18,11 +17,11 @@ const NAV_ITEMS: NavItem[] = [
   { label: "ABOUT", href: "/aboutUs" },
   { label: "SHOP", href: "/shop" },
   { label: "GALLERY", href: "/gallery" },
+  { label: "CONTACT", href: "/contact" },
 ];
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isNavigating, setIsNavigating] = useState(false);
 
   const pathname = usePathname();
   const router = useRouter();
@@ -36,29 +35,12 @@ export default function Navbar() {
 
   const handleLogoClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    // Don't show loader if already on home page
-    if (pathname === "/" || pathname === "/home") {
-      return;
-    }
-    setIsNavigating(true);
-    setTimeout(() => {
-      router.push("/home");
-      // Reset after navigation
-      setTimeout(() => {
-        setIsNavigating(false);
-      }, 500);
-    }, 1500);
+    if (pathname === "/" || pathname === "/home") return;
+    router.push("/home");
   };
 
   return (
     <>
-      {/* Full Screen Loader Overlay */}
-      {isNavigating && (
-        <div className="fixed inset-0 z-[100]">
-          <Loader />
-        </div>
-      )}
-
       <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="flex items-center justify-between h-16 md:h-18">

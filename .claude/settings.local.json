@@ -3,7 +3,10 @@
     "allow": [
       "Bash(dir:*)",
       "Bash(python3:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx tsc --noEmit --project tsconfig.json)",
+      "Bash(git checkout HEAD -- app/api/paystack/verify/route.ts app/api/vendors/route.ts app/tickets/verify/page.tsx)"
     ]
   }
 }

@@ -3,12 +3,11 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Timestamp } from "firebase/firestore";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import {
-  getAllEvents, createEvent, updateEvent, deleteEvent, type DanEvent, type DanTicket, type DanSponsor,
+  getAllEvents, getAllTickets, createEvent, updateEvent, deleteEvent,
+  type DanEvent, type DanSponsor, type DanTicketType,
 } from "@/lib/firestore";
-import { Plus, Pencil, Trash2, X, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash2, X, AlertTriangle, Lock } from "lucide-react";
 
 const inputCls = "w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700";
 
@@ -19,6 +18,7 @@ const EMPTY_FORM = {
   status: "draft" as DanEvent["status"],
   imageUrl: "", highlights: "",
   sponsors: [] as DanSponsor[],
+  ticketTypes: [] as DanTicketType[],
 };
 
 type FormState = typeof EMPTY_FORM;
@@ -46,11 +46,7 @@ export default function AdminEventsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [evs, txSnap] = await Promise.all([
-        getAllEvents(),
-        getDocs(collection(db, "tickets")),
-      ]);
-      const txs = txSnap.docs.map((d) => ({ id: d.id, ...d.data() } as DanTicket));
+      const [evs, txs] = await Promise.all([getAllEvents(), getAllTickets()]);
       const counts: Record<string, number> = {};
       for (const t of txs) {
         if (t.status !== "pending") {
@@ -83,6 +79,7 @@ export default function AdminEventsPage() {
       imageUrl: ev.imageUrl,
       highlights: (ev.highlights ?? []).join("\n"),
       sponsors: ev.sponsors ?? [],
+      ticketTypes: ev.ticketTypes ?? [],
     });
     setModalOpen(true);
   };
@@ -92,6 +89,19 @@ export default function AdminEventsPage() {
     setSaving(true);
     try {
       const dateTime = new Date(`${form.date}T${form.time}:00`);
+      const validTicketTypes = form.ticketTypes.filter(
+        (t) => t.name.trim() && t.price > 0
+      );
+      const hasTiers = validTicketTypes.length > 0;
+      // Base price = lowest tier price (backward compat); falls back to manual entry
+      const basePrice = hasTiers
+        ? Math.min(...validTicketTypes.map((t) => t.price))
+        : Number(form.ticketPrice);
+      // Total = sum of all tier limits when tiers are active; otherwise manual entry
+      const totalTickets = hasTiers
+        ? validTicketTypes.reduce((sum, t) => sum + (t.limit ?? 0), 0) || Number(form.totalTickets)
+        : Number(form.totalTickets);
+
       const data = {
         title: form.title,
         edition: form.title,
@@ -99,8 +109,9 @@ export default function AdminEventsPage() {
         venue: form.venue,
         description: form.description,
         isPast: form.isPast,
-        ticketPrice: Number(form.ticketPrice),
-        totalTickets: Number(form.totalTickets),
+        ticketPrice: basePrice,
+        ticketTypes: validTicketTypes,
+        totalTickets,
         status: form.status,
         imageUrl: form.imageUrl,
         highlights: form.highlights.split("\n").map((s) => s.trim()).filter(Boolean),
@@ -339,28 +350,173 @@ export default function AdminEventsPage() {
                     <textarea required rows={3} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} placeholder="What makes this edition special…" className={`${inputCls} resize-none`} />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Ticket Price (₦)</label>
-                      <input type="number" min="0" value={form.ticketPrice} onChange={(e) => setForm((p) => ({ ...p, ticketPrice: Number(e.target.value) }))} className={inputCls} />
+                  {(() => {
+                    const hasTiers = form.ticketTypes.length > 0;
+                    const autoTotal = form.ticketTypes.reduce((sum, t) => sum + (t.limit ?? 0), 0);
+                    const autoPrice = hasTiers && form.ticketTypes.some(t => t.price > 0)
+                      ? Math.min(...form.ticketTypes.filter(t => t.price > 0).map(t => t.price))
+                      : form.ticketPrice;
+                    return (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
+                            Ticket Price (₦) {hasTiers && <span className="text-gray-700 normal-case">(auto from types)</span>}
+                          </label>
+                          <div className="relative">
+                            {hasTiers && (
+                              <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600 pointer-events-none" />
+                            )}
+                            <input
+                              type="number" min="0"
+                              value={autoPrice}
+                              readOnly={hasTiers}
+                              onChange={(e) => setForm((p) => ({ ...p, ticketPrice: Number(e.target.value) }))}
+                              className={`${inputCls} ${hasTiers ? "opacity-50 cursor-not-allowed pr-8" : ""}`}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
+                            Total Tickets {hasTiers && <span className="text-gray-700 normal-case">(auto from limits)</span>}
+                          </label>
+                          <div className="relative">
+                            {hasTiers && (
+                              <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600 pointer-events-none" />
+                            )}
+                            <input
+                              type="number" min="1"
+                              value={hasTiers ? autoTotal : form.totalTickets}
+                              readOnly={hasTiers}
+                              onChange={(e) => setForm((p) => ({ ...p, totalTickets: Number(e.target.value) }))}
+                              className={`${inputCls} ${hasTiers ? "opacity-50 cursor-not-allowed pr-8" : ""}`}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Ticket Types */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest">
+                        Ticket Types
+                        <span className="ml-1.5 text-gray-700 normal-case">(optional — e.g. VIP, VVIP)</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setForm((p) => ({ ...p, ticketTypes: [...p.ticketTypes, { name: "", price: 0 }] }))}
+                        className="text-[10px] text-[#FFFF00] uppercase tracking-widest hover:opacity-70 transition-opacity"
+                      >
+                        + Add Tier
+                      </button>
                     </div>
-                    <div>
-                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Total Tickets</label>
-                      <input type="number" min="1" value={form.totalTickets} onChange={(e) => setForm((p) => ({ ...p, totalTickets: Number(e.target.value) }))} className={inputCls} />
+                    {form.ticketTypes.length === 0 && (
+                      <p className="text-gray-700 text-xs italic">No tiers — single price above applies. Click + Add Tier to create multiple ticket types.</p>
+                    )}
+                    {/* Column headers */}
+                    {form.ticketTypes.length > 0 && (
+                      <div className="grid grid-cols-[1fr_1fr_1fr_2rem] gap-2 mb-1 px-0.5">
+                        <span className="text-[9px] text-gray-700 uppercase tracking-widest">Name</span>
+                        <span className="text-[9px] text-gray-700 uppercase tracking-widest">Price (₦)</span>
+                        <span className="text-[9px] text-gray-700 uppercase tracking-widest">Limit (tickets)</span>
+                        <span />
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      {form.ticketTypes.map((tt, idx) => (
+                        <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_2rem] gap-2 items-center">
+                          {/* Name */}
+                          <input
+                            value={tt.name}
+                            onChange={(e) => setForm((p) => {
+                              const types = [...p.ticketTypes];
+                              types[idx] = { ...types[idx], name: e.target.value };
+                              return { ...p, ticketTypes: types };
+                            })}
+                            placeholder="e.g. VIP"
+                            className={inputCls}
+                          />
+                          {/* Price */}
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">₦</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={tt.price || ""}
+                              onChange={(e) => setForm((p) => {
+                                const types = [...p.ticketTypes];
+                                types[idx] = { ...types[idx], price: Number(e.target.value) };
+                                return { ...p, ticketTypes: types };
+                              })}
+                              placeholder="0"
+                              className={`${inputCls} pl-7`}
+                            />
+                          </div>
+                          {/* Limit */}
+                          <input
+                            type="number"
+                            min="1"
+                            value={tt.limit ?? ""}
+                            onChange={(e) => setForm((p) => {
+                              const types = [...p.ticketTypes];
+                              const val = e.target.value;
+                              types[idx] = { ...types[idx], limit: val === "" ? undefined : Number(val) };
+                              return { ...p, ticketTypes: types };
+                            })}
+                            placeholder="Unlimited"
+                            className={inputCls}
+                          />
+                          {/* Remove */}
+                          <button
+                            type="button"
+                            onClick={() => setForm((p) => ({ ...p, ticketTypes: p.ticketTypes.filter((_, i) => i !== idx) }))}
+                            className="h-10 flex items-center justify-center text-gray-600 hover:text-[#FF3333] transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Status</label>
-                      <select value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as DanEvent["status"] }))} className="w-full px-4 py-2.5 bg-[#0a0a0a] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all cursor-pointer">
-                        <option value="draft">Draft</option>
-                        <option value="active">Active</option>
-                        <option value="ended">Ended</option>
-                      </select>
+                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                        Status
+                        {form.isPast && <Lock className="w-3 h-3 text-gray-600 inline" />}
+                      </label>
+                      <div className="relative">
+                        {form.isPast && (
+                          <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600 pointer-events-none z-10" />
+                        )}
+                        <select
+                          value={form.status}
+                          onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as DanEvent["status"] }))}
+                          disabled={form.isPast}
+                          className={`w-full px-4 py-2.5 bg-[#0a0a0a] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all ${form.isPast ? "opacity-50 cursor-not-allowed pr-8" : "cursor-pointer"}`}
+                        >
+                          <option value="draft">Draft</option>
+                          <option value="active">Active</option>
+                          <option value="ended">Ended</option>
+                        </select>
+                      </div>
                     </div>
                     <div className="flex items-center gap-3 pt-5">
-                      <input type="checkbox" id="isPast" checked={form.isPast} onChange={(e) => setForm((p) => ({ ...p, isPast: e.target.checked }))} className="w-4 h-4 accent-yellow-400" />
+                      <input
+                        type="checkbox"
+                        id="isPast"
+                        checked={form.isPast}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setForm((p) => ({
+                            ...p,
+                            isPast: checked,
+                            ...(checked ? { status: "ended" as DanEvent["status"] } : {}),
+                          }));
+                        }}
+                        className="w-4 h-4 accent-yellow-400"
+                      />
                       <label htmlFor="isPast" className="text-gray-400 text-sm">Mark as past event</label>
                     </div>
                   </div>

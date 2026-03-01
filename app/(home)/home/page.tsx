@@ -1,28 +1,40 @@
 "use client";
 
 import Loader from "../../_components/loader";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Images } from "@/assets/images";
 import {
   animate,
+  AnimatePresence,
   motion,
   useInView,
+  useMotionValue,
   useScroll,
   useTransform,
 } from "framer-motion";
 import VendorModal from "../../_components/VendorModal";
+import CardCountdown from "../../_components/CardCountdown";
+import NeonMarquee from "../../_components/NeonMarquee";
 import Antigravity from "@/components/Antigravity";
 import TestimonialSection from "../../_components/TestimonialSection";
 import {
-  getActiveEvents,
-  getApprovedVendors,
-  type DanSponsor,
+  subscribeActiveEvents,
+  subscribePastEvents,
+  subscribeApprovedVendors,
+  subscribeGalleryItems,
+  getVendorCategories,
   type DanEvent,
   type DanVendor,
+  type DanGalleryItem,
 } from "@/lib/firestore";
-import { Camera, CalendarDays, MapPin } from "lucide-react";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { getCache, setCache } from "@/lib/cache";
+import { Camera, MapPin } from "lucide-react";
+import Footer from "@/app/_components/Footer";
+import SectionFadeIn from "@/app/_components/SectionFadeIn";
 
 /* ═══════════════════════════════════════════════
    Motion Variants
@@ -203,25 +215,6 @@ const Counter = ({
 };
 
 /* ═══════════════════════════════════════════════
-   Section Fade-In Wrapper
-═══════════════════════════════════════════════ */
-const SectionFadeIn = ({ children }: { children: React.ReactNode }) => {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-80px" });
-
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: 50 }}
-      animate={isInView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.9, ease: "easeOut" }}
-    >
-      {children}
-    </motion.div>
-  );
-};
-
-/* ═══════════════════════════════════════════════
    Vendor Image Slideshow
 ═══════════════════════════════════════════════ */
 function VendorImageSlideshow({
@@ -302,6 +295,33 @@ function VendorImageSlideshow({
 }
 
 /* ═══════════════════════════════════════════════
+   3D Tilt Card Wrapper
+═══════════════════════════════════════════════ */
+function TiltCard({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    el.style.transform = `perspective(900px) rotateX(${-y * 7}deg) rotateY(${x * 7}deg) scale3d(1.03,1.03,1.03)`;
+    el.style.transition = "transform 0.12s ease";
+  };
+  const onLeave = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.transform = "";
+    el.style.transition = "transform 0.4s ease";
+  };
+  return (
+    <div ref={ref} onMouseMove={onMove} onMouseLeave={onLeave}>
+      {children}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
    Data
 ═══════════════════════════════════════════════ */
 const videos = [
@@ -329,9 +349,6 @@ const VENDOR_PALETTE = [
   { color: "#00FF41", glow: "rgba(0,255,65,0.5)" },
 ];
 
-// Get all category strings for a vendor
-const vendorCategoryList = (v: DanVendor): string[] =>
-  v.categories?.length ? v.categories : v.category ? [v.category] : [];
 
 // Sponsor accent colors — cycled by index
 const SPONSOR_COLORS = [
@@ -351,19 +368,19 @@ const stats = [
     glow: "rgba(255,255,0,0.25)",
   },
   {
-    label: "Vendors Sold Out",
-    value: 90,
-    suffix: "%",
-    color: "#FF3333",
-    glow: "rgba(255,51,51,0.25)",
-  },
-  {
-    label: "Vendor Return Rate",
+    label: "Sold Out",
     value: 100,
     suffix: "%",
     color: "#00FF41",
     glow: "rgba(0,255,65,0.25)",
   },
+  // {
+  //   label: "Return Rate",
+  //   value: 100,
+  //   suffix: "%",
+  //   color: "#00FF41",
+  //   glow: "rgba(0,255,65,0.25)",
+  // },
 ];
 
 const formatFollowers = (count: number) => {
@@ -371,6 +388,156 @@ const formatFollowers = (count: number) => {
   if (count >= 1_000) return `${Math.round(count / 100) / 10}K+`;
   return `${count}`;
 };
+
+/* ═══════════════════════════════════════════════
+   Stacked Gallery (mobile swipe)
+═══════════════════════════════════════════════ */
+function StackedGalleryMobile({ items }: { items: DanGalleryItem[] }) {
+  // Unbounded integer — lets us swipe forward and back infinitely
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [exitDir, setExitDir] = useState<1 | -1>(-1);
+  const x = useMotionValue(0);
+  const rotate = useTransform(x, [-300, 300], [-26, 26]);
+
+  const n = items.length;
+  // Safe modulo that handles negative values
+  const mod = (i: number) => ((i % n) + n) % n;
+
+  const handleDragEnd = (
+    _: unknown,
+    info: { offset: { x: number }; velocity: { x: number } },
+  ) => {
+    if (Math.abs(info.offset.x) > 55 || Math.abs(info.velocity.x) > 380) {
+      const swipedRight = info.offset.x > 0; // right = go back, left = go forward
+      setExitDir(swipedRight ? 1 : -1);
+      setActiveIdx((i) => i + (swipedRight ? -1 : 1));
+      x.set(0);
+    } else {
+      animate(x, 0, { type: "spring", stiffness: 420, damping: 34 });
+    }
+  };
+
+  if (n === 0) return null;
+
+  const accents = ["#FFFF00", "#FF3333", "#00FF41"];
+  const currentItem = items[mod(activeIdx)];
+
+  return (
+    <div className="relative flex flex-col items-center select-none h-[52vh]">
+      {/* Back cards — next 2 items peeking behind */}
+      {[2, 1].map((offset) => {
+        const item = items[mod(activeIdx + offset)];
+        const accent = accents[offset % accents.length];
+        return (
+          <motion.div
+            key={`back-${offset}`}
+            className="absolute w-[88%] rounded-2xl overflow-hidden border"
+            style={{
+              borderColor: `${accent}28`,
+              aspectRatio: "3/4",
+              zIndex: 3 - offset,
+            }}
+            animate={{
+              y: offset * 22,
+              scale: 1 - offset * 0.048,
+              rotate: offset === 1 ? 4 : -4,
+            }}
+            transition={{ type: "spring", stiffness: 280, damping: 28 }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={item.src}
+              alt={item.caption}
+              className="w-full h-full object-cover"
+            />
+          </motion.div>
+        );
+      })}
+
+      {/* Top card — draggable, swipe left = next, swipe right = previous */}
+      <AnimatePresence mode="popLayout">
+        <motion.div
+          key={activeIdx}
+          className="absolute w-[88%] rounded-2xl overflow-hidden border cursor-grab active:cursor-grabbing"
+          style={{
+            borderColor: "#FFFF0045",
+            boxShadow:
+              "0 8px 48px rgba(255,255,0,0.1), 0 0 0 1px rgba(255,255,0,0.06)",
+            aspectRatio: "3/4",
+            x,
+            rotate,
+            zIndex: 10,
+          }}
+          initial={{ scale: 0.88, opacity: 0, y: 28 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{
+            x: exitDir * 520,
+            rotate: exitDir * 30,
+            opacity: 0,
+            transition: { duration: 0.26, ease: "easeIn" },
+          }}
+          transition={{ type: "spring", stiffness: 320, damping: 26 }}
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.75}
+          onDragEnd={handleDragEnd}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={currentItem.src}
+            alt={currentItem.caption}
+            className="w-full h-full object-cover"
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.12) 52%, transparent 100%)",
+            }}
+          />
+          <div className="absolute bottom-0 left-0 right-0 p-5">
+            <p
+              className="text-[9px] tracking-[0.4em] uppercase mb-1 font-bold"
+              style={{
+                color: "#FFFF00",
+                textShadow: "0 0 8px rgba(255,255,0,0.6)",
+              }}
+            >
+              {currentItem.eventTitle}
+            </p>
+            {currentItem.caption && (
+              <p className="text-white/75 text-sm leading-snug line-clamp-2">
+                {currentItem.caption}
+              </p>
+            )}
+          </div>
+          {/* Swipe hint arrows */}
+          <div className="absolute top-1/2 -translate-y-1/2 left-5 right-5 flex justify-between pointer-events-none">
+            <span className="text-white/10 text-4xl leading-none">‹</span>
+            <span className="text-white/10 text-4xl leading-none">›</span>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Dot indicators */}
+      {/* <div className="absolute bottom-0 flex gap-2 items-center">
+        {items.map((_, i) => (
+          <motion.div
+            key={i}
+            className="rounded-full"
+            animate={{
+              width: i === mod(activeIdx) ? 22 : 6,
+              background: i === mod(activeIdx) ? "#FFFF00" : "rgba(255,255,255,0.18)",
+              boxShadow: i === mod(activeIdx) ? "0 0 10px rgba(255,255,0,0.8)" : "none",
+            }}
+            transition={{ duration: 0.22 }}
+            style={{ height: 6 }}
+          />
+        ))}
+      </div> */}
+    </div>
+  );
+}
 
 /* ═══════════════════════════════════════════════
    Page Component
@@ -381,13 +548,20 @@ export default function Home() {
   const [followers, setFollowers] = useState<string | null>(null);
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
   const [subEmail, setSubEmail] = useState("");
-  const [subStatus, setSubStatus] = useState<"idle" | "loading" | "done">("idle");
-  const [eventSponsors, setEventSponsors] = useState<DanSponsor[]>([]);
+  const [subStatus, setSubStatus] = useState<"idle" | "loading" | "done">(
+    "idle",
+  );
   const [activeEvents, setActiveEvents] = useState<DanEvent[]>([]);
+  const [pastEvents, setPastEvents] = useState<DanEvent[]>([]);
+  const [soldByEvent, setSoldByEvent] = useState<Record<string, number>>({});
+  const [isMobile, setIsMobile] = useState(false);
   const [approvedVendors, setApprovedVendors] = useState<DanVendor[]>([]);
   const [vendorsLoading, setVendorsLoading] = useState(true);
   const [vendorsError, setVendorsError] = useState(false);
+  const [galleryItems, setGalleryItems] = useState<DanGalleryItem[]>([]);
   const { logo } = Images();
+  const cursorRef = useRef<HTMLDivElement>(null);
+  const vendorsResolvedRef = useRef(false);
 
   // Parallax transforms — logo moves up slower than the page
   const { scrollY } = useScroll();
@@ -400,28 +574,76 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    getActiveEvents()
-      .then((evs) => {
-        setActiveEvents(evs);
-        const sponsors = evs[0]?.sponsors ?? [];
-        if (sponsors.length > 0) setEventSponsors(sponsors);
-      })
-      .catch(() => {});
+    setIsMobile(window.innerWidth < 768);
   }, []);
 
+  // Events — serve cache instantly, subscribe for live updates
   useEffect(() => {
-    getApprovedVendors()
-      .then((data) => {
-        // Pick 3 at random — different on every page load
-        const shuffled = [...data].sort(() => Math.random() - 0.5).slice(0, 3);
-        setApprovedVendors(shuffled);
-        setVendorsError(false);
+    const cached = getCache<DanEvent[]>("dan_active_events");
+    if (cached) setActiveEvents(cached);
+    const unsubActive = subscribeActiveEvents((evs) => {
+      setActiveEvents(evs);
+      setCache("dan_active_events", evs);
+    });
+    const unsubPast = subscribePastEvents((evs) => setPastEvents(evs));
+
+    // Cross-check sold counts from actual ticket documents (same as events page)
+    getDocs(collection(db, "tickets"))
+      .then((snap) => {
+        const counts: Record<string, number> = {};
+        for (const d of snap.docs) {
+          const t = d.data();
+          if (t.status !== "pending") {
+            counts[t.eventId] = (counts[t.eventId] ?? 0) + (t.quantity ?? 1);
+          }
+        }
+        setSoldByEvent(counts);
       })
-      .catch(() => {
-        setApprovedVendors([]);
-        setVendorsError(true);
-      })
-      .finally(() => setVendorsLoading(false));
+      .catch(() => {});
+
+    return () => {
+      unsubActive();
+      unsubPast();
+    };
+  }, []);
+
+  // Vendors — serve cache instantly, subscribe for live updates
+  useEffect(() => {
+    vendorsResolvedRef.current = false;
+    const cached = getCache<DanVendor[]>("dan_approved_vendors");
+    if (cached) {
+      setApprovedVendors([...cached].sort(() => Math.random() - 0.5).slice(0, 3));
+      setVendorsLoading(false);
+      vendorsResolvedRef.current = true;
+    }
+    return subscribeApprovedVendors((vendors) => {
+      setCache("dan_approved_vendors", vendors);
+      setApprovedVendors([...vendors].sort(() => Math.random() - 0.5).slice(0, 3));
+      setVendorsError(false);
+      if (!vendorsResolvedRef.current) { setVendorsLoading(false); vendorsResolvedRef.current = true; }
+    });
+  }, []);
+
+  // Gallery — serve cache instantly, subscribe for live updates
+  useEffect(() => {
+    const cached = getCache<DanGalleryItem[]>("dan_gallery");
+    if (cached) setGalleryItems(cached);
+    return subscribeGalleryItems((items) => {
+      setGalleryItems(items);
+      setCache("dan_gallery", items);
+    });
+  }, []);
+
+  // Cursor spotlight — direct DOM write for zero re-renders
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      if (cursorRef.current) {
+        cursorRef.current.style.left = `${e.clientX - 250}px`;
+        cursorRef.current.style.top = `${e.clientY - 250}px`;
+      }
+    };
+    window.addEventListener("mousemove", move, { passive: true });
+    return () => window.removeEventListener("mousemove", move);
   }, []);
 
   useEffect(() => {
@@ -451,6 +673,46 @@ export default function Home() {
     // loadFollowers();
   }, []);
 
+  // Pick 3 diverse gallery items (round-robin across events)
+  const galleryPreview = useMemo(() => {
+    if (galleryItems.length === 0) return [];
+    const byEvent: Record<string, DanGalleryItem[]> = {};
+    galleryItems.forEach((item) => {
+      if (!byEvent[item.eventId]) byEvent[item.eventId] = [];
+      byEvent[item.eventId].push(item);
+    });
+    const groups = Object.values(byEvent).map((arr) =>
+      [...arr].sort(() => Math.random() - 0.5),
+    );
+    const result: DanGalleryItem[] = [];
+    let i = 0;
+    while (result.length < 3 && groups.some((g) => g.length > 0)) {
+      const group = groups[i % groups.length];
+      if (group.length > 0) result.push(group.shift()!);
+      i++;
+    }
+    return result;
+  }, [galleryItems]);
+
+  // Photos only for the mobile swipeable stack (up to 10)
+  const mobileGalleryPhotos = useMemo(
+    () =>
+      [...galleryItems.filter((item) => item.type === "photo")]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 10),
+    [galleryItems],
+  );
+
+  // Up to 6 random photos for the IG placeholder grid
+  const galleryIgPhotos = useMemo(
+    () =>
+      [...galleryItems]
+        .filter((i) => i.type === "photo")
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 6),
+    [galleryItems],
+  );
+
   if (isLoading) return <Loader />;
 
   return (
@@ -459,6 +721,19 @@ export default function Home() {
       <div className="fixed inset-0 z-0 w-full">
         <Antigravity color="#00FF41" />
       </div>
+
+      {/* Cursor spotlight glow — follows mouse, no re-renders */}
+      <div
+        ref={cursorRef}
+        className="fixed pointer-events-none"
+        style={{
+          zIndex: 2,
+          width: 500,
+          height: 500,
+          background:
+            "radial-gradient(circle, rgba(0,255,65,0.06) 0%, transparent 70%)",
+        }}
+      />
 
       {/* ──────────────────────────────────────────
           HERO  — pointer-events-none lets Antigravity
@@ -583,12 +858,17 @@ export default function Home() {
         </motion.div>
       </section>
 
+      {/* Neon ticker after hero */}
+      <div className="relative z-10">
+        <NeonMarquee />
+      </div>
+
       {/* ──────────────────────────────────────────
           STATS  (real numbers from Edition 1)
          ────────────────────────────────────────── */}
       <SectionFadeIn>
-        <section className="relative z-10 px-4 sm:px-8 lg:px-24 py-14 bg-black/88">
-          <div className="max-w-5xl mx-auto grid grid-cols-2 gap-5">
+        <section className="relative z-10 px-4 sm:px-8 lg:px-24 py-7 bg-black/88">
+          <div className="max-w-5xl mx-auto grid md:grid-cols-3 grid-cols-3 gap-5">
             {stats.map((item, i) => (
               <motion.div
                 key={item.label}
@@ -596,14 +876,14 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.12, duration: 0.5 }}
-                className="relative overflow-hidden rounded-2xl border bg-linear-to-br from-[#0e0e0e] to-[#040404] px-6 py-10 text-center"
-                style={{
-                  borderColor: item.color,
-                  boxShadow: `0 0 25px ${item.glow}, inset 0 0 25px ${item.glow}`,
-                }}
+                className="relative overflow-hidden rounded-2xl bg-transparent from-[#0e0e0e] to-[#040404] px-2 py-3 text-center"
+                // style={{
+                //   borderColor: item.color,
+                //   boxShadow: `0 0 25px ${item.glow}, inset 0 0 25px ${item.glow}`,
+                // }}
               >
                 <div
-                  className="text-5xl md:text-6xl font-bold"
+                  className="text-4xl md:text-6xl font-bold"
                   style={{
                     color: item.color,
                     textShadow: `0 0 20px ${item.color}`,
@@ -615,7 +895,7 @@ export default function Home() {
                     color={item.color}
                   />
                 </div>
-                <div className="mt-3 text-gray-400 text-sm tracking-widest uppercase">
+                <div className="mt-3 text-gray-400 text-[10px] md:text-sm tracking-widest uppercase">
                   {item.label}
                 </div>
               </motion.div>
@@ -627,21 +907,24 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.38, duration: 0.5 }}
-              className="relative overflow-hidden rounded-2xl border bg-linear-to-br from-[#0e0e0e] to-[#040404] px-6 py-10 text-center"
-              style={{
-                borderColor: "#FFFF00",
-                boxShadow:
-                  "0 0 25px rgba(255,255,0,0.25), inset 0 0 25px rgba(255,255,0,0.1)",
-              }}
+              className="relative overflow-hidden rounded-2xl bg-transparent from-[#0e0e0e] to-[#040404] px-2 py-3 text-center"
+              // style={{
+              //   borderColor: "#FFFF00",
+              //   boxShadow:
+              //     "0 0 25px rgba(255,255,0,0.25), inset 0 0 25px rgba(255,255,0,0.1)",
+              // }}
             >
               <div
-                className="text-5xl md:text-6xl font-bold"
-                style={{ color: "#FFFF00", textShadow: "0 0 20px #FFFF00" }}
+                className="text-4xl md:text-6xl font-bold"
+                style={{
+                  color: "#FF3333",
+                  textShadow: "0 0 20px rgba(255,51,51,0.25)",
+                }}
               >
                 {followers ?? "20K+"}
               </div>
-              <div className="mt-3 text-gray-400 text-sm tracking-widest uppercase">
-                Instagram Followers
+              <div className="mt-3 text-gray-400 text-[10px] md:text-sm tracking-widest uppercase">
+                Followers
               </div>
             </motion.div>
           </div>
@@ -670,176 +953,208 @@ export default function Home() {
                 Secure your spot before it sells out
               </p>
 
-              <div className="space-y-6 md:flex md:flex-row flex-col gap-10 justify">
-                {activeEvents.map((ev, i) => {
-                  const accentColors = ["#FFFF00", "#FF3333", "#00FF41"];
-                  const accentGlows = [
-                    "rgba(255,255,0,0.5)",
-                    "rgba(255,51,51,0.5)",
-                    "rgba(0,255,65,0.5)",
-                  ];
-                  const c = accentColors[i % accentColors.length];
-                  const g = accentGlows[i % accentGlows.length];
-                  const evDate = ev.date?.toDate();
-                  const dateStr = evDate
-                    ? evDate.toLocaleDateString("en-NG", {
-                        weekday: "long",
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })
-                    : "Date TBA";
-                  const timeStr = evDate
-                    ? evDate.toLocaleTimeString("en-NG", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: true,
-                      })
-                    : "";
-                  const remaining = Math.max(
-                    0,
-                    ev.totalTickets - ev.soldTickets,
-                  );
-                  const soldPct =
+              <div className="space-y-6">
+                {activeEvents.map((ev) => {
+                  const evDate = ev.date?.toDate?.()?.toLocaleDateString("en-NG", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  });
+                  const evTime = ev.date?.toDate?.()?.toLocaleTimeString("en-NG", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                  const sold = soldByEvent[ev.id ?? ""] ?? ev.soldTickets ?? 0;
+                  const remaining = ev.totalTickets - sold;
+                  const pct =
                     ev.totalTickets > 0
-                      ? Math.min(
-                          100,
-                          Math.round((ev.soldTickets / ev.totalTickets) * 100),
-                        )
+                      ? Math.round((sold / ev.totalTickets) * 100)
                       : 0;
+                  const soldOut = remaining <= 0;
 
                   return (
                     <motion.div
                       key={ev.id}
-                      className="relative rounded-2xl border overflow-hidden md:h-[50vh] "
+                      className="relative rounded-2xl border overflow-hidden flex flex-col md:flex-row"
                       style={{
-                        borderColor: `${c}40`,
-                        boxShadow: `0 0 40px ${g}15`,
-                        background: "linear-gradient(135deg, #080808, #030303)",
+                        borderColor: "rgba(255,255,0,0.25)",
+                        background: "linear-gradient(135deg, #090909, #040404)",
+                        boxShadow: "0 0 30px rgba(255,255,0,0.06)",
                       }}
-                      initial={{ opacity: 0, y: 30 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: i * 0.1, duration: 0.6 }}
+                      whileHover={{
+                        borderColor: "rgba(255,255,0,0.5)",
+                        boxShadow: "0 0 40px rgba(255,255,0,0.12)",
+                      }}
                     >
-                      {/* Event image banner */}
-                      {ev.imageUrl && (
-                        <div className="relative h-48 sm:h-56 overflow-hidden">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={ev.imageUrl}
-                            alt={ev.title}
-                            className="w-full h-full object-cover"
-                          />
-                          <div
-                            className="absolute inset-0"
-                            style={{
-                              background:
-                                "linear-gradient(to bottom, transparent 40%, #080808 100%)",
-                            }}
-                          />
-                        </div>
-                      )}
-
                       {/* Corner accents */}
                       <span
-                        className="absolute top-0 left-0 w-10 h-10 pointer-events-none"
-                        style={{
-                          borderTop: `2px solid ${c}`,
-                          borderLeft: `2px solid ${c}`,
-                        }}
+                        className="absolute top-0 left-0 w-8 h-8 z-10"
+                        style={{ borderTop: "2px solid #FFFF00", borderLeft: "2px solid #FFFF00" }}
                       />
                       <span
-                        className="absolute bottom-0 right-0 w-10 h-10 pointer-events-none"
-                        style={{
-                          borderBottom: `2px solid ${c}`,
-                          borderRight: `2px solid ${c}`,
-                        }}
+                        className="absolute bottom-0 right-0 w-8 h-8 z-10"
+                        style={{ borderBottom: "2px solid #FFFF00", borderRight: "2px solid #FFFF00" }}
                       />
 
-                      <div className="p-6 md:p-8 grid md:grid-cols-[1fr_auto] gap-6 items-center">
-                        {/* Left: event info */}
-                        <div className="space-y-4">
+                      {/* Image — full width mobile, full-height left column desktop */}
+                      <div className="relative h-64 sm:h-72 md:h-auto md:w-2/5 lg:w-[45%] flex-shrink-0 overflow-hidden">
+                        {ev.imageUrl ? (
+                          <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={ev.imageUrl}
+                              alt={ev.title}
+                              className="absolute inset-0 w-full h-full object-cover object-center"
+                            />
+                            <div
+                              className="absolute inset-0 md:hidden"
+                              style={{ background: "linear-gradient(to bottom, transparent 45%, #090909 100%)" }}
+                            />
+                            <div
+                              className="absolute inset-0 hidden md:block"
+                              style={{ background: "linear-gradient(to right, transparent 55%, #090909 100%)" }}
+                            />
+                          </>
+                        ) : (
+                          <div
+                            className="w-full h-full min-h-[200px]"
+                            style={{ background: "radial-gradient(ellipse at center, rgba(255,255,0,0.08), #030303)" }}
+                          />
+                        )}
+                      </div>
+
+                      {/* Content panel */}
+                      <div className="flex-1 flex flex-col gap-4 p-6 md:p-8">
+                        {/* Title + meta */}
+                        <div>
                           <h3
-                            className="text-2xl md:text-4xl font-bold uppercase tracking-wide"
-                            style={{ color: c, textShadow: `0 0 20px ${g}` }}
+                            className="text-2xl md:text-3xl font-bold uppercase tracking-wide"
+                            style={{ color: "#FFFF00", textShadow: "0 0 20px rgba(255,255,0,0.5)" }}
                           >
                             {ev.title}
                           </h3>
-
-                          <div className="flex flex-col sm:flex-row gap-3">
-                            <div className="flex items-center gap-2 text-gray-400 text-sm">
-                              <CalendarDays
-                                className="w-4 h-4 flex-shrink-0"
-                                style={{ color: c }}
-                              />
-                              <span>
-                                {dateStr}
-                                {timeStr && ` · ${timeStr}`}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-400 text-sm">
-                              <MapPin
-                                className="w-4 h-4 flex-shrink-0"
-                                style={{ color: c }}
-                              />
-                              <span>{ev.venue}</span>
-                            </div>
-                          </div>
-
-                          {/* Sold-out progress bar */}
-                          <div className="space-y-1.5 max-w-sm">
-                            <div className="flex justify-between text-xs text-gray-600">
-                              <span>
-                                {remaining > 0
-                                  ? `${remaining.toLocaleString()} ticket${remaining === 1 ? "" : "s"} left`
-                                  : "Sold out"}
-                              </span>
-                              <span>{soldPct}% sold</span>
-                            </div>
-                            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                              <div
-                                className="h-full rounded-full"
-                                style={{
-                                  width: `${soldPct}%`,
-                                  background: c,
-                                  boxShadow: `0 0 8px ${g}`,
-                                }}
-                              />
-                            </div>
-                          </div>
+                          <p className="text-gray-400 text-sm mt-1">
+                            {evDate}{evTime ? ` · ${evTime}` : ""}
+                          </p>
+                          <p className="text-gray-500 text-sm mt-0.5 flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 flex-shrink-0" /> {ev.venue}
+                          </p>
                         </div>
 
-                        {/* Right: price + CTA */}
-                        <div className="flex flex-col items-start md:items-end gap-4">
-                          <div className="md:text-right">
-                            <p className="text-gray-600 text-xs uppercase tracking-widest">
-                              From
+                        {/* Countdown */}
+                        {ev.date?.toDate?.() && (
+                          <div>
+                            <p className="text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
+                              Happening in
                             </p>
-                            <p
-                              className="text-3xl font-bold"
-                              style={{ color: c, textShadow: `0 0 15px ${g}` }}
-                            >
-                              ₦{ev.ticketPrice.toLocaleString("en-NG")}
-                            </p>
+                            <CardCountdown targetDate={ev.date.toDate()} />
                           </div>
-                          <Link href="/event" className="pointer-events-auto">
-                            <motion.button
-                              className="px-6 py-3 rounded-full font-bold uppercase tracking-widest text-sm"
-                              style={{
-                                background: c,
-                                color: "#000",
-                                boxShadow: `0 0 20px ${g}`,
-                              }}
-                              whileHover={{
-                                scale: 1.04,
-                                boxShadow: `0 0 35px ${g}`,
-                              }}
-                              whileTap={{ scale: 0.97 }}
-                            >
-                              Get Tickets →
-                            </motion.button>
-                          </Link>
+                        )}
+
+                        {/* Description */}
+                        {ev.description && (
+                          <p className="text-gray-400 text-sm leading-relaxed">
+                            {ev.description}
+                          </p>
+                        )}
+
+                        {/* Highlights */}
+                        {ev.highlights?.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {ev.highlights.map((h) => (
+                              <span
+                                key={h}
+                                className="text-xs px-3 py-1 rounded-full border"
+                                style={{ borderColor: "rgba(255,255,0,0.2)", color: "rgba(255,255,0,0.7)" }}
+                              >
+                                {h}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Pricing + CTA */}
+                        <div className="mt-auto pt-2 space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                            {ev.ticketTypes && ev.ticketTypes.length > 0 ? (
+                              <div className="flex-1">
+                                <p className="text-gray-600 text-xs uppercase tracking-widest mb-2">
+                                  Ticket Types
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {ev.ticketTypes.map((tier, tierIdx) => (
+                                    <div
+                                      key={`${ev.id}-${tier.name}-${tierIdx}`}
+                                      className="flex flex-col items-start px-3 py-2 rounded-xl border"
+                                      style={{
+                                        borderColor: "rgba(255,255,0,0.25)",
+                                        background: "rgba(255,255,0,0.05)",
+                                      }}
+                                    >
+                                      <span
+                                        className="text-[10px] font-bold uppercase tracking-widest"
+                                        style={{ color: "#FFFF00" }}
+                                      >
+                                        {tier.name}
+                                      </span>
+                                      <span className="text-base font-bold text-white">
+                                        ₦{tier.price.toLocaleString()}
+                                      </span>
+                                      {tier.limit != null && (
+                                        <span className="text-[9px] text-gray-600 uppercase tracking-widest">
+                                          {tier.limit} slots
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="text-gray-600 text-xs uppercase tracking-widest">
+                                  Price per ticket
+                                </p>
+                                <p className="text-2xl font-bold" style={{ color: "#FFFF00" }}>
+                                  ₦{ev.ticketPrice.toLocaleString()}
+                                </p>
+                              </div>
+                            )}
+
+                            <Link href="/event">
+                              <motion.button
+                                disabled={soldOut}
+                                className="w-full sm:w-auto px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm flex-shrink-0"
+                                style={{
+                                  background: soldOut ? "transparent" : "#FFFF00",
+                                  color: soldOut ? "#666" : "#000",
+                                  border: soldOut ? "2px solid #333" : "2px solid #FFFF00",
+                                  boxShadow: soldOut ? "none" : "0 0 20px rgba(255,255,0,0.4)",
+                                  cursor: soldOut ? "not-allowed" : "pointer",
+                                }}
+                                whileHover={!soldOut ? { scale: 1.03 } : {}}
+                                whileTap={!soldOut ? { scale: 0.97 } : {}}
+                              >
+                                {soldOut ? "Sold Out" : "Get Tickets →"}
+                              </motion.button>
+                            </Link>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span style={{ color: pct >= 90 ? "#FF3333" : "rgba(255,255,255,0.4)" }}>
+                                {pct}% sold
+                              </span>
+                              <span className="text-gray-600">{remaining} remaining</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all duration-700"
+                                style={{ width: `${pct}%`, background: pct >= 90 ? "#FF3333" : "#FFFF00" }}
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </motion.div>
@@ -976,62 +1291,63 @@ export default function Home() {
                 {approvedVendors.map((vendor, i) => {
                   const palette = VENDOR_PALETTE[i % VENDOR_PALETTE.length];
                   return (
-                    <motion.div
-                      key={vendor.id ?? vendor.brandName}
-                      className="relative group rounded-2xl overflow-hidden border"
-                      style={{
-                        borderColor: `${palette.color}25`,
-                        boxShadow: `0 0 15px ${palette.glow}10`,
-                      }}
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: i * 0.05, duration: 0.4 }}
-                      whileHover={{
-                        borderColor: palette.color,
-                        boxShadow: `0 0 35px ${palette.glow}`,
-                      }}
-                    >
-                      <VendorImageSlideshow
-                        images={
-                          vendor.imageUrls?.length
-                            ? vendor.imageUrls
-                            : vendor.imageUrl
-                              ? [vendor.imageUrl]
-                              : []
-                        }
-                        alt={vendor.brandName}
-                        palette={palette}
-                      />
-                      <div className="p-5 bg-[#070707]">
-                        <h3
-                          className="text-xl font-bold uppercase tracking-wide"
-                          style={{
-                            color: palette.color,
-                            textShadow: `0 0 12px ${palette.glow}`,
-                          }}
-                        >
-                          {vendor.brandName}
-                        </h3>
-                        <div className="flex flex-wrap gap-1.5 mt-1.5 mb-3">
-                          {vendorCategoryList(vendor).map((cat) => (
-                            <span
-                              key={cat}
-                              className="text-[9px] px-2 py-0.5 rounded-full border uppercase tracking-wide font-bold"
-                              style={{
-                                borderColor: `${palette.color}35`,
-                                color: `${palette.color}90`,
-                              }}
-                            >
-                              {cat}
-                            </span>
-                          ))}
+                    <TiltCard key={vendor.id ?? vendor.brandName}>
+                      <motion.div
+                        className="relative group rounded-2xl overflow-hidden border"
+                        style={{
+                          borderColor: `${palette.color}25`,
+                          boxShadow: `0 0 15px ${palette.glow}10`,
+                        }}
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: i * 0.05, duration: 0.4 }}
+                        whileHover={{
+                          borderColor: palette.color,
+                          boxShadow: `0 0 35px ${palette.glow}`,
+                        }}
+                      >
+                        <VendorImageSlideshow
+                          images={
+                            vendor.imageUrls?.length
+                              ? vendor.imageUrls
+                              : vendor.imageUrl
+                                ? [vendor.imageUrl]
+                                : []
+                          }
+                          alt={vendor.brandName}
+                          palette={palette}
+                        />
+                        <div className="p-5 bg-[#070707]">
+                          <h3
+                            className="text-xl font-bold uppercase tracking-wide"
+                            style={{
+                              color: palette.color,
+                              textShadow: `0 0 12px ${palette.glow}`,
+                            }}
+                          >
+                            {vendor.brandName}
+                          </h3>
+                          <div className="flex flex-wrap gap-1.5 mt-1.5 mb-3">
+                            {getVendorCategories(vendor).map((cat) => (
+                              <span
+                                key={cat}
+                                className="text-[9px] px-2 py-0.5 rounded-full border uppercase tracking-wide font-bold"
+                                style={{
+                                  borderColor: `${palette.color}35`,
+                                  color: `${palette.color}90`,
+                                }}
+                              >
+                                {cat}
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-gray-400 text-sm leading-relaxed line-clamp-2">
+                            {vendor.description}
+                          </p>
                         </div>
-                        <p className="text-gray-400 text-sm leading-relaxed line-clamp-2">
-                          {vendor.description}
-                        </p>
-                      </div>
-                    </motion.div>
+                      </motion.div>
+                    </TiltCard>
                   );
                 })}
               </div>
@@ -1047,6 +1363,147 @@ export default function Home() {
           </div>
         </section>
       </SectionFadeIn>
+
+      {/* Neon ticker before gallery */}
+      <div className="relative z-10">
+        <NeonMarquee />
+      </div>
+
+      {/* ──────────────────────────────────────────
+          GALLERY PREVIEW (3 random cards)
+         ────────────────────────────────────────── */}
+      {galleryPreview.length > 0 && (
+        <SectionFadeIn>
+          <section className="relative z-10 pt-10 pb-2 px-6 md:px-16 bg-black/72 border-t border-white/5">
+            <div className="max-w-6xl mx-auto">
+              <div className="text-center mb-12">
+                <p
+                  className="text-[10px] tracking-[0.6em] uppercase mb-2"
+                  style={{ color: "#FFFF00" }}
+                >
+                  The Moments
+                </p>
+                <motion.h2
+                  className="text-4xl md:text-6xl uppercase tracking-wider"
+                  style={{
+                    color: "transparent",
+                    WebkitTextStroke: "2px #FFFF00",
+                    textShadow:
+                      "0 0 20px rgba(255,255,0,0.5), 0 0 45px rgba(255,255,0,0.3)",
+                  }}
+                >
+                  In The Gallery
+                </motion.h2>
+              </div>
+
+              {/* Mobile: swipeable stacked cards (photos only, up to 10) */}
+              {mobileGalleryPhotos.length > 0 && (
+                <div className="block sm:hidden pointer-events-auto mb-8">
+                  <StackedGalleryMobile items={mobileGalleryPhotos} />
+                </div>
+              )}
+
+              {/* Desktop: 3-col grid */}
+              <div className="hidden sm:grid grid-cols-3 gap-4 pointer-events-auto">
+                {galleryPreview.map((item, i) => {
+                  const accent = ["#FFFF00", "#FF3333", "#00FF41"][i % 3];
+                  const accentGlow = [
+                    "rgba(255,255,0,0.35)",
+                    "rgba(255,51,51,0.35)",
+                    "rgba(0,255,65,0.35)",
+                  ][i % 3];
+                  return (
+                    <Link key={item.id} href={`/gallery?event=${item.eventId}`}>
+                      <motion.div
+                        className="group relative rounded-2xl overflow-hidden border aspect-[3/4] cursor-pointer"
+                        style={{ borderColor: `${accent}25` }}
+                        initial={{ opacity: 0, y: 24 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: i * 0.12, duration: 0.55 }}
+                        whileHover={{
+                          borderColor: accent,
+                          boxShadow: `0 0 40px ${accentGlow}`,
+                          y: -4,
+                        }}
+                      >
+                        {item.type === "video" ? (
+                          // eslint-disable-next-line jsx-a11y/media-has-caption
+                          <video
+                            src={item.src}
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                            muted
+                            loop
+                            playsInline
+                            autoPlay
+                          />
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={item.src}
+                            alt={item.caption}
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                          />
+                        )}
+                        {/* gradient */}
+                        <div
+                          className="absolute inset-0"
+                          style={{
+                            background:
+                              "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.35) 45%, transparent 100%)",
+                          }}
+                        />
+                        {/* info on card */}
+                        <div className="absolute bottom-0 left-0 right-0 p-4">
+                          <p
+                            className="text-[9px] tracking-[0.4em] uppercase mb-1 font-bold"
+                            style={{
+                              color: accent,
+                              textShadow: `0 0 8px ${accentGlow}`,
+                            }}
+                          >
+                            {item.eventTitle}
+                          </p>
+                          {item.caption && (
+                            <p className="text-white/80 text-sm leading-snug line-clamp-2">
+                              {item.caption}
+                            </p>
+                          )}
+                        </div>
+                        {/* hover cta */}
+                        <div
+                          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                          style={{ background: `${accent}12` }}
+                        >
+                          <span
+                            className="px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest border"
+                            style={{
+                              borderColor: accent,
+                              color: accent,
+                              background: "rgba(0,0,0,0.75)",
+                              boxShadow: `0 0 15px ${accentGlow}`,
+                            }}
+                          >
+                            View Event →
+                          </span>
+                        </div>
+                      </motion.div>
+                    </Link>
+                  );
+                })}
+              </div>
+
+              <div className="flex justify-center mt-10 pointer-events-auto">
+                <Link href="/gallery">
+                  <NeonButton color="#FFFF00" glowColor="rgba(255,255,0,0.55)">
+                    See The Full Gallery →
+                  </NeonButton>
+                </Link>
+              </div>
+            </div>
+          </section>
+        </SectionFadeIn>
+      )}
 
       {/* ──────────────────────────────────────────
           TESTIMONIALS (live from Firestore)
@@ -1066,76 +1523,136 @@ export default function Home() {
       {/* ──────────────────────────────────────────
           SPONSORS & PARTNERS
          ────────────────────────────────────────── */}
-      <SectionFadeIn>
-        <section className="relative z-10 pt-10 pb-5 px-6 md:px-16 bg-black/80">
-          <div className="max-w-5xl mx-auto text-center">
-            <motion.h2
-              className="text-4xl md:text-6xl uppercase tracking-wider mb-4"
-              style={{
-                color: "transparent",
-                WebkitTextStroke: "2px #00FF41",
-                textShadow:
-                  "0 0 20px rgba(0,255,65,0.5), 0 0 45px rgba(0,255,65,0.3)",
-              }}
-            >
-              Sponsors & Partners
-            </motion.h2>
-            <p className="text-gray-500 mb-14 text-base tracking-widest uppercase">
-              Proudly supported by
-            </p>
+      {(() => {
+        const allSponsors = [...activeEvents, ...pastEvents]
+          .flatMap((ev) => ev.sponsors ?? [])
+          .filter(
+            (sp, idx, arr) => arr.findIndex((s) => s.name === sp.name) === idx,
+          );
+        if (allSponsors.length === 0) return null;
+        const colors = ["#FFFF00", "#00FF41", "#FF3333", "#FFFF00"];
+        const glows = [
+          "rgba(255,255,0,0.5)",
+          "rgba(0,255,65,0.5)",
+          "rgba(255,51,51,0.5)",
+          "rgba(255,255,0,0.5)",
+        ];
+        const useMarquee = isMobile || allSponsors.length > 4;
+        const marqueeDuration = allSponsors.length * (isMobile ? 2 : 5);
 
-            {eventSponsors.length === 0 ? (
-              <p className="text-gray-700 text-sm text-center tracking-widest uppercase">
-                Sponsor announcements coming soon
-              </p>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-8 items-center justify-items-center">
-                {eventSponsors.map((sponsor, i) => {
-                  const accent = SPONSOR_COLORS[i % SPONSOR_COLORS.length];
-                  return (
-                    <motion.div
-                      key={sponsor.name}
-                      className="pointer-events-auto"
-                      initial={{ opacity: 0, scale: 0.85 }}
-                      whileInView={{ opacity: 1, scale: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: i * 0.12, duration: 0.5 }}
-                      whileHover={{ scale: 1.06 }}
+        const SponsorCard = ({
+          sp,
+          i,
+        }: {
+          sp: { name: string; logoUrl?: string };
+          i: number;
+        }) => {
+          const c = colors[i % colors.length];
+          const g = glows[i % glows.length];
+          return (
+            <motion.div
+              className="w-36 h-20 md:w-44 md:h-24 flex items-center justify-center rounded-lg overflow-hidden p-3 flex-shrink-0"
+              style={{
+                border: `1.5px solid ${c}`,
+                boxShadow: `0 0 18px ${g}, inset 0 0 12px ${g}20`,
+              }}
+              whileHover={{ scale: 1.05 }}
+            >
+              {sp.logoUrl ? (
+                <div className="flex flex-col items-center justify-center gap-1.5 w-full h-full">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={sp.logoUrl}
+                    alt={sp.name}
+                    className={`max-w-full object-contain ${sp.name ? "max-h-[65%]" : "max-h-full"}`}
+                  />
+                  {sp.name && (
+                    <span
+                      className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-center leading-tight"
+                      style={{ color: c, textShadow: `0 0 12px ${g}` }}
                     >
-                      <div
-                        className="w-40 h-24 md:w-48 md:h-28 flex items-center justify-center rounded-lg overflow-hidden p-3"
-                        style={{
-                          border: `1.5px solid ${accent.color}`,
-                          boxShadow: `0 0 20px ${accent.glow}, inset 0 0 15px ${accent.glow}20`,
-                        }}
-                      >
-                        {sponsor.logoUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={sponsor.logoUrl}
-                            alt={sponsor.name}
-                            className="max-h-full max-w-full object-contain"
-                          />
-                        ) : (
-                          <span
-                            className="text-lg md:text-xl font-bold uppercase tracking-wider"
-                            style={{
-                              color: accent.color,
-                              textShadow: `0 0 20px ${accent.glow}`,
-                            }}
-                          >
-                            {sponsor.name}
-                          </span>
-                        )}
-                      </div>
-                    </motion.div>
-                  );
-                })}
+                      {sp.name}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <span
+                  className="text-lg md:text-xl font-bold uppercase tracking-wider"
+                  style={{ color: c, textShadow: `0 0 20px ${g}` }}
+                >
+                  {sp.name}
+                </span>
+              )}
+            </motion.div>
+          );
+        };
+
+        return (
+          <SectionFadeIn>
+            <section className="relative z-10 py-14 px-6 md:px-16 bg-black/80 border-t border-white/5">
+              <div className="max-w-5xl mx-auto text-center mb-10">
+                <motion.h2
+                  className="text-4xl md:text-6xl uppercase tracking-wider mb-4"
+                  style={{
+                    color: "transparent",
+                    WebkitTextStroke: "2px #00FF41",
+                    textShadow:
+                      "0 0 20px rgba(0,255,65,0.5), 0 0 45px rgba(0,255,65,0.3)",
+                  }}
+                >
+                  Sponsors & Partners
+                </motion.h2>
+                <p className="text-gray-500 text-sm tracking-widest uppercase">
+                  Proudly supported by
+                </p>
               </div>
-            )}
-          </div>
-        </section>
-      </SectionFadeIn>
+
+              {useMarquee ? (
+                <div className="relative overflow-hidden -mx-6 md:-mx-16">
+                  <div
+                    className="pointer-events-none absolute inset-y-0 left-0 w-20 z-10"
+                    style={{
+                      background:
+                        "linear-gradient(to right, #000 0%, transparent 100%)",
+                    }}
+                  />
+                  <div
+                    className="pointer-events-none absolute inset-y-0 right-0 w-20 z-10"
+                    style={{
+                      background:
+                        "linear-gradient(to left, #000 0%, transparent 100%)",
+                    }}
+                  />
+                  <motion.div
+                    className="flex gap-6"
+                    style={{ width: "max-content" }}
+                    animate={{ x: ["0%", "-50%"] }}
+                    transition={{
+                      duration: marqueeDuration,
+                      ease: "linear",
+                      repeat: Infinity,
+                    }}
+                  >
+                    {[...allSponsors, ...allSponsors].map((sp, i) => (
+                      <SponsorCard
+                        key={`${i}-${sp.name}`}
+                        sp={sp}
+                        i={i % allSponsors.length}
+                      />
+                    ))}
+                  </motion.div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-center gap-6">
+                  {allSponsors.map((sp, i) => (
+                    <SponsorCard key={sp.name} sp={sp} i={i} />
+                  ))}
+                </div>
+              )}
+            </section>
+          </SectionFadeIn>
+        );
+      })()}
 
       {/* ──────────────────────────────────────────
           INSTAGRAM FEED
@@ -1168,24 +1685,39 @@ export default function Home() {
               @dineatnight.ng on Instagram
             </p>
 
-            {/* Placeholder grid — replace with live posts once IG API is connected */}
+            {/* Gallery photos when available, placeholder otherwise */}
             <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-12">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <motion.div
-                  key={i}
-                  className="aspect-square bg-[#0a0a0a] border border-white/8 rounded-sm overflow-hidden flex items-center justify-center group cursor-pointer pointer-events-auto"
-                  whileHover={{
-                    borderColor: "#FFFF00",
-                    boxShadow: "0 0 20px rgba(255,255,0,0.3)",
-                  }}
-                  initial={{ opacity: 0, scale: 0.88 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.07, duration: 0.4 }}
-                >
-                  <Camera className="w-6 h-6 text-gray-800 group-hover:text-gray-600 transition-colors duration-300" />
-                </motion.div>
-              ))}
+              {Array.from({ length: 6 }).map((_, i) => {
+                const photo = galleryIgPhotos[i];
+                return (
+                  <motion.div
+                    key={i}
+                    className="aspect-square bg-[#0a0a0a] border border-white/8 rounded-sm overflow-hidden flex items-center justify-center group cursor-pointer pointer-events-auto relative"
+                    whileHover={{
+                      borderColor: "#FFFF00",
+                      boxShadow: "0 0 20px rgba(255,255,0,0.3)",
+                    }}
+                    initial={{ opacity: 0, scale: 0.88 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.07, duration: 0.4 }}
+                  >
+                    {photo ? (
+                      <>
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={photo.src}
+                          alt=""
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
+                        <div className="absolute inset-0 bg-black/25 group-hover:bg-black/0 transition-colors duration-300" />
+                      </>
+                    ) : (
+                      <Camera className="w-6 h-6 text-gray-800 group-hover:text-gray-600 transition-colors duration-300" />
+                    )}
+                  </motion.div>
+                );
+              })}
             </div>
 
             <div className="pointer-events-auto flex justify-center">
@@ -1287,177 +1819,8 @@ export default function Home() {
       {/* ──────────────────────────────────────────
           FOOTER
          ────────────────────────────────────────── */}
-      <footer className="relative z-10 bg-black/95 border-t border-gray-800/60">
-        <div className="max-w-6xl mx-auto px-6 md:px-16 py-16 grid grid-cols-1 md:grid-cols-3 gap-12">
-          {/* Brand */}
-          <div className="flex flex-col gap-5">
-            <Image
-              src={logo}
-              alt="Dine At Night"
-              width={80}
-              height={80}
-              className="object-contain"
-            />
-            <p className="text-gray-600 text-sm leading-relaxed max-w-xs">
-              Lagos&apos; first nighttime food market. Where food meets culture
-              under neon lights.
-            </p>
-            <p className="text-gray-700 text-xs">
-              Powered by <span className="text-gray-500">Those Who Dine</span>
-            </p>
-          </div>
 
-          {/* Quick Links */}
-          <div>
-            <h4
-              className="text-white font-bold uppercase tracking-[0.2em] mb-6 text-xs"
-              style={{ textShadow: "0 0 10px rgba(255,255,0,0.3)" }}
-            >
-              Quick Links
-            </h4>
-            <ul className="space-y-3">
-              {[
-                { label: "Home", href: "/home" },
-                { label: "Events", href: "/event" },
-                { label: "Vendors", href: "/vendors" },
-                { label: "About", href: "/aboutUs" },
-                { label: "Shop", href: "/shop" },
-                { label: "Gallery", href: "/gallery" },
-                { label: "Contact", href: "/contact" },
-              ].map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="text-gray-500 hover:text-[#00FF41] transition-colors duration-300 text-sm tracking-wide"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Connect */}
-          <div>
-            <h4
-              className="text-white font-bold uppercase tracking-[0.2em] mb-6 text-xs"
-              style={{ textShadow: "0 0 10px rgba(0,255,65,0.3)" }}
-            >
-              Connect
-            </h4>
-
-            {/*
-             * ASSET NEEDED: Replace "IG" / "TK" / "TW" text with proper
-             * SVG icons or import from lucide-react once you decide on the
-             * social platforms. Update the href values with real profile URLs.
-             */}
-            <div className="flex gap-3 mb-6">
-              {[
-                {
-                  label: "Instagram",
-                  icon: "IG",
-                  href: "https://www.instagram.com/dineatnight.ng/",
-                  color: "#FF3333",
-                  glow: "rgba(255,51,51,0.5)",
-                },
-                {
-                  label: "TikTok",
-                  icon: "TK",
-                  href: "https://tiktok.com/@dineatnight",
-                  color: "#FFFF00",
-                  glow: "rgba(255,255,0,0.5)",
-                },
-                {
-                  label: "Twitter / X",
-                  icon: "X",
-                  href: "https://twitter.com/dineatnight",
-                  color: "#00FF41",
-                  glow: "rgba(0,255,65,0.5)",
-                },
-              ].map((social) => (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={social.label}
-                  className="w-10 h-10 rounded-full border flex items-center justify-center text-xs font-bold tracking-wide transition-all duration-300"
-                  style={{
-                    borderColor: `${social.color}30`,
-                    color: `${social.color}60`,
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLAnchorElement).style.borderColor =
-                      social.color;
-                    (e.currentTarget as HTMLAnchorElement).style.color =
-                      social.color;
-                    (e.currentTarget as HTMLAnchorElement).style.boxShadow =
-                      `0 0 18px ${social.glow}`;
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLAnchorElement).style.borderColor =
-                      `${social.color}30`;
-                    (e.currentTarget as HTMLAnchorElement).style.color =
-                      `${social.color}60`;
-                    (e.currentTarget as HTMLAnchorElement).style.boxShadow =
-                      "none";
-                  }}
-                >
-                  {social.icon}
-                </a>
-              ))}
-            </div>
-
-            <div className="space-y-2">
-              {/*
-               * CONTENT NEEDED: Replace with actual contact email address.
-               */}
-              <p className="text-gray-600 text-sm">
-                <span className="text-gray-700">General: </span>
-                <a
-                  href="mailto:hello@dineatnight.com"
-                  className="hover:text-[#00FF41] transition-colors duration-300"
-                >
-                  hello@dineatnight.com
-                </a>
-              </p>
-              <p className="text-gray-600 text-sm">
-                <span className="text-gray-700">Sponsorship: </span>
-                <a
-                  href="mailto:sponsors@dineatnight.com"
-                  className="hover:text-[#FFFF00] transition-colors duration-300"
-                >
-                  sponsors@dineatnight.com
-                </a>
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom bar */}
-        <div className="border-t border-gray-800/40 px-6 md:px-16 py-5">
-          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p className="text-gray-700 text-xs">
-              © 2026 Dine At Night. All rights reserved.
-            </p>
-            <div className="flex gap-6">
-              <a
-                href="#"
-                className="text-gray-700 hover:text-gray-500 text-xs transition-colors"
-              >
-                Privacy Policy
-              </a>
-              <a
-                href="#"
-                className="text-gray-700 hover:text-gray-500 text-xs transition-colors"
-              >
-                Terms of Service
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
-
+      <Footer />
       {/* Vendor Application Modal */}
       <VendorModal
         isOpen={vendorModalOpen}

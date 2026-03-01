@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 import Navbar from "./_components/Navbar";
-// import Footer from "./_components/Footer";
-// import ScrollToTop from "./_components/ScrollToTop";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -11,7 +9,7 @@ const poppins = Poppins({
   weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
 });
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://dineatnight.com";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://dineatnight.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -88,10 +86,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${poppins.variable} antialiased`}>
-        {/* <ScrollToTop /> */}
         <Navbar />
         {children}
-        {/* <Footer /> */}
       </body>
     </html>
   );
