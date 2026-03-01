@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { Images } from "@/assets/images";
+import { useScrollLock } from "@/lib/useScrollLock";
 
 interface NavItem {
   label: string;
@@ -22,6 +23,7 @@ const NAV_ITEMS: NavItem[] = [
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  useScrollLock(isOpen);
 
   const pathname = usePathname();
   const router = useRouter();

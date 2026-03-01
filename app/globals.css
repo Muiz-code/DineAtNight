@@ -4,6 +4,14 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+html {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html::-webkit-scrollbar {
+  display: none;
+}
+
 body {
   font-family: "Space Grotesk", sans-serif;
   background: #000;

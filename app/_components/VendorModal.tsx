@@ -27,6 +27,7 @@ import {
   type VendorMenuItem,
 } from "@/lib/firestore";
 import { getCache, setCache } from "@/lib/cache";
+import { useScrollLock } from "@/lib/useScrollLock";
 
 interface VendorModalProps {
   isOpen: boolean;
@@ -122,6 +123,16 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const modalScrollRef = useRef<HTMLDivElement>(null);
+  const [modalProgress, setModalProgress] = useState(0);
+  useScrollLock(isOpen);
+
+  const handleModalScroll = () => {
+    const el = modalScrollRef.current;
+    if (!el) return;
+    const scrollable = el.scrollHeight - el.clientHeight;
+    setModalProgress(scrollable > 0 ? el.scrollTop / scrollable : 0);
+  };
 
   useEffect(() => {
     // Serve from cache immediately so the dropdown isn't empty on open
@@ -421,7 +432,8 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
           <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" />
 
           <motion.div
-            className="relative w-full sm:max-w-lg max-h-[93svh] sm:max-h-[88vh] overflow-y-auto bg-[#050505] border border-[#FFFF00]/25 sm:rounded-2xl rounded-t-3xl"
+            ref={modalScrollRef}
+            className="relative w-full sm:max-w-lg max-h-[93svh] sm:max-h-[88vh] overflow-y-auto scrollbar-hide bg-[#050505] border border-[#FFFF00]/25 sm:rounded-2xl rounded-t-3xl"
             style={{
               boxShadow:
                 "0 0 60px rgba(255,255,0,0.12), 0 0 120px rgba(255,255,0,0.05)",
@@ -431,7 +443,20 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 260 }}
             onClick={(e) => e.stopPropagation()}
+            onScroll={handleModalScroll}
           >
+            {/* Modal scroll progress bar */}
+            <div className="sticky top-0 left-0 w-full h-[3px] z-10 pointer-events-none">
+              <div
+                style={{
+                  width: `${modalProgress * 100}%`,
+                  height: "100%",
+                  background:
+                    "linear-gradient(to right, #FF3333, #FFFF00, #00FF41)",
+                  transition: "width 60ms linear",
+                }}
+              />
+            </div>
             <span
               className="absolute top-0 left-0 w-8 h-8 hidden sm:block pointer-events-none"
               style={{

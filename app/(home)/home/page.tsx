@@ -1704,7 +1704,7 @@ export default function Home() {
                   >
                     {photo ? (
                       <>
-                        // eslint-disable-next-line @next/next/no-img-element
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={photo.src}
                           alt=""

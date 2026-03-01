@@ -17,6 +17,7 @@ import {
   type DanEvent,
 } from "@/lib/firestore";
 import { getCache, setCache } from "@/lib/cache";
+import { useScrollLock } from "@/lib/useScrollLock";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
@@ -119,6 +120,7 @@ function TicketModal({
   soldCounts: Record<string, number>;
   onClose: () => void;
 }) {
+  useScrollLock(true);
   const [selectedId, setSelectedId] = useState(initialEvent.id ?? "");
   const event = events.find((e) => e.id === selectedId) ?? initialEvent;
   const soldCount = soldCounts[event.id ?? ""] ?? event.soldTickets ?? 0;
@@ -205,7 +207,7 @@ function TicketModal({
     >
       <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" />
       <motion.div
-        className="relative w-full sm:max-w-md max-h-[93svh] overflow-y-auto bg-[#050505] border border-[#FFFF00]/25 sm:rounded-2xl rounded-t-3xl"
+        className="relative w-full sm:max-w-md max-h-[93svh] overflow-y-auto scrollbar-hide bg-[#050505] border border-[#FFFF00]/25 sm:rounded-2xl rounded-t-3xl"
         style={{ boxShadow: "0 0 60px rgba(255,255,0,0.1)" }}
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
