@@ -83,6 +83,7 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
 
 # Paystack
 NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=
+PAYSTACK_SECRET_KEY=
 
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000/
@@ -130,11 +131,11 @@ Admin access is controlled by the `NEXT_PUBLIC_ADMIN_EMAILS` environment variabl
 ### Admin Features
 
 - **Dashboard** — Overview stats
-- **Events** — Create, edit, and delete events
-- **Vendors** — Review applications, approve or decline with reasons
+- **Events** — Create, edit, and delete events; toggle past/upcoming from the card
+- **Vendors** — Review applications, approve or decline with reasons; send status emails
 - **Gallery** — Upload and manage event photos
-- **Shop** — Add / edit / remove merchandise
-- **Orders** — View customer orders
+- **Shop** — Add / edit / remove merchandise with live stock tracking
+- **Orders** — View merch orders; manage delivery pipeline (Pending → Dispatched → Delivered / Returned); auto-restock on return; undo status changes
 - **Tickets** — View all tickets, export to Excel, scan QR codes for on-site check-in
 - **Testimonials** — Approve or remove customer testimonials
 
@@ -144,7 +145,7 @@ Admin access is controlled by the `NEXT_PUBLIC_ADMIN_EMAILS` environment variabl
 
 - **Vendor Applications** — Multi-step form with menu builder, image upload, and event selection
 - **Ticket System** — QR code generation per ticket; on-site scanning via camera
-- **Shop + Cart** — Paystack-powered checkout with order tracking
+- **Shop + Cart** — Live inventory (real-time Firestore), server-side stock validation, cart persists in localStorage, auto-removes sold-out items, Paystack checkout, delivery status tracking with customer email notifications
 - **Gallery Lightbox** — Full-screen image viewer with keyboard navigation
 - **Newsletter** — Email subscription with EmailJS welcome emails
 - **Scroll Progress Bar** — Brand-coloured (#FF3333 → #FFFF00 → #00FF41) progress indicator on all pages and modals

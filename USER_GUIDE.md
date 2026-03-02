@@ -179,7 +179,8 @@ The system recognises returning applicants by email. Your previous application i
 4. Look out for:
    - **🔥 Hot Pick** badge — the current best-seller
    - **Limited** badge — limited edition item, get it while it lasts
-   - Stock levels — items show "Out of Stock" when unavailable
+   - **Sold Out** pill — item is currently out of stock; hovering also shows "Out of Stock" in the overlay
+5. If someone else buys the last unit while you're browsing, sold-out items are **automatically removed from your cart** in real-time
 
 ### Adding to Cart
 
@@ -202,13 +203,23 @@ The system recognises returning applicants by email. Your previous application i
 5. You'll be redirected to a confirmation page with your **order summary**
 
 ### After Purchase
-- Your order appears in the **admin system** immediately
+- You're redirected to an **order confirmation page** with your full order summary
+- The confirmation page shows a **live delivery tracker** — check back at any time to see if your order is Pending, Dispatched, or Delivered
 - Our team will process and dispatch your order
-- You'll be contacted via the phone/email you provided when your order ships
-- Track delivery status updates through our social media DMs or contact page
+- You can return to your confirmation page at any time using the link in your order confirmation email
+
+### Tracking Your Delivery
+
+Your confirmation page (`/shop/verify?reference=...`) shows a progress bar:
+1. **Order Placed** — payment confirmed, order received
+2. **Dispatched** — your package is on its way
+3. **Delivered** — package received
+
+If your order is marked **Returned**, this is shown separately with an orange indicator.
 
 ### Notes
-- Cart items are **not saved** if you close or refresh the browser — complete your order in one session
+- Your cart is **saved to your browser** (localStorage) — it persists through page refreshes and browser restarts on the same device
+- If a product sells out while items are in your cart, those items are automatically removed
 - Prices are in **Nigerian Naira (₦)**
 - All prices shown are the final price (no additional Paystack fees to you)
 

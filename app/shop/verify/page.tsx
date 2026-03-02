@@ -12,6 +12,7 @@ import {
   Truck,
   CheckCircle2,
   PackageX,
+  type LucideIcon,
 } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -27,7 +28,7 @@ interface OrderSummary {
   total: number;
 }
 
-const STEPS: { key: DeliveryStatus; label: string; icon: React.ElementType }[] = [
+const STEPS: { key: DeliveryStatus; label: string; icon: LucideIcon }[] = [
   { key: "pending",    label: "Order Placed",  icon: Clock       },
   { key: "dispatched", label: "Dispatched",    icon: Truck       },
   { key: "delivered",  label: "Delivered",     icon: CheckCircle2 },

@@ -389,10 +389,11 @@ The product with the **highest number of units sold** (from live order data) aut
 
 ### Stock Management
 
-- Set `stock` to the actual number of units you have
-- The system does **not** automatically decrement stock on purchase — you must update this manually
-- When stock reaches 0 (or you toggle a product inactive), it becomes unavailable on the shop
-- `-1` = unlimited stock (no out-of-stock state)
+- Set `stock` to the total number of units you have
+- The system **automatically tracks sales** using a `soldCount` field — it increments on every successful purchase and decrements when an order is returned
+- Available units = `stock − soldCount`. When this reaches 0, the item shows "Sold Out" on the public shop and cannot be added to cart
+- `-1` = unlimited stock (never shows "Sold Out")
+- You should **not manually edit `soldCount`** — it is managed by the purchase and return flows automatically
 
 ---
 
@@ -432,6 +433,17 @@ Expand an order, then use the action buttons:
 | **Undo to Pending** | Reverse an action (requires a note explaining why) |
 
 > The **"Returned"** and **"Undo to Pending"** actions open a note modal. Always enter a reason — it's recorded in the status trail and visible to you later.
+
+### Stock Impact of Status Changes
+
+| Action | Stock Effect |
+|---|---|
+| Mark Dispatched | No change |
+| Mark Delivered | No change |
+| Mark Returned | Stock availability **restored** — items can be purchased again |
+| Undo to Pending (from Returned) | Stock availability **reduced again** — items return to sold state |
+
+This happens automatically. You do not need to manually adjust stock numbers when processing returns or undos.
 
 ### Status Trail (Audit Log)
 
