@@ -3,6 +3,7 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import Navbar from "./_components/Navbar";
 import ScrollProgressBar from "./_components/ScrollProgressBar";
+import { Analytics } from "@vercel/analytics/next";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -10,7 +11,9 @@ const poppins = Poppins({
   weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
 });
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://dineatnight.com";
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+  "https://dineatnight.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -90,6 +93,7 @@ export default function RootLayout({
         <ScrollProgressBar />
         <Navbar />
         {children}
+        <Analytics />
       </body>
     </html>
   );
