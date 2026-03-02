@@ -376,7 +376,7 @@ A: Make sure you're not on a very slow connection. Videos are streamed from exte
 - Wait 60 seconds (the form has a cooldown to prevent spam)
 - Check your internet connection
 - Try a different browser
-- If persistent, email us directly at hello@dineatnight.com
+- If persistent, email us directly at thecodehive.tch@gmail.com
 
 ---
 
