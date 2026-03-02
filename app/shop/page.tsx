@@ -111,7 +111,13 @@ export default function ShopPage() {
   const [products, setProducts] = useState<DanProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [activeCategory, setActiveCategory] = useState<Category>("all");
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = localStorage.getItem("dan_cart");
+      return saved ? (JSON.parse(saved) as CartItem[]) : [];
+    } catch { return []; }
+  });
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutState, setCheckoutState] = useState<CheckoutState>("idle");
@@ -128,7 +134,33 @@ export default function ShopPage() {
     null,
   );
   const [modalTilt, setModalTilt] = useState({ x: 0, y: 0 });
+  const [tooltipProductId, setTooltipProductId] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
   const resolvedRef = useRef(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  const showOutOfStockTooltip = (id: string) => {
+    setTooltipProductId(id);
+    setTimeout(() => setTooltipProductId(null), 1500);
+  };
+
+  // Persist cart to localStorage whenever it changes
+  useEffect(() => {
+    try { localStorage.setItem("dan_cart", JSON.stringify(cart)); } catch { /* ignore */ }
+  }, [cart]);
+
+  // Auto-remove sold-out items from cart whenever live product data updates
+  useEffect(() => {
+    if (!products.length) return;
+    setCart((prev) =>
+      prev.filter((item) => {
+        const product = products.find((p) => p.id === item.id);
+        if (!product || product.active === false) return false;
+        return product.stock === -1 || (product.stock - (product.soldCount ?? 0)) > 0;
+      }),
+    );
+  }, [products]);
 
   useEffect(() => {
     resolvedRef.current = false;
@@ -162,14 +194,24 @@ export default function ShopPage() {
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
 
+  /** Returns how many units are available to buy for a product. */
+  const availableStock = (product: DanProduct): number => {
+    if (product.stock === -1) return Infinity;
+    return Math.max(0, product.stock - (product.soldCount ?? 0));
+  };
+
   const addToCart = (product: DanProduct, e?: React.MouseEvent) => {
     e?.stopPropagation();
+    const maxStock = availableStock(product);
+    if (maxStock <= 0) return; // out of stock — silently block
     setCart((prev) => {
       const existing = prev.find((i) => i.id === product.id);
-      if (existing)
+      if (existing) {
+        if (existing.qty >= maxStock) return prev; // already at stock limit
         return prev.map((i) =>
           i.id === product.id ? { ...i, qty: i.qty + 1 } : i,
         );
+      }
       return [
         ...prev,
         { id: product.id!, name: product.name, price: product.price, qty: 1 },
@@ -181,28 +223,39 @@ export default function ShopPage() {
     setCart((prev) => prev.filter((i) => i.id !== id));
   };
 
-  const clearCart = () => setCart([]);
-
-  const updateQty = (id: string, delta: number) => {
-    setCart((prev) =>
-      prev
-        .map((i) => (i.id === id ? { ...i, qty: i.qty + delta } : i))
-        .filter((i) => i.qty > 0),
-    );
+  const clearCart = () => {
+    setCart([]);
+    try { localStorage.removeItem("dan_cart"); } catch { /* ignore */ }
   };
 
-  // Suggestions: same category first, then others, exclude selected, max 3
+  const updateQty = (id: string, delta: number) => {
+    setCart((prev) => {
+      const product = products.find((p) => p.id === id);
+      const maxStock = product ? availableStock(product) : Infinity;
+      return prev
+        .map((i) => {
+          if (i.id !== id) return i;
+          const newQty = i.qty + delta;
+          return { ...i, qty: Math.min(newQty, maxStock) };
+        })
+        .filter((i) => i.qty > 0);
+    });
+  };
+
+  // Suggestions: same category first, then others, exclude selected + out-of-stock, max 3
   const suggestions = selectedProduct
     ? [
         ...products.filter(
           (p) =>
             p.id !== selectedProduct.id &&
-            p.category === selectedProduct.category,
+            p.category === selectedProduct.category &&
+            !(p.stock !== -1 && p.soldCount >= p.stock),
         ),
         ...products.filter(
           (p) =>
             p.id !== selectedProduct.id &&
-            p.category !== selectedProduct.category,
+            p.category !== selectedProduct.category &&
+            !(p.stock !== -1 && p.soldCount >= p.stock),
         ),
       ].slice(0, 3)
     : [];
@@ -324,7 +377,7 @@ export default function ShopPage() {
         transition={{ duration: 2, repeat: Infinity }}
       >
         <ShoppingCart className="w-5 h-5 text-[#00FF41]" />
-        {cartCount > 0 && (
+        {mounted && cartCount > 0 && (
           <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#00FF41] text-black text-[10px] font-bold flex items-center justify-center">
             {cartCount}
           </span>
@@ -387,7 +440,11 @@ export default function ShopPage() {
                     </p>
                   </div>
                 ) : (
-                  cart.map((item) => (
+                  cart.map((item) => {
+                    const product = products.find((p) => p.id === item.id);
+                    const maxStock = product ? availableStock(product) : Infinity;
+                    const atMax = item.qty >= maxStock;
+                    return (
                     <div
                       key={item.id}
                       className="flex items-center gap-4 rounded-lg border border-white/8 p-4"
@@ -399,6 +456,9 @@ export default function ShopPage() {
                         <p className="text-gray-500 text-xs mt-0.5">
                           {fmt(item.price)}
                         </p>
+                        {atMax && maxStock !== Infinity && (
+                          <p className="text-[10px] text-[#FF3333] mt-0.5">Max available: {maxStock}</p>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <button
@@ -412,7 +472,13 @@ export default function ShopPage() {
                         </span>
                         <button
                           onClick={() => updateQty(item.id, 1)}
-                          className="w-7 h-7 rounded-full border border-white/15 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/40 transition-all"
+                          disabled={atMax}
+                          className="w-7 h-7 rounded-full border flex items-center justify-center transition-all"
+                          style={{
+                            borderColor: atMax ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.15)",
+                            color: atMax ? "rgba(255,255,255,0.15)" : "rgba(156,163,175,1)",
+                            cursor: atMax ? "not-allowed" : "pointer",
+                          }}
                         >
                           <Plus className="w-3 h-3" />
                         </button>
@@ -424,7 +490,8 @@ export default function ShopPage() {
                         </button>
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
               {cart.length > 0 && (
@@ -757,7 +824,10 @@ export default function ShopPage() {
                               ? `0 0 30px ${glow}`
                               : `0 0 15px ${glow}10`,
                           }}
-                          onClick={() => setSelectedProduct(product)}
+                          onClick={() => !isOutOfStock && setSelectedProduct(product)}
+                          style={{
+                            cursor: isOutOfStock ? "default" : "pointer",
+                          }}
                         >
                           {/* Hot Pick badge */}
                           {isHot && (
@@ -827,11 +897,11 @@ export default function ShopPage() {
                               <span
                                 className="text-[10px] uppercase tracking-widest font-bold px-4 py-2 rounded-full border"
                                 style={{
-                                  borderColor: product.accent,
-                                  color: product.accent,
+                                  borderColor: isOutOfStock ? "#FF3333" : product.accent,
+                                  color: isOutOfStock ? "#FF3333" : product.accent,
                                 }}
                               >
-                                View Details
+                                {isOutOfStock ? "Out of Stock" : "View Details"}
                               </span>
                             </div>
                           </div>
@@ -914,12 +984,23 @@ export default function ShopPage() {
                                 {fmt(product.price)}
                               </span>
                               {isOutOfStock ? (
-                                <span
-                                  className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full"
-                                  style={{ background: "rgba(255,51,51,0.1)", color: "#FF3333", border: "1px solid #FF333330" }}
-                                >
-                                  Sold Out
-                                </span>
+                                <div className="relative">
+                                  <span
+                                    onClick={(e) => { e.stopPropagation(); showOutOfStockTooltip(product.id!); }}
+                                    className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full cursor-default"
+                                    style={{ background: "rgba(255,51,51,0.1)", color: "#FF3333", border: "1px solid rgba(255,51,51,0.2)" }}
+                                  >
+                                    Sold Out
+                                  </span>
+                                  {tooltipProductId === product.id && (
+                                    <div
+                                      className="absolute -top-8 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap pointer-events-none"
+                                      style={{ background: "#FF3333", color: "#fff", boxShadow: "0 0 12px rgba(255,51,51,0.5)" }}
+                                    >
+                                      Out of Stock
+                                    </div>
+                                  )}
+                                </div>
                               ) : (
                                 <motion.button
                                   onClick={(e) => addToCart(product, e)}

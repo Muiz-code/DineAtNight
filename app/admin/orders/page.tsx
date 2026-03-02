@@ -19,8 +19,11 @@ import {
   subscribeMerchOrders,
   updateMerchOrderDelivery,
   deleteMerchOrder,
+  restockReturnedOrder,
+  reapplyOrderSoldCount,
   type DanMerchOrder,
 } from "@/lib/firestore";
+import { sendOrderStatusEmail } from "@/lib/emailjs";
 type DeliveryStatus = DanMerchOrder["deliveryStatus"];
 type Tab = "all" | DeliveryStatus;
 
@@ -79,7 +82,33 @@ export default function AdminOrdersPage() {
     setUpdating((prev) => new Set(prev).add(id));
     setUpdateError(null);
     try {
+      const order = orders.find((o) => o.id === id || o.reference === id);
+      const wasReturned = order?.deliveryStatus === "returned";
       await updateMerchOrderDelivery(id, status, note);
+      // Restock products when order is returned
+      if (status === "returned" && order?.items?.length) {
+        restockReturnedOrder(
+          order.items.map((item) => ({ productId: item.productId, qty: item.qty })),
+        ).catch((err) => console.warn("[orders] Restock failed:", err));
+      }
+      // Re-apply soldCount when undoing a return (returned → pending/dispatched/delivered)
+      if (wasReturned && status !== "returned" && order?.items?.length) {
+        reapplyOrderSoldCount(
+          order.items.map((item) => ({ productId: item.productId, qty: item.qty })),
+        ).catch((err) => console.warn("[orders] Re-apply soldCount failed:", err));
+      }
+      // Send email for all meaningful status changes (not "pending")
+      if (status === "dispatched" || status === "delivered" || status === "returned") {
+        if (order?.email) {
+          sendOrderStatusEmail({
+            name: order.name,
+            email: order.email,
+            reference: order.reference,
+            deliveryStatus: status,
+            note,
+          }).catch((err) => console.warn("[orders] Status email failed:", err));
+        }
+      }
     } catch (err) {
       console.error("[orders] Delivery update failed:", err);
       setUpdateError("Update failed — please try again.");

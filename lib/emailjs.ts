@@ -329,6 +329,81 @@ ${APP_URL}
   });
 }
 
+// 6. Order delivery status update
+export async function sendOrderStatusEmail(data: {
+  name: string;
+  email: string;
+  reference: string;
+  deliveryStatus: "dispatched" | "delivered" | "returned";
+  note?: string;
+}) {
+  const statusLabel: Record<typeof data.deliveryStatus, string> = {
+    dispatched: "Dispatched",
+    delivered:  "Delivered",
+    returned:   "Returned",
+  };
+
+  const messages: Record<typeof data.deliveryStatus, string> = {
+    dispatched: `
+Dear ${data.name},
+
+Your Dine At Night merch order is on its way!
+
+${SEP}
+Reference:  ${data.reference}
+Status:     Dispatched
+${SEP}
+
+Your package has been handed to our courier and is en route to your delivery address. You should receive it within the next few days.
+
+Track your order status: ${APP_URL}/shop/verify?reference=${data.reference}
+
+Dine At Night Team
+${APP_URL}
+    `.trim(),
+
+    delivered: `
+Dear ${data.name},
+
+Your Dine At Night merch order has been delivered!
+
+${SEP}
+Reference:  ${data.reference}
+Status:     Delivered
+${SEP}
+
+We hope you love your merch. Thanks for shopping with us — see you at the next event!
+
+Dine At Night Team
+${APP_URL}
+    `.trim(),
+
+    returned: `
+Dear ${data.name},
+
+We're writing to let you know that your order has been marked as returned.
+
+${SEP}
+Reference:  ${data.reference}
+Status:     Returned${data.note ? `\nNote:       ${data.note}` : ""}
+${SEP}
+
+If you have questions about this, please reach out via our contact page and quote your reference number.
+
+Contact us: ${APP_URL}/contact
+
+Dine At Night Team
+${APP_URL}
+    `.trim(),
+  };
+
+  return confirmUser({
+    to_email: data.email,
+    subject: `Order ${statusLabel[data.deliveryStatus]} — ${data.reference} | Dine At Night`,
+    message: messages[data.deliveryStatus],
+  });
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // CONTACT FORM — fires both admin notification + user confirmation in parallel
 // ══════════════════════════════════════════════════════════════════════════════

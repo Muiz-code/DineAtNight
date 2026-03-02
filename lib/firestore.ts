@@ -604,6 +604,47 @@ export async function createProduct(
 
 export async function updateProduct(id: string, data: Partial<DanProduct>): Promise<void> {
   await updateDoc(doc(db, "products", id), data);
+}
+
+/** Restores availability by decrementing soldCount for each item in a returned order.
+ *  `stock` (total capacity) is intentionally left unchanged — only soldCount changes. */
+export async function restockReturnedOrder(
+  items: { productId: string; qty: number }[],
+): Promise<void> {
+  await Promise.all(
+    items.map(({ productId, qty }) =>
+      runTransaction(db, async (tx) => {
+        const ref = doc(db, "products", productId);
+        const snap = await tx.get(ref);
+        if (!snap.exists()) return;
+        const data = snap.data();
+        tx.update(ref, {
+          soldCount: Math.max(0, (data.soldCount ?? 0) - qty),
+        });
+      }),
+    ),
+  );
+  clearCache("dan_products");
+}
+
+/** Re-applies soldCount when a returned order is undone (i.e. status reverts from "returned").
+ *  Increments soldCount by qty — the mirror of restockReturnedOrder. */
+export async function reapplyOrderSoldCount(
+  items: { productId: string; qty: number }[],
+): Promise<void> {
+  await Promise.all(
+    items.map(({ productId, qty }) =>
+      runTransaction(db, async (tx) => {
+        const ref = doc(db, "products", productId);
+        const snap = await tx.get(ref);
+        if (!snap.exists()) return;
+        const data = snap.data();
+        tx.update(ref, {
+          soldCount: (data.soldCount ?? 0) + qty,
+        });
+      }),
+    ),
+  );
   clearCache("dan_products");
 }
 

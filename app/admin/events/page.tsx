@@ -42,6 +42,7 @@ export default function AdminEventsPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [togglingPast, setTogglingPast] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -135,6 +136,17 @@ export default function AdminEventsPage() {
     await deleteEvent(id);
     setDeleteConfirm(null);
     load();
+  };
+
+  const togglePast = async (ev: DanEvent) => {
+    if (!ev.id || togglingPast) return;
+    setTogglingPast(ev.id);
+    try {
+      await updateEvent(ev.id, { isPast: !ev.isPast });
+      setEvents((prev) => prev.map((e) => e.id === ev.id ? { ...e, isPast: !ev.isPast } : e));
+    } finally {
+      setTogglingPast(null);
+    }
   };
 
   const statusColor = (s: string) =>
@@ -256,19 +268,45 @@ export default function AdminEventsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                  {/* Past toggle */}
                   <button
-                    onClick={() => openEdit(ev)}
-                    className="w-9 h-9 rounded-lg border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/30 transition-all"
+                    onClick={() => togglePast(ev)}
+                    disabled={togglingPast === ev.id}
+                    title={ev.isPast ? "Mark as upcoming" : "Mark as past"}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-widest transition-all"
+                    style={{
+                      borderColor: ev.isPast ? "rgba(255,51,51,0.4)" : "rgba(255,255,255,0.1)",
+                      background: ev.isPast ? "rgba(255,51,51,0.1)" : "rgba(255,255,255,0.04)",
+                      color: ev.isPast ? "#FF3333" : "rgba(255,255,255,0.3)",
+                      opacity: togglingPast === ev.id ? 0.5 : 1,
+                    }}
                   >
-                    <Pencil className="w-4 h-4" />
+                    {togglingPast === ev.id ? (
+                      <span className="w-2.5 h-2.5 border border-current border-t-transparent rounded-full animate-spin inline-block" />
+                    ) : (
+                      <span
+                        className="w-2 h-2 rounded-full inline-block"
+                        style={{ background: ev.isPast ? "#FF3333" : "rgba(255,255,255,0.2)" }}
+                      />
+                    )}
+                    {ev.isPast ? "Past" : "Upcoming"}
                   </button>
-                  <button
-                    onClick={() => setDeleteConfirm(ev.id!)}
-                    className="w-9 h-9 rounded-lg border border-white/10 flex items-center justify-center text-gray-400 hover:text-[#FF3333] hover:border-[#FF3333]/30 transition-all"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => openEdit(ev)}
+                      className="w-9 h-9 rounded-lg border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/30 transition-all"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirm(ev.id!)}
+                      className="w-9 h-9 rounded-lg border border-white/10 flex items-center justify-center text-gray-400 hover:text-[#FF3333] hover:border-[#FF3333]/30 transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );

@@ -43,9 +43,30 @@ export async function POST(req: NextRequest) {
       if (!productSnaps[i].exists()) {
         return NextResponse.json({ error: "One or more products were not found." }, { status: 400 });
       }
-      const prod = productSnaps[i].data() as { active?: boolean };
+      const prod = productSnaps[i].data() as {
+        active?: boolean;
+        stock: number;
+        soldCount?: number;
+        name?: string;
+      };
       if (prod.active === false) {
         return NextResponse.json({ error: "One or more products are no longer available." }, { status: 400 });
+      }
+      // Stock check — only enforce when stock is tracked (not unlimited/-1)
+      if (prod.stock !== -1) {
+        const available = Math.max(0, prod.stock - (prod.soldCount ?? 0));
+        if (available <= 0) {
+          return NextResponse.json(
+            { error: `"${prod.name ?? "A product"}" is sold out.` },
+            { status: 400 }
+          );
+        }
+        if (items[i].qty > available) {
+          return NextResponse.json(
+            { error: `Only ${available} unit${available === 1 ? "" : "s"} of "${prod.name ?? "a product"}" are available.` },
+            { status: 400 }
+          );
+        }
       }
     }
     computedTotal = productSnaps.reduce((sum, snap, i) => {
