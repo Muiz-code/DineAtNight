@@ -116,7 +116,9 @@ export default function ShopPage() {
     try {
       const saved = localStorage.getItem("dan_cart");
       return saved ? (JSON.parse(saved) as CartItem[]) : [];
-    } catch { return []; }
+    } catch {
+      return [];
+    }
   });
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -138,7 +140,9 @@ export default function ShopPage() {
   const [mounted, setMounted] = useState(false);
   const resolvedRef = useRef(false);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const showOutOfStockTooltip = (id: string) => {
     setTooltipProductId(id);
@@ -147,7 +151,11 @@ export default function ShopPage() {
 
   // Persist cart to localStorage whenever it changes
   useEffect(() => {
-    try { localStorage.setItem("dan_cart", JSON.stringify(cart)); } catch { /* ignore */ }
+    try {
+      localStorage.setItem("dan_cart", JSON.stringify(cart));
+    } catch {
+      /* ignore */
+    }
   }, [cart]);
 
   // Auto-remove sold-out items from cart whenever live product data updates
@@ -157,7 +165,9 @@ export default function ShopPage() {
       prev.filter((item) => {
         const product = products.find((p) => p.id === item.id);
         if (!product || product.active === false) return false;
-        return product.stock === -1 || (product.stock - (product.soldCount ?? 0)) > 0;
+        return (
+          product.stock === -1 || product.stock - (product.soldCount ?? 0) > 0
+        );
       }),
     );
   }, [products]);
@@ -165,11 +175,18 @@ export default function ShopPage() {
   useEffect(() => {
     resolvedRef.current = false;
     const cached = getCache<DanProduct[]>("dan_products");
-    if (cached) { setProducts(cached); setLoadingProducts(false); resolvedRef.current = true; }
+    if (cached) {
+      setProducts(cached);
+      setLoadingProducts(false);
+      resolvedRef.current = true;
+    }
     return subscribeAllProducts((products) => {
       setProducts(products);
       setCache("dan_products", products);
-      if (!resolvedRef.current) { setLoadingProducts(false); resolvedRef.current = true; }
+      if (!resolvedRef.current) {
+        setLoadingProducts(false);
+        resolvedRef.current = true;
+      }
     });
   }, []);
 
@@ -181,7 +198,8 @@ export default function ShopPage() {
   const hotPickId = visibleProducts.reduce<string | null>((best, p) => {
     if (!p.id || p.soldCount === 0) return best;
     if (!best) return p.id;
-    return p.soldCount > (visibleProducts.find((x) => x.id === best)?.soldCount ?? 0)
+    return p.soldCount >
+      (visibleProducts.find((x) => x.id === best)?.soldCount ?? 0)
       ? p.id
       : best;
   }, null);
@@ -189,7 +207,9 @@ export default function ShopPage() {
   const filtered =
     activeCategory === "all"
       ? visibleProducts
-      : visibleProducts.filter((p) => p.category === (activeCategory as string));
+      : visibleProducts.filter(
+          (p) => p.category === (activeCategory as string),
+        );
 
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
@@ -225,7 +245,11 @@ export default function ShopPage() {
 
   const clearCart = () => {
     setCart([]);
-    try { localStorage.removeItem("dan_cart"); } catch { /* ignore */ }
+    try {
+      localStorage.removeItem("dan_cart");
+    } catch {
+      /* ignore */
+    }
   };
 
   const updateQty = (id: string, delta: number) => {
@@ -442,54 +466,62 @@ export default function ShopPage() {
                 ) : (
                   cart.map((item) => {
                     const product = products.find((p) => p.id === item.id);
-                    const maxStock = product ? availableStock(product) : Infinity;
+                    const maxStock = product
+                      ? availableStock(product)
+                      : Infinity;
                     const atMax = item.qty >= maxStock;
                     return (
-                    <div
-                      key={item.id}
-                      className="flex items-center gap-4 rounded-lg border border-white/8 p-4"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate">
-                          {item.name}
-                        </p>
-                        <p className="text-gray-500 text-xs mt-0.5">
-                          {fmt(item.price)}
-                        </p>
-                        {atMax && maxStock !== Infinity && (
-                          <p className="text-[10px] text-[#FF3333] mt-0.5">Max available: {maxStock}</p>
-                        )}
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-4 rounded-lg border border-white/8 p-4"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm font-medium truncate">
+                            {item.name}
+                          </p>
+                          <p className="text-gray-500 text-xs mt-0.5">
+                            {fmt(item.price)}
+                          </p>
+                          {atMax && maxStock !== Infinity && (
+                            <p className="text-[10px] text-[#FF3333] mt-0.5">
+                              Max available: {maxStock}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => updateQty(item.id, -1)}
+                            className="w-7 h-7 rounded-full border border-white/15 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/40 transition-all"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="w-6 text-center text-white text-sm">
+                            {item.qty}
+                          </span>
+                          <button
+                            onClick={() => updateQty(item.id, 1)}
+                            disabled={atMax}
+                            className="w-7 h-7 rounded-full border flex items-center justify-center transition-all"
+                            style={{
+                              borderColor: atMax
+                                ? "rgba(255,255,255,0.05)"
+                                : "rgba(255,255,255,0.15)",
+                              color: atMax
+                                ? "rgba(255,255,255,0.15)"
+                                : "rgba(156,163,175,1)",
+                              cursor: atMax ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => removeFromCart(item.id)}
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-gray-600 hover:text-[#FF3333] transition-colors ml-1"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => updateQty(item.id, -1)}
-                          className="w-7 h-7 rounded-full border border-white/15 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/40 transition-all"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="w-6 text-center text-white text-sm">
-                          {item.qty}
-                        </span>
-                        <button
-                          onClick={() => updateQty(item.id, 1)}
-                          disabled={atMax}
-                          className="w-7 h-7 rounded-full border flex items-center justify-center transition-all"
-                          style={{
-                            borderColor: atMax ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.15)",
-                            color: atMax ? "rgba(255,255,255,0.15)" : "rgba(156,163,175,1)",
-                            cursor: atMax ? "not-allowed" : "pointer",
-                          }}
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={() => removeFromCart(item.id)}
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-gray-600 hover:text-[#FF3333] transition-colors ml-1"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
                     );
                   })
                 )}
@@ -802,7 +834,9 @@ export default function ShopPage() {
                     const inCart = cart.find((i) => i.id === product.id);
                     const glow = glowFrom(product.accent);
                     const isHot = product.id === hotPickId;
-                    const isOutOfStock = product.stock !== -1 && product.soldCount >= product.stock;
+                    const isOutOfStock =
+                      product.stock !== -1 &&
+                      product.soldCount >= product.stock;
                     return (
                       <motion.div
                         key={product.id}
@@ -823,11 +857,11 @@ export default function ShopPage() {
                             boxShadow: isHot
                               ? `0 0 30px ${glow}`
                               : `0 0 15px ${glow}10`,
-                          }}
-                          onClick={() => !isOutOfStock && setSelectedProduct(product)}
-                          style={{
                             cursor: isOutOfStock ? "default" : "pointer",
                           }}
+                          onClick={() =>
+                            !isOutOfStock && setSelectedProduct(product)
+                          }
                         >
                           {/* Hot Pick badge */}
                           {isHot && (
@@ -897,8 +931,12 @@ export default function ShopPage() {
                               <span
                                 className="text-[10px] uppercase tracking-widest font-bold px-4 py-2 rounded-full border"
                                 style={{
-                                  borderColor: isOutOfStock ? "#FF3333" : product.accent,
-                                  color: isOutOfStock ? "#FF3333" : product.accent,
+                                  borderColor: isOutOfStock
+                                    ? "#FF3333"
+                                    : product.accent,
+                                  color: isOutOfStock
+                                    ? "#FF3333"
+                                    : product.accent,
                                 }}
                               >
                                 {isOutOfStock ? "Out of Stock" : "View Details"}
@@ -986,16 +1024,28 @@ export default function ShopPage() {
                               {isOutOfStock ? (
                                 <div className="relative">
                                   <span
-                                    onClick={(e) => { e.stopPropagation(); showOutOfStockTooltip(product.id!); }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      showOutOfStockTooltip(product.id!);
+                                    }}
                                     className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full cursor-default"
-                                    style={{ background: "rgba(255,51,51,0.1)", color: "#FF3333", border: "1px solid rgba(255,51,51,0.2)" }}
+                                    style={{
+                                      background: "rgba(255,51,51,0.1)",
+                                      color: "#FF3333",
+                                      border: "1px solid rgba(255,51,51,0.2)",
+                                    }}
                                   >
                                     Sold Out
                                   </span>
                                   {tooltipProductId === product.id && (
                                     <div
                                       className="absolute -top-8 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap pointer-events-none"
-                                      style={{ background: "#FF3333", color: "#fff", boxShadow: "0 0 12px rgba(255,51,51,0.5)" }}
+                                      style={{
+                                        background: "#FF3333",
+                                        color: "#fff",
+                                        boxShadow:
+                                          "0 0 12px rgba(255,51,51,0.5)",
+                                      }}
                                     >
                                       Out of Stock
                                     </div>
@@ -1253,7 +1303,9 @@ export default function ShopPage() {
                                 style={{ borderColor: `${p.accent}40` }}
                               >
                                 <motion.button
-                                  onClick={() => updateQty(p.id!, inCart.qty - 1)}
+                                  onClick={() =>
+                                    updateQty(p.id!, inCart.qty - 1)
+                                  }
                                   className="w-7 h-7 rounded-full flex items-center justify-center"
                                   style={{ color: p.accent }}
                                   whileHover={{ scale: 1.15 }}
@@ -1289,7 +1341,10 @@ export default function ShopPage() {
                                 background: inCart ? p.accent : "transparent",
                                 boxShadow: `0 0 20px ${glow}`,
                               }}
-                              whileHover={{ scale: 1.1, boxShadow: `0 0 35px ${glow}` }}
+                              whileHover={{
+                                scale: 1.1,
+                                boxShadow: `0 0 35px ${glow}`,
+                              }}
                               whileTap={{ scale: 0.93 }}
                             >
                               <ShoppingCart className="w-5 h-5" />
