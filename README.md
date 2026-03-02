@@ -87,7 +87,7 @@ PAYSTACK_SECRET_KEY=
 
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000/
-NEXT_PUBLIC_ADMIN_EMAILS=admin@dineatnight.com
+NEXT_PUBLIC_ADMIN_EMAILS=example@example.com
 
 # EmailJS
 NEXT_PUBLIC_EMAILJS_SERVICE_ID=
