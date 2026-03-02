@@ -7,6 +7,7 @@ import {
   createTestimonial,
   updateTestimonial,
   deleteTestimonial,
+  approveTestimonial,
   getAllEvents,
   type DanTestimonial,
   type DanEvent,
@@ -18,6 +19,7 @@ import {
   Check,
   X,
   MessageSquare,
+  ShieldCheck,
 } from "lucide-react";
 
 const inputCls =
@@ -84,7 +86,8 @@ export default function AdminTestimonialsPage() {
   const [saving, setSaving] = useState(false);
 
   // Filter
-  const [filter, setFilter] = useState<"all" | "vendor" | "user" | "admin">("all");
+  const [filter, setFilter] = useState<"pending" | "all" | "vendor" | "user" | "admin">("pending");
+  const [approving, setApproving] = useState<string | null>(null);
 
   // Delete confirm modal
   const [deleteTarget, setDeleteTarget] = useState<DanTestimonial | null>(null);
@@ -187,14 +190,32 @@ export default function AdminTestimonialsPage() {
     }
   };
 
+  const handleApprove = async (id: string) => {
+    setApproving(id);
+    try {
+      await approveTestimonial(id);
+      setTestimonials((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, approved: true } : t))
+      );
+    } finally {
+      setApproving(null);
+    }
+  };
+
+  const pending = testimonials.filter((t) => t.approved === false);
+  const approved = testimonials.filter((t) => t.approved !== false);
+
   const filtered =
-    filter === "all" ? testimonials : testimonials.filter((t) => t.type === filter);
+    filter === "pending" ? pending
+    : filter === "all"   ? approved
+    : approved.filter((t) => t.type === filter);
 
   const counts = {
-    all: testimonials.length,
-    vendor: testimonials.filter((t) => t.type === "vendor").length,
-    user: testimonials.filter((t) => t.type === "user").length,
-    admin: testimonials.filter((t) => t.type === "admin").length,
+    pending: pending.length,
+    all: approved.length,
+    vendor: approved.filter((t) => t.type === "vendor").length,
+    user: approved.filter((t) => t.type === "user").length,
+    admin: approved.filter((t) => t.type === "admin").length,
   };
 
   if (loading) {
@@ -218,7 +239,10 @@ export default function AdminTestimonialsPage() {
             Testimonials
           </h1>
           <p className="text-gray-600 text-sm mt-1">
-            {counts.all} total · {counts.vendor} vendor · {counts.user} attendee · {counts.admin} team
+            {counts.pending > 0 && (
+              <span className="text-[#FF3333] font-bold">{counts.pending} pending · </span>
+            )}
+            {counts.all} approved · {counts.vendor} vendor · {counts.user} attendee · {counts.admin} team
           </p>
         </div>
         <button
@@ -232,9 +256,9 @@ export default function AdminTestimonialsPage() {
 
       {/* Filter tabs */}
       <div className="flex gap-1 p-1 rounded-xl border border-white/8 bg-white/[0.02] w-fit overflow-x-auto">
-        {(["all", "vendor", "user", "admin"] as const).map((key) => {
+        {(["pending", "all", "vendor", "user", "admin"] as const).map((key) => {
           const active = filter === key;
-          const accent = key === "vendor" ? "#FF3333" : key === "user" ? "#00FF41" : key === "admin" ? "#FFFF00" : "#FFFF00";
+          const accent = key === "pending" ? "#FF3333" : key === "vendor" ? "#FF3333" : key === "user" ? "#00FF41" : key === "admin" ? "#FFFF00" : "#FFFF00";
           return (
             <button
               key={key}
@@ -245,16 +269,18 @@ export default function AdminTestimonialsPage() {
                 background: active ? `${accent}12` : "transparent",
               }}
             >
-              {key === "all" ? "All" : key === "vendor" ? "Vendors" : key === "user" ? "Attendees" : "Team"}
-              <span
-                className="text-[10px] px-1.5 py-0.5 rounded-full"
-                style={{
-                  background: active ? `${accent}25` : "rgba(255,255,255,0.06)",
-                  color: active ? accent : "rgba(255,255,255,0.3)",
-                }}
-              >
-                {counts[key]}
-              </span>
+              {key === "pending" ? "Pending" : key === "all" ? "Approved" : key === "vendor" ? "Vendors" : key === "user" ? "Attendees" : "Team"}
+              {counts[key] > 0 && (
+                <span
+                  className="text-[10px] px-1.5 py-0.5 rounded-full"
+                  style={{
+                    background: active ? `${accent}25` : "rgba(255,255,255,0.06)",
+                    color: active ? accent : "rgba(255,255,255,0.3)",
+                  }}
+                >
+                  {counts[key]}
+                </span>
+              )}
             </button>
           );
         })}
@@ -313,6 +339,21 @@ export default function AdminTestimonialsPage() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* Approve — pending only */}
+                  {t.approved === false && (
+                    <button
+                      onClick={() => handleApprove(t.id!)}
+                      disabled={approving === t.id}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border transition-all disabled:opacity-50"
+                      style={{ borderColor: "rgba(0,255,65,0.3)", color: "#00FF41" }}
+                    >
+                      {approving === t.id
+                        ? <span className="w-3.5 h-3.5 border-2 border-[#00FF41] border-t-transparent rounded-full animate-spin" />
+                        : <ShieldCheck className="w-3.5 h-3.5" />
+                      }
+                      Approve
+                    </button>
+                  )}
                   {/* Edit — admin-created only */}
                   {t.createdBy === "admin" && (
                     <button

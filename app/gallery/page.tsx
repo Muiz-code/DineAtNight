@@ -34,12 +34,12 @@ function GalleryContent() {
   const [loading, setLoading] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [mediaFilter, setMediaFilter] = useState<MediaType>("all");
-  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ id: string; item: DanGalleryItem } | null>(null);
+  const [direction, setDirection] = useState<1 | -1>(1);
   const [heroIdx, setHeroIdx] = useState(0);
 
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const resolvedRef = useRef(false);
-  const touchStartX = useRef<number | null>(null);
 
   useEffect(() => {
     resolvedRef.current = false;
@@ -161,19 +161,24 @@ function GalleryContent() {
     : [];
 
   // Lightbox helpers
-  const openLightbox = (id: string) => setLightbox(id);
+  const openLightbox = (id: string) => {
+    const item = items.find((i) => i.id === id);
+    if (item) setLightbox({ id, item });
+  };
   const closeLightbox = () => setLightbox(null);
   const currentIndex = lightbox
-    ? overlayItems.findIndex((i) => i.id === lightbox)
+    ? overlayItems.findIndex((i) => i.id === lightbox.id)
     : -1;
   const navigate = (dir: 1 | -1) => {
     const next =
       overlayItems[
         (currentIndex + dir + overlayItems.length) % overlayItems.length
       ];
-    if (next) setLightbox(next.id!);
+    if (next) {
+      setDirection(dir);
+      setLightbox({ id: next.id!, item: next });
+    }
   };
-  const lightboxItem = lightbox ? items.find((i) => i.id === lightbox) : null;
 
   const overlayAccent = selectedEventId
     ? accentFor(selectedEventId, eventIds)
@@ -642,7 +647,7 @@ function GalleryContent() {
 
       {/* ── LIGHTBOX ── */}
       <AnimatePresence>
-        {lightbox && lightboxItem && (
+        {lightbox && (
           <motion.div
             className="fixed inset-0 z-[300] flex items-center justify-center"
             initial={{ opacity: 0 }}
@@ -659,18 +664,17 @@ function GalleryContent() {
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Media wrapper — all controls overlaid on the image */}
-              <div
-                className="relative"
-                onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
-                onTouchEnd={(e) => {
-                  if (touchStartX.current === null) return;
-                  const diff = touchStartX.current - e.changedTouches[0].clientX;
-                  if (Math.abs(diff) > 40) navigate(diff > 0 ? 1 : -1);
-                  touchStartX.current = null;
+              {/* Media wrapper — gesture detection separated from animation */}
+              <motion.div
+                className="relative overflow-hidden rounded-xl"
+                style={{ border: "2px solid rgba(0,255,65,0.3)", touchAction: "pan-y" }}
+                onPanEnd={(_, info) => {
+                  if (Math.abs(info.offset.x) > 60 || Math.abs(info.velocity.x) > 400) {
+                    navigate(info.offset.x < 0 ? 1 : -1);
+                  }
                 }}
               >
-                {/* Close — top-right corner of image */}
+                {/* Close — top-right */}
                 <button
                   className="absolute top-2 right-2 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all"
                   style={{ background: "rgba(0,0,0,0.65)", color: "rgba(255,255,255,0.85)" }}
@@ -679,7 +683,7 @@ function GalleryContent() {
                   <X className="w-5 h-5" />
                 </button>
 
-                {/* Prev — left edge, vertically centred */}
+                {/* Prev */}
                 <button
                   className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all"
                   style={{ background: "rgba(0,0,0,0.65)", color: "rgba(255,255,255,0.85)" }}
@@ -688,7 +692,7 @@ function GalleryContent() {
                   <ChevronLeft className="w-5 h-5" />
                 </button>
 
-                {/* Next — right edge, vertically centred */}
+                {/* Next */}
                 <button
                   className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all"
                   style={{ background: "rgba(0,0,0,0.65)", color: "rgba(255,255,255,0.85)" }}
@@ -697,30 +701,40 @@ function GalleryContent() {
                   <ChevronRight className="w-5 h-5" />
                 </button>
 
-                {lightboxItem.type === "video" ? (
-                  <video
-                    src={lightboxItem.src}
-                    className="w-full max-h-[80svh] sm:max-h-[82vh] rounded-xl object-contain"
-                    controls
-                    autoPlay
-                    style={{ border: "2px solid rgba(0,255,65,0.3)" }}
-                  />
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={lightboxItem.src}
-                    alt={lightboxItem.caption}
-                    className="w-full max-h-[80svh] sm:max-h-[82vh] rounded-xl object-contain"
-                    style={{ border: "2px solid rgba(0,255,65,0.3)" }}
-                  />
-                )}
-              </div>
+                {/* Content — one animation at a time, no physics conflicts */}
+                <AnimatePresence initial={false} mode="wait">
+                  <motion.div
+                    key={lightbox.id}
+                    initial={{ opacity: 0, x: direction * 40 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: direction * -40 }}
+                    transition={{ duration: 0.18, ease: "easeOut" }}
+                  >
+                    {lightbox.item.type === "video" ? (
+                      <video
+                        src={lightbox.item.src}
+                        className="w-full max-h-[80svh] sm:max-h-[82vh] object-contain"
+                        controls
+                        autoPlay
+                      />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={lightbox.item.src}
+                        alt={lightbox.item.caption}
+                        className="w-full max-h-[80svh] sm:max-h-[82vh] object-contain"
+                        draggable={false}
+                      />
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+              </motion.div>
 
               <p className="mt-2 text-center text-sm text-gray-400 tracking-wide px-10 line-clamp-1">
-                {lightboxItem.caption}
+                {lightbox.item.caption}
               </p>
               <p className="text-center text-[10px] tracking-[0.3em] uppercase text-gray-600 mt-0.5">
-                {currentIndex + 1} / {overlayItems.length} · {lightboxItem.eventTitle}
+                {currentIndex + 1} / {overlayItems.length} · {lightbox.item.eventTitle}
               </p>
             </motion.div>
           </motion.div>

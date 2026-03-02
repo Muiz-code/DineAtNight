@@ -55,10 +55,11 @@ export default function TestimonialSection({
         ? "rgba(0,255,65,0.4)"
         : "rgba(255,255,0,0.4)";
 
-  // Real-time listener
+  // Real-time listener — only show approved testimonials publicly
   useEffect(() => {
     const unsub = subscribeToTestimonials((data) => {
-      setTestimonials(data);
+      // approved: undefined means an older doc with no field — treat as approved (backward compat)
+      setTestimonials(data.filter((t) => t.approved !== false));
       setLoadingT(false);
     });
     return () => unsub();
@@ -270,7 +271,7 @@ export default function TestimonialSection({
                   Thank you!
                 </p>
                 <p className="text-gray-500 text-sm mt-2">
-                  Your review is now live — scroll down to see it.
+                  Your review has been submitted and will appear once approved.
                 </p>
               </motion.div>
             ) : (

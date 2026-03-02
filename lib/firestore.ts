@@ -480,17 +480,24 @@ export interface DanTestimonial {
   quote: string;          // Testimonial text
   eventTitle?: string;    // Which event (optional)
   createdBy: "user" | "admin"; // Only admin-created ones can be edited
+  approved?: boolean;     // false = pending review; true = visible publicly. Older docs without the field are treated as approved.
   submittedAt?: Timestamp;
 }
 
 export async function createTestimonial(
-  data: Omit<DanTestimonial, "id" | "submittedAt">
+  data: Omit<DanTestimonial, "id" | "submittedAt" | "approved">
 ): Promise<string> {
   const ref = await addDoc(collection(db, "testimonials"), {
     ...data,
+    // Admin-created posts go live immediately; user submissions need approval
+    approved: data.createdBy === "admin",
     submittedAt: serverTimestamp(),
   });
   return ref.id;
+}
+
+export async function approveTestimonial(id: string): Promise<void> {
+  await updateDoc(doc(db, "testimonials", id), { approved: true });
 }
 
 export async function updateTestimonial(

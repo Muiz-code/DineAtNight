@@ -32,9 +32,10 @@ import {
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getCache, setCache } from "@/lib/cache";
-import { Camera, MapPin } from "lucide-react";
+import { Camera, MapPin, ChevronDown } from "lucide-react";
 import Footer from "@/app/_components/Footer";
 import SectionFadeIn from "@/app/_components/SectionFadeIn";
+import NewsletterModal from "@/app/_components/NewsletterModal";
 
 /* ═══════════════════════════════════════════════
    Motion Variants
@@ -546,14 +547,11 @@ export default function Home() {
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const [followers, setFollowers] = useState<string | null>(null);
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
-  const [subEmail, setSubEmail] = useState("");
-  const [subStatus, setSubStatus] = useState<"idle" | "loading" | "done">(
-    "idle",
-  );
   const [activeEvents, setActiveEvents] = useState<DanEvent[]>([]);
   const [pastEvents, setPastEvents] = useState<DanEvent[]>([]);
   const [soldByEvent, setSoldByEvent] = useState<Record<string, number>>({});
   const [isMobile, setIsMobile] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [approvedVendors, setApprovedVendors] = useState<DanVendor[]>([]);
   const [vendorsLoading, setVendorsLoading] = useState(true);
   const [vendorsError, setVendorsError] = useState(false);
@@ -888,9 +886,9 @@ export default function Home() {
             </motion.h2>
 
             <p className="text-lg md:text-xl text-gray-300 leading-relaxed max-w-2xl mx-auto">
-              Dine At Night is Lagos after dark — a vibrant nighttime food
-              market where the city&apos;s best chefs, street food vendors,
-              music, and community come together under neon lights.
+              Dine At Night is Lagos after dark, a vibrant nighttime food market
+              where the city&apos;s best chefs, street food vendors, music, and
+              community come together under neon lights.
             </p>
 
             <motion.p
@@ -1059,11 +1057,21 @@ export default function Home() {
                       ? Math.round((sold / ev.totalTickets) * 100)
                       : 0;
                   const soldOut = remaining <= 0;
+                  const isExpanded = expandedIds.has(ev.id ?? "");
+                  const toggleExpand = () => {
+                    const id = ev.id ?? "";
+                    setExpandedIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(id)) next.delete(id);
+                      else next.add(id);
+                      return next;
+                    });
+                  };
 
                   return (
                     <motion.div
                       key={ev.id}
-                      className="relative rounded-2xl border overflow-hidden flex flex-col md:flex-row"
+                      className="relative rounded-2xl border overflow-hidden flex flex-col md:flex-row group"
                       style={{
                         borderColor: "rgba(255,255,0,0.25)",
                         background: "linear-gradient(135deg, #090909, #040404)",
@@ -1090,45 +1098,36 @@ export default function Home() {
                         }}
                       />
 
-                      {/* Image — full width mobile, full-height left column desktop */}
-                      <div className="relative h-64 sm:h-72 md:h-auto md:w-2/5 lg:w-[45%] flex-shrink-0 overflow-hidden">
+                      {/* Image — natural height on mobile, fill column on desktop */}
+                      <div className="relative w-full md:w-2/5 lg:w-[45%] shrink-0 overflow-hidden">
                         {ev.imageUrl ? (
                           <>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={ev.imageUrl}
                               alt={ev.title}
-                              className="absolute inset-0 w-full h-full object-cover object-center"
+                              className="w-full h-auto block md:absolute md:inset-0 md:h-full md:object-cover md:object-center transition-transform duration-500 group-hover:scale-105"
                             />
                             <div
-                              className="absolute inset-0 md:hidden"
-                              style={{
-                                background:
-                                  "linear-gradient(to bottom, transparent 45%, #090909 100%)",
-                              }}
+                              className="absolute bottom-0 left-0 right-0 h-16 md:hidden"
+                              style={{ background: "linear-gradient(to bottom, transparent, #090909)" }}
                             />
                             <div
                               className="absolute inset-0 hidden md:block"
-                              style={{
-                                background:
-                                  "linear-gradient(to right, transparent 55%, #090909 100%)",
-                              }}
+                              style={{ background: "linear-gradient(to right, transparent 55%, #090909 100%)" }}
                             />
                           </>
                         ) : (
                           <div
-                            className="w-full h-full min-h-[200px]"
-                            style={{
-                              background:
-                                "radial-gradient(ellipse at center, rgba(255,255,0,0.08), #030303)",
-                            }}
+                            className="w-full min-h-[220px]"
+                            style={{ background: "radial-gradient(ellipse at center, rgba(255,255,0,0.08), #030303)" }}
                           />
                         )}
                       </div>
 
                       {/* Content panel */}
                       <div className="flex-1 flex flex-col gap-4 p-6 md:p-8">
-                        {/* Title + meta */}
+                        {/* Title + meta — always visible */}
                         <div>
                           <h3
                             className="text-2xl md:text-3xl font-bold uppercase tracking-wide"
@@ -1140,16 +1139,15 @@ export default function Home() {
                             {ev.title}
                           </h3>
                           <p className="text-gray-400 text-sm mt-1">
-                            {evDate}
-                            {evTime ? ` · ${evTime}` : ""}
+                            {evDate}{evTime ? ` · ${evTime}` : ""}
                           </p>
                           <p className="text-gray-500 text-sm mt-0.5 flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 flex-shrink-0" />{" "}
+                            <MapPin className="w-3.5 h-3.5 shrink-0" />{" "}
                             {ev.venue}
                           </p>
                         </div>
 
-                        {/* Countdown */}
+                        {/* Countdown — always visible */}
                         {ev.date?.toDate?.() && (
                           <div>
                             <p className="text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
@@ -1159,134 +1157,139 @@ export default function Home() {
                           </div>
                         )}
 
-                        {/* Description */}
-                        {ev.description && (
-                          <p className="text-gray-400 text-sm leading-relaxed">
-                            {ev.description}
-                          </p>
-                        )}
+                        {/* Mobile: "See Details" accordion toggle */}
+                        <button
+                          className="flex md:hidden items-center justify-between w-full py-2 border-t text-xs font-bold uppercase tracking-widest transition-colors"
+                          style={{
+                            borderColor: "rgba(255,255,0,0.12)",
+                            color: isExpanded ? "rgba(255,255,0,0.9)" : "rgba(255,255,0,0.55)",
+                          }}
+                          onClick={toggleExpand}
+                        >
+                          <span>{isExpanded ? "Hide Details" : "See Details"}</span>
+                          <ChevronDown
+                            className="w-4 h-4 transition-transform duration-300"
+                            style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}
+                          />
+                        </button>
 
-                        {/* Highlights */}
-                        {ev.highlights?.length > 0 && (
-                          <div className="flex flex-wrap gap-2">
-                            {ev.highlights.map((h) => (
-                              <span
-                                key={h}
-                                className="text-xs px-3 py-1 rounded-full border"
-                                style={{
-                                  borderColor: "rgba(255,255,0,0.2)",
-                                  color: "rgba(255,255,0,0.7)",
-                                }}
-                              >
-                                {h}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        {/* Collapsible: description, highlights, tiers, progress bar */}
+                        <div
+                          className="grid transition-all duration-300 ease-in-out"
+                          style={{
+                            gridTemplateRows: (!isMobile || isExpanded) ? "1fr" : "0fr",
+                            opacity: (!isMobile || isExpanded) ? 1 : 0,
+                          }}
+                        >
+                          <div className="overflow-hidden flex flex-col gap-4 min-h-0">
+                            {ev.description && (
+                              <p className="text-gray-400 text-sm leading-relaxed">
+                                {ev.description}
+                              </p>
+                            )}
 
-                        {/* Pricing + CTA */}
-                        <div className="mt-auto pt-2 space-y-3">
-                          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-                            {ev.ticketTypes && ev.ticketTypes.length > 0 ? (
-                              <div className="flex-1">
-                                <p className="text-gray-600 text-xs uppercase tracking-widest mb-2">
-                                  Ticket Types
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {ev.ticketTypes.map((tier, tierIdx) => (
-                                    <div
-                                      key={`${ev.id}-${tier.name}-${tierIdx}`}
-                                      className="flex flex-col items-start px-3 py-2 rounded-xl border"
-                                      style={{
-                                        borderColor: "rgba(255,255,0,0.25)",
-                                        background: "rgba(255,255,0,0.05)",
-                                      }}
-                                    >
-                                      <span
-                                        className="text-[10px] font-bold uppercase tracking-widest"
-                                        style={{ color: "#FFFF00" }}
-                                      >
-                                        {tier.name}
-                                      </span>
-                                      <span className="text-base font-bold text-white">
-                                        ₦{tier.price.toLocaleString()}
-                                      </span>
-                                      {tier.limit != null && (
-                                        <span className="text-[9px] text-gray-600 uppercase tracking-widest">
-                                          {tier.limit} slots
-                                        </span>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ) : (
-                              <div>
-                                <p className="text-gray-600 text-xs uppercase tracking-widest">
-                                  Price per ticket
-                                </p>
-                                <p
-                                  className="text-2xl font-bold"
-                                  style={{ color: "#FFFF00" }}
-                                >
-                                  ₦{ev.ticketPrice.toLocaleString()}
-                                </p>
+                            {ev.highlights?.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {ev.highlights.map((h) => (
+                                  <span
+                                    key={h}
+                                    className="text-xs px-3 py-1 rounded-full border"
+                                    style={{
+                                      borderColor: "rgba(255,255,0,0.2)",
+                                      color: "rgba(255,255,0,0.7)",
+                                    }}
+                                  >
+                                    {h}
+                                  </span>
+                                ))}
                               </div>
                             )}
 
-                            <Link href="/event">
-                              <motion.button
-                                disabled={soldOut}
-                                className="w-full sm:w-auto px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm flex-shrink-0"
-                                style={{
-                                  background: soldOut
-                                    ? "transparent"
-                                    : "#FFFF00",
-                                  color: soldOut ? "#666" : "#000",
-                                  border: soldOut
-                                    ? "2px solid #333"
-                                    : "2px solid #FFFF00",
-                                  boxShadow: soldOut
-                                    ? "none"
-                                    : "0 0 20px rgba(255,255,0,0.4)",
-                                  cursor: soldOut ? "not-allowed" : "pointer",
-                                }}
-                                whileHover={!soldOut ? { scale: 1.03 } : {}}
-                                whileTap={!soldOut ? { scale: 0.97 } : {}}
-                              >
-                                {soldOut ? "Sold Out" : "Get Tickets →"}
-                              </motion.button>
-                            </Link>
-                          </div>
+                            <div className="pt-1 space-y-3">
+                              {ev.ticketTypes && ev.ticketTypes.length > 0 ? (
+                                <div>
+                                  <p className="text-gray-600 text-xs uppercase tracking-widest mb-2">
+                                    Ticket Types
+                                  </p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {ev.ticketTypes.map((tier, tierIdx) => (
+                                      <div
+                                        key={`${ev.id}-${tier.name}-${tierIdx}`}
+                                        className="flex flex-col items-start px-3 py-2 rounded-xl border"
+                                        style={{
+                                          borderColor: "rgba(255,255,0,0.25)",
+                                          background: "rgba(255,255,0,0.05)",
+                                        }}
+                                      >
+                                        <span
+                                          className="text-[10px] font-bold uppercase tracking-widest"
+                                          style={{ color: "#FFFF00" }}
+                                        >
+                                          {tier.name}
+                                        </span>
+                                        <span className="text-base font-bold text-white">
+                                          ₦{tier.price.toLocaleString()}
+                                        </span>
+                                        {tier.limit != null && (
+                                          <span className="text-[9px] text-gray-600 uppercase tracking-widest">
+                                            {tier.limit} slots
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div>
+                                  <p className="text-gray-600 text-xs uppercase tracking-widest">
+                                    Price per ticket
+                                  </p>
+                                  <p className="text-2xl font-bold" style={{ color: "#FFFF00" }}>
+                                    ₦{ev.ticketPrice.toLocaleString()}
+                                  </p>
+                                </div>
+                              )}
 
-                          {/* Progress bar */}
-                          <div>
-                            <div className="flex justify-between text-xs mb-1">
-                              <span
-                                style={{
-                                  color:
-                                    pct >= 90
-                                      ? "#FF3333"
-                                      : "rgba(255,255,255,0.4)",
-                                }}
-                              >
-                                {pct}% sold
-                              </span>
-                              <span className="text-gray-600">
-                                {remaining} remaining
-                              </span>
-                            </div>
-                            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                              <div
-                                className="h-full rounded-full transition-all duration-700"
-                                style={{
-                                  width: `${pct}%`,
-                                  background: pct >= 90 ? "#FF3333" : "#FFFF00",
-                                }}
-                              />
+                              {/* Progress bar */}
+                              <div>
+                                <div className="flex justify-between text-xs mb-1">
+                                  <span style={{ color: pct >= 90 ? "#FF3333" : "rgba(255,255,255,0.4)" }}>
+                                    {pct}% sold
+                                  </span>
+                                  <span className="text-gray-600">{remaining} remaining</span>
+                                </div>
+                                <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full transition-all duration-700"
+                                    style={{
+                                      width: `${pct}%`,
+                                      background: pct >= 90 ? "#FF3333" : "#FFFF00",
+                                    }}
+                                  />
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
+
+                        {/* Get Tickets button — always visible */}
+                        <Link href="/event" className="mt-auto">
+                          <motion.button
+                            disabled={soldOut}
+                            className="w-full sm:w-auto px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm shrink-0"
+                            style={{
+                              background: soldOut ? "transparent" : "#FFFF00",
+                              color: soldOut ? "#666" : "#000",
+                              border: soldOut ? "2px solid #333" : "2px solid #FFFF00",
+                              boxShadow: soldOut ? "none" : "0 0 20px rgba(255,255,0,0.4)",
+                              cursor: soldOut ? "not-allowed" : "pointer",
+                            }}
+                            whileHover={!soldOut ? { scale: 1.03 } : {}}
+                            whileTap={!soldOut ? { scale: 0.97 } : {}}
+                          >
+                            {soldOut ? "Sold Out" : "Get Tickets →"}
+                          </motion.button>
+                        </Link>
                       </div>
                     </motion.div>
                   );
@@ -1790,87 +1793,6 @@ export default function Home() {
       </SectionFadeIn>
 
       {/* ──────────────────────────────────────────
-          NEWSLETTER
-          ─────────────────────────────────────────
-          API INTEGRATION NEEDED:
-          1. Mailchimp (or Loops / Resend / Brevo) for email collection
-          2. Add to .env.local:
-               MAILCHIMP_API_KEY=<key>
-               MAILCHIMP_LIST_ID=<audience ID>
-               MAILCHIMP_SERVER_PREFIX=us1 (or your data centre prefix)
-          3. Create POST endpoint at /app/api/subscribe/route.ts
-          4. Wire the form below to submit to that endpoint
-          ────────────────────────────────────────── */}
-      <SectionFadeIn>
-        <section className="relative z-10 pt-10 pb-15 px-6 md:px-16 bg-black/80 border-t border-white/5">
-          <div className="max-w-3xl mx-auto text-center space-y-6">
-            <motion.h2
-              className="text-3xl md:text-5xl font-bold uppercase tracking-wider"
-              style={{
-                color: "white",
-                textShadow: "0 0 20px rgba(0,255,65,0.3)",
-              }}
-            >
-              Don&apos;t Miss The Next Bite
-            </motion.h2>
-            <p className="text-gray-500 text-base">
-              Join our community for exclusive updates, vendor reveals, and
-              early bird tickets.
-            </p>
-            {subStatus === "done" ? (
-              <motion.p
-                className="text-[#00FF41] text-sm font-bold uppercase tracking-widest"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                style={{ textShadow: "0 0 12px rgba(0,255,65,0.6)" }}
-              >
-                ✓ You&apos;re on the list — welcome to the night!
-              </motion.p>
-            ) : (
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  if (!subEmail) return;
-                  setSubStatus("loading");
-                  try {
-                    const res = await fetch("/api/subscribe", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ email: subEmail }),
-                    });
-                    const data = await res.json();
-                    // Send welcome email only on first subscription
-                    if (data.isNew) {
-                      import("@/lib/emailjs")
-                        .then(({ sendNewsletterWelcomeEmail }) =>
-                          sendNewsletterWelcomeEmail(subEmail),
-                        )
-                        .catch(() => {});
-                    }
-                  } finally {
-                    setSubStatus("done");
-                  }
-                }}
-                className="flex flex-col sm:flex-row gap-4 justify-center items-center pointer-events-auto w-full"
-              >
-                <input
-                  type="email"
-                  required
-                  value={subEmail}
-                  onChange={(e) => setSubEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  className="px-6 py-3 bg-white/5 border border-white/15 rounded-full text-white focus:outline-none focus:border-[#00FF41] focus:shadow-[0_0_20px_rgba(0,255,65,0.3)] transition-all w-full sm:w-80 placeholder:text-gray-700"
-                />
-                <NeonButton color="#00FF41" glowColor="rgba(0,255,65,0.55)">
-                  {subStatus === "loading" ? "Subscribing…" : "Subscribe"}
-                </NeonButton>
-              </form>
-            )}
-          </div>
-        </section>
-      </SectionFadeIn>
-
-      {/* ──────────────────────────────────────────
           FOOTER
          ────────────────────────────────────────── */}
 
@@ -1880,6 +1802,8 @@ export default function Home() {
         isOpen={vendorModalOpen}
         onClose={() => setVendorModalOpen(false)}
       />
+      {/* Newsletter first-visit modal */}
+      <NewsletterModal />
     </div>
   );
 }

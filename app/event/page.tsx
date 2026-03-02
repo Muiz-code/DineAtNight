@@ -29,6 +29,7 @@ import {
   Trophy,
   Moon,
   MapPin,
+  ChevronDown,
 } from "lucide-react";
 
 const NeonButton = ({
@@ -573,6 +574,7 @@ export default function EventPage() {
   const [loading, setLoading] = useState(true);
   const [heroIdx, setHeroIdx] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const pastResolvedRef = useRef(false);
 
   useEffect(() => {
@@ -1003,10 +1005,20 @@ export default function EventPage() {
                       ? Math.round((sold / ev.totalTickets) * 100)
                       : 0;
                   const soldOut = remaining <= 0;
+                  const isExpanded = expandedIds.has(ev.id ?? "");
+                  const toggleExpand = () => {
+                    const id = ev.id ?? "";
+                    setExpandedIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(id)) next.delete(id);
+                      else next.add(id);
+                      return next;
+                    });
+                  };
                   return (
                     <motion.div
                       key={ev.id}
-                      className="relative rounded-2xl border overflow-hidden flex flex-col md:flex-row"
+                      className="relative rounded-2xl border overflow-hidden flex flex-col md:flex-row group"
                       style={{
                         borderColor: "rgba(255,255,0,0.25)",
                         background: "linear-gradient(135deg, #090909, #040404)",
@@ -1020,49 +1032,67 @@ export default function EventPage() {
                       {/* Corner accents */}
                       <span
                         className="absolute top-0 left-0 w-8 h-8 z-10"
-                        style={{ borderTop: "2px solid #FFFF00", borderLeft: "2px solid #FFFF00" }}
+                        style={{
+                          borderTop: "2px solid #FFFF00",
+                          borderLeft: "2px solid #FFFF00",
+                        }}
                       />
                       <span
                         className="absolute bottom-0 right-0 w-8 h-8 z-10"
-                        style={{ borderBottom: "2px solid #FFFF00", borderRight: "2px solid #FFFF00" }}
+                        style={{
+                          borderBottom: "2px solid #FFFF00",
+                          borderRight: "2px solid #FFFF00",
+                        }}
                       />
 
-                      {/* Image — full width on mobile, full height left column on desktop */}
-                      <div className="relative h-64 sm:h-72 md:h-auto md:w-2/5 lg:w-[45%] flex-shrink-0 overflow-hidden">
+                      {/* Image — natural height on mobile, fill column on desktop */}
+                      <div className="relative w-full md:w-2/5 lg:w-[45%] shrink-0 overflow-hidden">
                         {ev.imageUrl ? (
                           <>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={ev.imageUrl}
                               alt={ev.title}
-                              className="absolute inset-0 w-full h-full object-cover object-center"
+                              className="w-full h-auto block md:absolute md:inset-0 md:h-full md:object-cover md:object-center transition-transform duration-500 group-hover:scale-105"
                             />
-                            {/* Mobile: fade bottom into card */}
+                            {/* Mobile: subtle bottom fade */}
                             <div
-                              className="absolute inset-0 md:hidden"
-                              style={{ background: "linear-gradient(to bottom, transparent 45%, #090909 100%)" }}
+                              className="absolute bottom-0 left-0 right-0 h-16 md:hidden"
+                              style={{
+                                background:
+                                  "linear-gradient(to bottom, transparent, #090909)",
+                              }}
                             />
                             {/* Desktop: fade right edge into card */}
                             <div
                               className="absolute inset-0 hidden md:block"
-                              style={{ background: "linear-gradient(to right, transparent 55%, #090909 100%)" }}
+                              style={{
+                                background:
+                                  "linear-gradient(to right, transparent 55%, #090909 100%)",
+                              }}
                             />
                           </>
                         ) : (
                           <div
-                            className="w-full h-full min-h-[200px]"
-                            style={{ background: "radial-gradient(ellipse at center, rgba(255,255,0,0.08), #030303)" }}
+                            className="w-full min-h-[220px]"
+                            style={{
+                              background:
+                                "radial-gradient(ellipse at center, rgba(255,255,0,0.08), #030303)",
+                            }}
                           />
                         )}
                       </div>
 
-                      {/* Content panel — scrolls naturally, fills remaining space */}
+                      {/* Content panel */}
                       <div className="flex-1 flex flex-col gap-4 p-6 md:p-8">
-                        {/* Title + meta */}
+                        {/* Title + meta — always visible */}
                         <div>
                           <h3
                             className="text-2xl md:text-3xl font-bold uppercase tracking-wide"
-                            style={{ color: "#FFFF00", textShadow: "0 0 20px rgba(255,255,0,0.5)" }}
+                            style={{
+                              color: "#FFFF00",
+                              textShadow: "0 0 20px rgba(255,255,0,0.5)",
+                            }}
                           >
                             {ev.title}
                           </h3>
@@ -1070,11 +1100,12 @@ export default function EventPage() {
                             {evDate} · {evTime}
                           </p>
                           <p className="text-gray-500 text-sm mt-0.5 flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 flex-shrink-0" /> {ev.venue}
+                            <MapPin className="w-3.5 h-3.5 shrink-0" />{" "}
+                            {ev.venue}
                           </p>
                         </div>
 
-                        {/* Countdown */}
+                        {/* Countdown — always visible */}
                         {ev.date?.toDate?.() && (
                           <div>
                             <p className="text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
@@ -1084,105 +1115,161 @@ export default function EventPage() {
                           </div>
                         )}
 
-                        {/* Description */}
-                        <p className="text-gray-400 text-sm leading-relaxed">
-                          {ev.description}
-                        </p>
+                        {/* Mobile: "See Details" accordion toggle */}
+                        <button
+                          className="flex md:hidden items-center justify-between w-full py-2 border-t text-xs font-bold uppercase tracking-widest transition-colors"
+                          style={{
+                            borderColor: "rgba(255,255,0,0.12)",
+                            color: isExpanded
+                              ? "rgba(255,255,0,0.9)"
+                              : "rgba(255,255,0,0.55)",
+                          }}
+                          onClick={toggleExpand}
+                        >
+                          <span>{isExpanded ? "Hide Details" : "See Details"}</span>
+                          <ChevronDown
+                            className="w-4 h-4 transition-transform duration-300"
+                            style={{
+                              transform: isExpanded
+                                ? "rotate(180deg)"
+                                : "rotate(0deg)",
+                            }}
+                          />
+                        </button>
 
-                        {/* Highlights */}
-                        {ev.highlights?.length > 0 && (
-                          <div className="flex flex-wrap gap-2">
-                            {ev.highlights.map((h) => (
-                              <span
-                                key={h}
-                                className="text-xs px-3 py-1 rounded-full border"
-                                style={{ borderColor: "rgba(255,255,0,0.2)", color: "rgba(255,255,0,0.7)" }}
-                              >
-                                {h}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        {/* Collapsible: description, highlights, tiers, progress bar */}
+                        <div
+                          className="grid transition-all duration-300 ease-in-out"
+                          style={{
+                            gridTemplateRows: (!isMobile || isExpanded) ? "1fr" : "0fr",
+                            opacity: (!isMobile || isExpanded) ? 1 : 0,
+                          }}
+                        >
+                          <div className="overflow-hidden flex flex-col gap-4 min-h-0">
+                            {/* Description */}
+                            <p className="text-gray-400 text-sm leading-relaxed">
+                              {ev.description}
+                            </p>
 
-                        {/* Pricing + CTA — pushed to bottom */}
-                        <div className="mt-auto pt-2 space-y-3">
-                          {/* Ticket tiers OR single price + Buy button */}
-                          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-                            {ev.ticketTypes && ev.ticketTypes.length > 0 ? (
-                              <div className="flex-1">
-                                <p className="text-gray-600 text-xs uppercase tracking-widest mb-2">
-                                  Ticket Types
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {ev.ticketTypes.map((tier, tierIdx) => (
-                                    <div
-                                      key={`${ev.id}-${tier.name}-${tierIdx}`}
-                                      className="flex flex-col items-start px-3 py-2 rounded-xl border"
-                                      style={{
-                                        borderColor: "rgba(255,255,0,0.25)",
-                                        background: "rgba(255,255,0,0.05)",
-                                      }}
-                                    >
-                                      <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#FFFF00" }}>
-                                        {tier.name}
-                                      </span>
-                                      <span className="text-base font-bold text-white">
-                                        ₦{tier.price.toLocaleString()}
-                                      </span>
-                                      {tier.limit != null && (
-                                        <span className="text-[9px] text-gray-600 uppercase tracking-widest">
-                                          {tier.limit} slots
-                                        </span>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ) : (
-                              <div>
-                                <p className="text-gray-600 text-xs uppercase tracking-widest">
-                                  Price per ticket
-                                </p>
-                                <p className="text-2xl font-bold" style={{ color: "#FFFF00" }}>
-                                  ₦{ev.ticketPrice.toLocaleString()}
-                                </p>
+                            {/* Highlights */}
+                            {ev.highlights?.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {ev.highlights.map((h) => (
+                                  <span
+                                    key={h}
+                                    className="text-xs px-3 py-1 rounded-full border"
+                                    style={{
+                                      borderColor: "rgba(255,255,0,0.2)",
+                                      color: "rgba(255,255,0,0.7)",
+                                    }}
+                                  >
+                                    {h}
+                                  </span>
+                                ))}
                               </div>
                             )}
 
-                            <motion.button
-                              disabled={soldOut}
-                              onClick={() => !soldOut && setTicketEvent(ev)}
-                              className="w-full sm:w-auto px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm flex-shrink-0"
-                              style={{
-                                background: soldOut ? "transparent" : "#FFFF00",
-                                color: soldOut ? "#666" : "#000",
-                                border: soldOut ? "2px solid #333" : "2px solid #FFFF00",
-                                boxShadow: soldOut ? "none" : "0 0 20px rgba(255,255,0,0.4)",
-                                cursor: soldOut ? "not-allowed" : "pointer",
-                              }}
-                              whileHover={!soldOut ? { scale: 1.03 } : {}}
-                              whileTap={!soldOut ? { scale: 0.97 } : {}}
-                            >
-                              {soldOut ? "Sold Out" : "Get Tickets →"}
-                            </motion.button>
-                          </div>
+                            {/* Ticket tiers OR single price */}
+                            <div className="pt-1 space-y-3">
+                              {ev.ticketTypes && ev.ticketTypes.length > 0 ? (
+                                <div>
+                                  <p className="text-gray-600 text-xs uppercase tracking-widest mb-2">
+                                    Ticket Types
+                                  </p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {ev.ticketTypes.map((tier, tierIdx) => (
+                                      <div
+                                        key={`${ev.id}-${tier.name}-${tierIdx}`}
+                                        className="flex flex-col items-start px-3 py-2 rounded-xl border"
+                                        style={{
+                                          borderColor: "rgba(255,255,0,0.25)",
+                                          background: "rgba(255,255,0,0.05)",
+                                        }}
+                                      >
+                                        <span
+                                          className="text-[10px] font-bold uppercase tracking-widest"
+                                          style={{ color: "#FFFF00" }}
+                                        >
+                                          {tier.name}
+                                        </span>
+                                        <span className="text-base font-bold text-white">
+                                          ₦{tier.price.toLocaleString()}
+                                        </span>
+                                        {tier.limit != null && (
+                                          <span className="text-[9px] text-gray-600 uppercase tracking-widest">
+                                            {tier.limit} slots
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div>
+                                  <p className="text-gray-600 text-xs uppercase tracking-widest">
+                                    Price per ticket
+                                  </p>
+                                  <p
+                                    className="text-2xl font-bold"
+                                    style={{ color: "#FFFF00" }}
+                                  >
+                                    ₦{ev.ticketPrice.toLocaleString()}
+                                  </p>
+                                </div>
+                              )}
 
-                          {/* Progress bar */}
-                          <div>
-                            <div className="flex justify-between text-xs mb-1">
-                              <span style={{ color: pct >= 90 ? "#FF3333" : "rgba(255,255,255,0.4)" }}>
-                                {pct}% sold
-                              </span>
-                              <span className="text-gray-600">{remaining} remaining</span>
-                            </div>
-                            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                              <div
-                                className="h-full rounded-full transition-all duration-700"
-                                style={{ width: `${pct}%`, background: pct >= 90 ? "#FF3333" : "#FFFF00" }}
-                              />
+                              {/* Progress bar */}
+                              <div>
+                                <div className="flex justify-between text-xs mb-1">
+                                  <span
+                                    style={{
+                                      color:
+                                        pct >= 90
+                                          ? "#FF3333"
+                                          : "rgba(255,255,255,0.4)",
+                                    }}
+                                  >
+                                    {pct}% sold
+                                  </span>
+                                  <span className="text-gray-600">
+                                    {remaining} remaining
+                                  </span>
+                                </div>
+                                <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full transition-all duration-700"
+                                    style={{
+                                      width: `${pct}%`,
+                                      background: pct >= 90 ? "#FF3333" : "#FFFF00",
+                                    }}
+                                  />
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
+
+                        {/* Get Tickets button — always visible */}
+                        <motion.button
+                          disabled={soldOut}
+                          onClick={() => !soldOut && setTicketEvent(ev)}
+                          className="mt-auto w-full sm:w-auto px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm shrink-0"
+                          style={{
+                            background: soldOut ? "transparent" : "#FFFF00",
+                            color: soldOut ? "#666" : "#000",
+                            border: soldOut
+                              ? "2px solid #333"
+                              : "2px solid #FFFF00",
+                            boxShadow: soldOut
+                              ? "none"
+                              : "0 0 20px rgba(255,255,0,0.4)",
+                            cursor: soldOut ? "not-allowed" : "pointer",
+                          }}
+                          whileHover={!soldOut ? { scale: 1.03 } : {}}
+                          whileTap={!soldOut ? { scale: 0.97 } : {}}
+                        >
+                          {soldOut ? "Sold Out" : "Get Tickets →"}
+                        </motion.button>
                       </div>
                     </motion.div>
                   );
@@ -1283,11 +1370,14 @@ export default function EventPage() {
                   return {
                     id: ev.id!,
                     content: (
-                      <div
-                        className="relative rounded-2xl border overflow-hidden mx-2 min-h-[420px] flex flex-col justify-end"
+                      <Link
+                        href={`/gallery?event=${ev.id}`}
+                        className="relative rounded-2xl border overflow-hidden mx-2 flex flex-col md:flex-row group cursor-pointer"
                         style={{
                           borderColor: "rgba(255,51,51,0.3)",
                           boxShadow: "0 0 30px rgba(255,51,51,0.08)",
+                          background:
+                            "linear-gradient(135deg, #090909, #040404)",
                         }}
                       >
                         {/* Corner accents */}
@@ -1306,67 +1396,73 @@ export default function EventPage() {
                           }}
                         />
 
-                        {/* Full-height background image */}
-                        {ev.imageUrl ? (
-                          <>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={ev.imageUrl}
-                              alt={ev.title}
-                              className="absolute inset-0 w-full h-full object-cover object-center"
-                            />
+                        {/* Image — natural dimensions, card sizes to the image */}
+                        <div className="relative w-full md:w-2/5 lg:w-[45%] shrink-0 overflow-hidden">
+                          {ev.imageUrl ? (
+                            <>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={ev.imageUrl}
+                                alt={ev.title}
+                                className="w-full h-auto block transition-transform duration-500 group-hover:scale-105"
+                              />
+                              {/* Desktop: fade right edge into card */}
+                              <div
+                                className="absolute inset-0 hidden md:block"
+                                style={{
+                                  background:
+                                    "linear-gradient(to right, transparent 55%, #090909 100%)",
+                                }}
+                              />
+                            </>
+                          ) : (
                             <div
-                              className="absolute inset-0"
+                              className="w-full min-h-[200px]"
                               style={{
                                 background:
-                                  "linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.92) 100%)",
+                                  "radial-gradient(ellipse at center, rgba(255,51,51,0.12), #030303)",
                               }}
                             />
-                          </>
-                        ) : (
-                          <div
-                            className="absolute inset-0"
-                            style={{
-                              background:
-                                "radial-gradient(ellipse at center, rgba(255,51,51,0.12), #030303)",
-                            }}
-                          />
-                        )}
+                          )}
+                        </div>
 
-                        {/* Content overlaid at bottom */}
-                        <div className="relative z-10 p-6 md:p-8">
-                          <p
-                            className="text-xs tracking-[0.4em] uppercase mb-1"
-                            style={{ color: "#FF3333" }}
-                          >
-                            {evDate}
-                          </p>
-                          <h3
-                            className="text-3xl font-bold uppercase tracking-wide"
-                            style={{
-                              color: "#FF3333",
-                              textShadow: "0 0 20px rgba(255,51,51,0.5)",
-                            }}
-                          >
-                            {ev.edition}
-                          </h3>
-                          <p className="text-gray-400 text-sm mb-3 tracking-widest">
-                            {ev.venue}
-                          </p>
+                        {/* Content panel */}
+                        <div className="flex-1 flex flex-col gap-3 p-6 md:p-8">
+                          <div>
+                            <p
+                              className="text-xs tracking-[0.4em] uppercase mb-1"
+                              style={{ color: "#FF3333" }}
+                            >
+                              {evDate}
+                            </p>
+                            <h3
+                              className="text-2xl md:text-3xl font-bold uppercase tracking-wide"
+                              style={{
+                                color: "#FF3333",
+                                textShadow: "0 0 20px rgba(255,51,51,0.5)",
+                              }}
+                            >
+                              {ev.edition}
+                            </h3>
+                            <p className="text-gray-400 text-sm mt-0.5 flex items-center gap-1 tracking-widest">
+                              <MapPin className="w-3.5 h-3.5 shrink-0" />{" "}
+                              {ev.venue}
+                            </p>
+                          </div>
                           <p className="text-gray-300 text-sm leading-relaxed line-clamp-3">
                             {ev.description}
                           </p>
-                          <div className="flex gap-4 mt-5 flex-wrap text-xs">
-                            <Link
-                              href={`/gallery?event=${ev.id}`}
-                              className="flex items-center gap-1 text-[#FF3333] hover:underline"
-                            >
-                              <Camera className="w-3 h-3" />
+                          <div
+                            className="flex items-center gap-1.5 text-xs mt-auto"
+                            style={{ color: "#FF3333" }}
+                          >
+                            <Camera className="w-3.5 h-3.5" />
+                            <span className="uppercase tracking-widest font-semibold">
                               View Gallery →
-                            </Link>
+                            </span>
                           </div>
                         </div>
-                      </div>
+                      </Link>
                     ),
                   };
                 })}

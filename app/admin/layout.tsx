@@ -22,6 +22,10 @@ const TAB_GROUPS: Record<string, { label: string; href: string }[]> = {
     { label: "Vendors", href: "/admin/vendors" },
     { label: "Confirm", href: "/admin/confirm" },
   ],
+  gallery: [
+    { label: "Gallery",       href: "/admin/gallery"       },
+    { label: "Testimonials",  href: "/admin/testimonials"  },
+  ],
   store: [
     { label: "Products", href: "/admin/shop"   },
     { label: "Orders",   href: "/admin/orders" },
