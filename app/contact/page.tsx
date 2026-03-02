@@ -173,8 +173,8 @@ export default function ContactPage() {
                   {
                     icon: <Instagram className="w-4 h-4" />,
                     label: "Instagram",
-                    value: "@dineatnight",
-                    href: "https://instagram.com/dineatnight",
+                    value: "@dineatnight.ng",
+                    href: "https://www.instagram.com/dineatnight.ng/",
                     color: "#00FF41",
                   },
                 ].map((item) => (
@@ -281,7 +281,7 @@ export default function ContactPage() {
                 {[
                   {
                     label: "Instagram",
-                    href: "https://instagram.com/dineatnight",
+                    href: "https://www.instagram.com/dineatnight.ng/",
                     color: "#FF3333",
                     glow: "rgba(255,51,51,0.3)",
                     icon: (

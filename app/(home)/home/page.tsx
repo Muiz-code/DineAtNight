@@ -349,7 +349,6 @@ const VENDOR_PALETTE = [
   { color: "#00FF41", glow: "rgba(0,255,65,0.5)" },
 ];
 
-
 // Sponsor accent colors — cycled by index
 const SPONSOR_COLORS = [
   { color: "#FFFF00", glow: "rgba(255,255,0,0.5)" },
@@ -612,15 +611,22 @@ export default function Home() {
     vendorsResolvedRef.current = false;
     const cached = getCache<DanVendor[]>("dan_approved_vendors");
     if (cached) {
-      setApprovedVendors([...cached].sort(() => Math.random() - 0.5).slice(0, 3));
+      setApprovedVendors(
+        [...cached].sort(() => Math.random() - 0.5).slice(0, 3),
+      );
       setVendorsLoading(false);
       vendorsResolvedRef.current = true;
     }
     return subscribeApprovedVendors((vendors) => {
       setCache("dan_approved_vendors", vendors);
-      setApprovedVendors([...vendors].sort(() => Math.random() - 0.5).slice(0, 3));
+      setApprovedVendors(
+        [...vendors].sort(() => Math.random() - 0.5).slice(0, 3),
+      );
       setVendorsError(false);
-      if (!vendorsResolvedRef.current) { setVendorsLoading(false); vendorsResolvedRef.current = true; }
+      if (!vendorsResolvedRef.current) {
+        setVendorsLoading(false);
+        vendorsResolvedRef.current = true;
+      }
     });
   }, []);
 
@@ -864,6 +870,83 @@ export default function Home() {
       </div>
 
       {/* ──────────────────────────────────────────
+          WHAT IS DINE AT NIGHT?
+         ────────────────────────────────────────── */}
+      <SectionFadeIn>
+        <section className="relative z-10 pt-10 pb-5 px-6 md:px-24 bg-black/80">
+          <div className="max-w-4xl mx-auto text-center space-y-8">
+            <motion.h2
+              className="text-4xl md:text-6xl uppercase tracking-wider"
+              style={{
+                color: "transparent",
+                WebkitTextStroke: "2px #FFFF00",
+                textShadow:
+                  "0 0 20px rgba(255,255,0,0.5), 0 0 45px rgba(255,255,0,0.3)",
+              }}
+            >
+              What Is Dine At Night?
+            </motion.h2>
+
+            <p className="text-lg md:text-xl text-gray-300 leading-relaxed max-w-2xl mx-auto">
+              Dine At Night is Lagos after dark — a vibrant nighttime food
+              market where the city&apos;s best chefs, street food vendors,
+              music, and community come together under neon lights.
+            </p>
+
+            <motion.p
+              className="text-xl md:text-2xl font-semibold italic"
+              style={{
+                color: "#FF3333",
+                textShadow: "0 0 15px rgba(255,51,51,0.6)",
+              }}
+            >
+              It&apos;s more than a food event. It&apos;s an experience.
+            </motion.p>
+
+            {/* Video Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-12 w-full pointer-events-auto">
+              {videos.map((video, i) => (
+                <VideoCard
+                  key={i}
+                  src={video.src}
+                  color={video.color}
+                  glowColor={video.glow}
+                  isPlaying={playingIndex === i}
+                  onPlay={() => setPlayingIndex(playingIndex === i ? null : i)}
+                />
+              ))}
+            </div>
+
+            {/* Neon divider */}
+            <div className="flex items-center justify-center gap-3 pt-4">
+              <span
+                className="block h-px flex-1 max-w-25"
+                style={{
+                  background: "linear-gradient(90deg, transparent, #FF3333)",
+                  boxShadow: "0 0 10px rgba(255,51,51,0.6)",
+                }}
+              />
+              <span
+                className="block w-2 h-2 rounded-full"
+                style={{
+                  backgroundColor: "#FFFF00",
+                  boxShadow:
+                    "0 0 12px rgba(255,255,0,0.9), 0 0 24px rgba(255,255,0,0.5)",
+                }}
+              />
+              <span
+                className="block h-px flex-1 max-w-25"
+                style={{
+                  background: "linear-gradient(90deg, #FF3333, transparent)",
+                  boxShadow: "0 0 10px rgba(255,51,51,0.6)",
+                }}
+              />
+            </div>
+          </div>
+        </section>
+      </SectionFadeIn>
+
+      {/* ──────────────────────────────────────────
           STATS  (real numbers from Edition 1)
          ────────────────────────────────────────── */}
       <SectionFadeIn>
@@ -955,16 +1038,20 @@ export default function Home() {
 
               <div className="space-y-6">
                 {activeEvents.map((ev) => {
-                  const evDate = ev.date?.toDate?.()?.toLocaleDateString("en-NG", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  });
-                  const evTime = ev.date?.toDate?.()?.toLocaleTimeString("en-NG", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
+                  const evDate = ev.date
+                    ?.toDate?.()
+                    ?.toLocaleDateString("en-NG", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    });
+                  const evTime = ev.date
+                    ?.toDate?.()
+                    ?.toLocaleTimeString("en-NG", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
                   const sold = soldByEvent[ev.id ?? ""] ?? ev.soldTickets ?? 0;
                   const remaining = ev.totalTickets - sold;
                   const pct =
@@ -990,11 +1077,17 @@ export default function Home() {
                       {/* Corner accents */}
                       <span
                         className="absolute top-0 left-0 w-8 h-8 z-10"
-                        style={{ borderTop: "2px solid #FFFF00", borderLeft: "2px solid #FFFF00" }}
+                        style={{
+                          borderTop: "2px solid #FFFF00",
+                          borderLeft: "2px solid #FFFF00",
+                        }}
                       />
                       <span
                         className="absolute bottom-0 right-0 w-8 h-8 z-10"
-                        style={{ borderBottom: "2px solid #FFFF00", borderRight: "2px solid #FFFF00" }}
+                        style={{
+                          borderBottom: "2px solid #FFFF00",
+                          borderRight: "2px solid #FFFF00",
+                        }}
                       />
 
                       {/* Image — full width mobile, full-height left column desktop */}
@@ -1009,17 +1102,26 @@ export default function Home() {
                             />
                             <div
                               className="absolute inset-0 md:hidden"
-                              style={{ background: "linear-gradient(to bottom, transparent 45%, #090909 100%)" }}
+                              style={{
+                                background:
+                                  "linear-gradient(to bottom, transparent 45%, #090909 100%)",
+                              }}
                             />
                             <div
                               className="absolute inset-0 hidden md:block"
-                              style={{ background: "linear-gradient(to right, transparent 55%, #090909 100%)" }}
+                              style={{
+                                background:
+                                  "linear-gradient(to right, transparent 55%, #090909 100%)",
+                              }}
                             />
                           </>
                         ) : (
                           <div
                             className="w-full h-full min-h-[200px]"
-                            style={{ background: "radial-gradient(ellipse at center, rgba(255,255,0,0.08), #030303)" }}
+                            style={{
+                              background:
+                                "radial-gradient(ellipse at center, rgba(255,255,0,0.08), #030303)",
+                            }}
                           />
                         )}
                       </div>
@@ -1030,15 +1132,20 @@ export default function Home() {
                         <div>
                           <h3
                             className="text-2xl md:text-3xl font-bold uppercase tracking-wide"
-                            style={{ color: "#FFFF00", textShadow: "0 0 20px rgba(255,255,0,0.5)" }}
+                            style={{
+                              color: "#FFFF00",
+                              textShadow: "0 0 20px rgba(255,255,0,0.5)",
+                            }}
                           >
                             {ev.title}
                           </h3>
                           <p className="text-gray-400 text-sm mt-1">
-                            {evDate}{evTime ? ` · ${evTime}` : ""}
+                            {evDate}
+                            {evTime ? ` · ${evTime}` : ""}
                           </p>
                           <p className="text-gray-500 text-sm mt-0.5 flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 flex-shrink-0" /> {ev.venue}
+                            <MapPin className="w-3.5 h-3.5 flex-shrink-0" />{" "}
+                            {ev.venue}
                           </p>
                         </div>
 
@@ -1066,7 +1173,10 @@ export default function Home() {
                               <span
                                 key={h}
                                 className="text-xs px-3 py-1 rounded-full border"
-                                style={{ borderColor: "rgba(255,255,0,0.2)", color: "rgba(255,255,0,0.7)" }}
+                                style={{
+                                  borderColor: "rgba(255,255,0,0.2)",
+                                  color: "rgba(255,255,0,0.7)",
+                                }}
                               >
                                 {h}
                               </span>
@@ -1115,7 +1225,10 @@ export default function Home() {
                                 <p className="text-gray-600 text-xs uppercase tracking-widest">
                                   Price per ticket
                                 </p>
-                                <p className="text-2xl font-bold" style={{ color: "#FFFF00" }}>
+                                <p
+                                  className="text-2xl font-bold"
+                                  style={{ color: "#FFFF00" }}
+                                >
                                   ₦{ev.ticketPrice.toLocaleString()}
                                 </p>
                               </div>
@@ -1126,10 +1239,16 @@ export default function Home() {
                                 disabled={soldOut}
                                 className="w-full sm:w-auto px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm flex-shrink-0"
                                 style={{
-                                  background: soldOut ? "transparent" : "#FFFF00",
+                                  background: soldOut
+                                    ? "transparent"
+                                    : "#FFFF00",
                                   color: soldOut ? "#666" : "#000",
-                                  border: soldOut ? "2px solid #333" : "2px solid #FFFF00",
-                                  boxShadow: soldOut ? "none" : "0 0 20px rgba(255,255,0,0.4)",
+                                  border: soldOut
+                                    ? "2px solid #333"
+                                    : "2px solid #FFFF00",
+                                  boxShadow: soldOut
+                                    ? "none"
+                                    : "0 0 20px rgba(255,255,0,0.4)",
                                   cursor: soldOut ? "not-allowed" : "pointer",
                                 }}
                                 whileHover={!soldOut ? { scale: 1.03 } : {}}
@@ -1143,15 +1262,27 @@ export default function Home() {
                           {/* Progress bar */}
                           <div>
                             <div className="flex justify-between text-xs mb-1">
-                              <span style={{ color: pct >= 90 ? "#FF3333" : "rgba(255,255,255,0.4)" }}>
+                              <span
+                                style={{
+                                  color:
+                                    pct >= 90
+                                      ? "#FF3333"
+                                      : "rgba(255,255,255,0.4)",
+                                }}
+                              >
                                 {pct}% sold
                               </span>
-                              <span className="text-gray-600">{remaining} remaining</span>
+                              <span className="text-gray-600">
+                                {remaining} remaining
+                              </span>
                             </div>
                             <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                               <div
                                 className="h-full rounded-full transition-all duration-700"
-                                style={{ width: `${pct}%`, background: pct >= 90 ? "#FF3333" : "#FFFF00" }}
+                                style={{
+                                  width: `${pct}%`,
+                                  background: pct >= 90 ? "#FF3333" : "#FFFF00",
+                                }}
                               />
                             </div>
                           </div>
@@ -1165,83 +1296,6 @@ export default function Home() {
           </section>
         </SectionFadeIn>
       )}
-
-      {/* ──────────────────────────────────────────
-          WHAT IS DINE AT NIGHT?
-         ────────────────────────────────────────── */}
-      <SectionFadeIn>
-        <section className="relative z-10 pt-10 pb-5 px-6 md:px-24 bg-black/80">
-          <div className="max-w-4xl mx-auto text-center space-y-8">
-            <motion.h2
-              className="text-4xl md:text-6xl uppercase tracking-wider"
-              style={{
-                color: "transparent",
-                WebkitTextStroke: "2px #FFFF00",
-                textShadow:
-                  "0 0 20px rgba(255,255,0,0.5), 0 0 45px rgba(255,255,0,0.3)",
-              }}
-            >
-              What Is Dine At Night?
-            </motion.h2>
-
-            <p className="text-lg md:text-xl text-gray-300 leading-relaxed max-w-2xl mx-auto">
-              Dine At Night is Lagos after dark — a vibrant nighttime food
-              market where the city&apos;s best chefs, street food vendors,
-              music, and community come together under neon lights.
-            </p>
-
-            <motion.p
-              className="text-xl md:text-2xl font-semibold italic"
-              style={{
-                color: "#FF3333",
-                textShadow: "0 0 15px rgba(255,51,51,0.6)",
-              }}
-            >
-              It&apos;s more than a food event. It&apos;s an experience.
-            </motion.p>
-
-            {/* Video Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-12 w-full pointer-events-auto">
-              {videos.map((video, i) => (
-                <VideoCard
-                  key={i}
-                  src={video.src}
-                  color={video.color}
-                  glowColor={video.glow}
-                  isPlaying={playingIndex === i}
-                  onPlay={() => setPlayingIndex(playingIndex === i ? null : i)}
-                />
-              ))}
-            </div>
-
-            {/* Neon divider */}
-            <div className="flex items-center justify-center gap-3 pt-4">
-              <span
-                className="block h-px flex-1 max-w-25"
-                style={{
-                  background: "linear-gradient(90deg, transparent, #FF3333)",
-                  boxShadow: "0 0 10px rgba(255,51,51,0.6)",
-                }}
-              />
-              <span
-                className="block w-2 h-2 rounded-full"
-                style={{
-                  backgroundColor: "#FFFF00",
-                  boxShadow:
-                    "0 0 12px rgba(255,255,0,0.9), 0 0 24px rgba(255,255,0,0.5)",
-                }}
-              />
-              <span
-                className="block h-px flex-1 max-w-25"
-                style={{
-                  background: "linear-gradient(90deg, #FF3333, transparent)",
-                  boxShadow: "0 0 10px rgba(255,51,51,0.6)",
-                }}
-              />
-            </div>
-          </div>
-        </section>
-      </SectionFadeIn>
 
       {/* ──────────────────────────────────────────
           VENDORS PREVIEW
@@ -1506,21 +1560,6 @@ export default function Home() {
       )}
 
       {/* ──────────────────────────────────────────
-          TESTIMONIALS (live from Firestore)
-         ────────────────────────────────────────── */}
-      <SectionFadeIn>
-        <section className="relative z-10 pt-10 pb-5 px-6 md:px-16 bg-black/82">
-          <div className="max-w-5xl mx-auto pointer-events-auto">
-            <TestimonialSection
-              title="What People Say"
-              accentColor="#00FF41"
-              showForm={true}
-            />
-          </div>
-        </section>
-      </SectionFadeIn>
-
-      {/* ──────────────────────────────────────────
           SPONSORS & PARTNERS
          ────────────────────────────────────────── */}
       {(() => {
@@ -1731,6 +1770,21 @@ export default function Home() {
                 </NeonButton>
               </a>
             </div>
+          </div>
+        </section>
+      </SectionFadeIn>
+
+      {/* ──────────────────────────────────────────
+          TESTIMONIALS (live from Firestore)
+         ────────────────────────────────────────── */}
+      <SectionFadeIn>
+        <section className="relative z-10 pt-10 pb-5 px-6 md:px-16 bg-black/82">
+          <div className="max-w-5xl mx-auto pointer-events-auto">
+            <TestimonialSection
+              title="What People Say"
+              accentColor="#00FF41"
+              showForm={true}
+            />
           </div>
         </section>
       </SectionFadeIn>

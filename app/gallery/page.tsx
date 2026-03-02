@@ -918,7 +918,7 @@ function GalleryContent() {
             More on social media
           </p>
           <a
-            href="https://instagram.com/dineatnight"
+            href="https://www.instagram.com/dineatnight.ng/"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-8 py-3 rounded-full border-2 border-[#FFFF00] text-[#FFFF00] text-sm font-bold uppercase tracking-widest transition-all"
@@ -927,7 +927,7 @@ function GalleryContent() {
               textShadow: "0 0 8px rgba(255,255,0,0.6)",
             }}
           >
-            Follow @dineatnight
+            Follow @dineatnight.ng
           </a>
         </section>
       </SectionFadeIn>
