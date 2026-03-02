@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { markTicketPaid } from "@/lib/firestore";
 
-const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
-if (!PAYSTACK_SECRET) throw new Error("Missing env var: PAYSTACK_SECRET_KEY");
-const SECRET: string = PAYSTACK_SECRET;
-
 export async function POST(req: NextRequest) {
+  const SECRET = process.env.PAYSTACK_SECRET_KEY;
+  if (!SECRET) {
+    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+  }
+
   const body = await req.text();
   const signature = req.headers.get("x-paystack-signature");
 

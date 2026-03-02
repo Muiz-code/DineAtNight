@@ -3,10 +3,11 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { markTicketPaid, type DanTicket } from "@/lib/firestore";
 
-const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
-if (!PAYSTACK_SECRET) throw new Error("Missing env var: PAYSTACK_SECRET_KEY");
-
 export async function GET(req: NextRequest) {
+  const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
+  if (!PAYSTACK_SECRET) {
+    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+  }
   const reference = req.nextUrl.searchParams.get("reference");
 
   if (!reference) {

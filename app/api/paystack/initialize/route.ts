@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPendingTicket } from "@/lib/firestore";
 
-const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
-if (!PAYSTACK_SECRET) throw new Error("Missing env var: PAYSTACK_SECRET_KEY");
-if (!APP_URL) throw new Error("Missing env var: NEXT_PUBLIC_APP_URL");
-
 export async function POST(req: NextRequest) {
+  const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
+  const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
+  if (!PAYSTACK_SECRET || !APP_URL) {
+    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+  }
   try {
     const body = await req.json();
     const { eventId, eventTitle, name, email, phone, quantity, ticketPrice, ticketType } = body;
