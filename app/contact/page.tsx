@@ -163,6 +163,7 @@ export default function ContactPage() {
                     value: "contact@dineatnight.com",
                     href: "mailto:contact@dineatnight.com",
                     color: "#FFFF00",
+                    sub: "thosewdine@gmail.com",
                   },
                   {
                     icon: <Mail className="w-4 h-4" />,
@@ -232,6 +233,11 @@ export default function ContactPage() {
                       >
                         {item.value}
                       </p>
+                      {"sub" in item && item.sub && (
+                        <p className="text-[11px] text-gray-700 mt-0.5">
+                          Backup: <a href={`mailto:${item.sub}`} className="hover:text-gray-500 transition-colors">{item.sub}</a>
+                        </p>
+                      )}
                     </div>
                   </a>
                 ))}
