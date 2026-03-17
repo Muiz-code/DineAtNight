@@ -12,7 +12,9 @@ import {
   Images,
   Package,
   LogOut,
+  ScrollText,
 } from "lucide-react";
+import { logAdminAction, ADMIN_NAME_MAP } from "@/lib/adminLog";
 
 /* ── Tab groups (rendered in layout, outside animation) ─────── */
 const TAB_GROUPS: Record<string, { label: string; href: string }[]> = {
@@ -70,12 +72,19 @@ const NAV = [
     activePrefixes: ["/admin/shop", "/admin/orders"],
     exact: false,
   },
+  {
+    label: "Logs",
+    href: "/admin/logs",
+    icon: ScrollText,
+    exact: false,
+  },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = useState(true);
   const [authed, setAuthed] = useState(false);
   const [configError, setConfigError] = useState("");
+  const [firstName, setFirstName] = useState("");
   const router = useRouter();
   const pathname = usePathname();
 
@@ -91,6 +100,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       // Middleware (middleware.ts) handles the server-side block before any page renders.
       // Here we only sync Firebase Auth state for the client-side shell.
       if (!user) { router.replace("/admin/login"); return; }
+      const fullName = ADMIN_NAME_MAP[user.email ?? ""] ?? user.email ?? "Admin";
+      setFirstName(fullName.split(" ")[0]);
       setAuthed(true);
       setChecking(false);
     });
@@ -99,6 +110,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const handleSignOut = async () => {
     const auth = getAuthClient();
+    await logAdminAction("LOGOUT", "Signed out of admin panel");
     if (auth) await signOut(auth);
     // Clear the httpOnly session cookie so middleware blocks the route immediately
     await fetch("/api/admin/session", { method: "DELETE" });
@@ -179,7 +191,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           className="text-sm font-bold uppercase tracking-[0.25em]"
           style={{ color: "#FFFF00", textShadow: "0 0 15px rgba(255,255,0,0.5)" }}
         >
-          DAN Admin
+          {firstName || "Admin"}
         </h2>
         <button
           onClick={handleSignOut}
@@ -203,9 +215,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               className="text-sm font-bold uppercase tracking-[0.25em]"
               style={{ color: "#FFFF00", textShadow: "0 0 15px rgba(255,255,0,0.5)" }}
             >
-              DAN Admin
+              {firstName || "Admin"}
             </h2>
-            <p className="text-gray-700 text-[10px] mt-0.5">Dine At Night</p>
+            <p className="text-gray-700 text-[10px] mt-0.5">Dine At Night Admin</p>
           </div>
 
           <nav className="flex-1 py-4 px-3 space-y-0.5">

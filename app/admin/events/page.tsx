@@ -4,10 +4,14 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Timestamp } from "firebase/firestore";
 import {
-  getAllEvents, getAllTickets, createEvent, updateEvent, deleteEvent,
+  getAllEvents, getAllTickets, createEvent, updateEvent, archiveAndDeleteEvent,
   type DanEvent, type DanSponsor, type DanTicketType,
 } from "@/lib/firestore";
-import { Plus, Pencil, Trash2, X, AlertTriangle, Lock } from "lucide-react";
+import { getAuthClient, storage } from "@/lib/firebase";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { Plus, Pencil, Trash2, X, AlertTriangle, Lock, UploadCloud } from "lucide-react";
+import { logAdminAction } from "@/lib/adminLog";
+import ImageUpload from "@/app/_components/ImageUpload";
 
 const inputCls = "w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700";
 
@@ -43,19 +47,45 @@ export default function AdminEventsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [togglingPast, setTogglingPast] = useState<string | null>(null);
+  const [revenueByEvent, setRevenueByEvent] = useState<Record<string, number>>({});
+  // per-sponsor logo upload progress: index → 0-100 | "done" | "error"
+  const [logoUploading, setLogoUploading] = useState<Record<number, number | "done" | "error">>({});
+
+  const uploadSponsorLogo = (idx: number, file: File) => {
+    const path = `sponsors/${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
+    const task = uploadBytesResumable(ref(storage, path), file);
+    setLogoUploading((p) => ({ ...p, [idx]: 0 }));
+    task.on(
+      "state_changed",
+      (snap) => setLogoUploading((p) => ({ ...p, [idx]: Math.round((snap.bytesTransferred / snap.totalBytes) * 100) })),
+      () => setLogoUploading((p) => ({ ...p, [idx]: "error" })),
+      async () => {
+        const url = await getDownloadURL(task.snapshot.ref);
+        setForm((p) => {
+          const s = [...p.sponsors];
+          s[idx] = { ...s[idx], logoUrl: url };
+          return { ...p, sponsors: s };
+        });
+        setLogoUploading((p) => ({ ...p, [idx]: "done" }));
+      },
+    );
+  };
 
   const load = async () => {
     setLoading(true);
     try {
       const [evs, txs] = await Promise.all([getAllEvents(), getAllTickets()]);
       const counts: Record<string, number> = {};
+      const revenue: Record<string, number> = {};
       for (const t of txs) {
         if (t.status !== "pending") {
-          counts[t.eventId] = (counts[t.eventId] ?? 0) + t.quantity;
+          counts[t.eventId]  = (counts[t.eventId]  ?? 0) + t.quantity;
+          revenue[t.eventId] = (revenue[t.eventId] ?? 0) + (t.amount ?? 0) / 100;
         }
       }
       setEvents(evs);
       setSoldByEvent(counts);
+      setRevenueByEvent(revenue);
     } finally {
       setLoading(false);
     }
@@ -63,7 +93,7 @@ export default function AdminEventsPage() {
 
   useEffect(() => { load(); }, []);
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setModalOpen(true); };
+  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setLogoUploading({}); setModalOpen(true); };
   const openEdit = (ev: DanEvent) => {
     const d = ev.date?.toDate?.() ?? new Date();
     setEditing(ev);
@@ -82,6 +112,7 @@ export default function AdminEventsPage() {
       sponsors: ev.sponsors ?? [],
       ticketTypes: ev.ticketTypes ?? [],
     });
+    setLogoUploading({});
     setModalOpen(true);
   };
 
@@ -121,8 +152,10 @@ export default function AdminEventsPage() {
 
       if (editing?.id) {
         await updateEvent(editing.id, data);
+        await logAdminAction("UPDATE_EVENT", `Updated event "${data.title}"`, { type: "event", id: editing.id, name: data.title });
       } else {
-        await createEvent(data);
+        const newId = await createEvent(data);
+        await logAdminAction("CREATE_EVENT", `Created event "${data.title}"`, { type: "event", id: newId, name: data.title });
       }
 
       setModalOpen(false);
@@ -133,7 +166,15 @@ export default function AdminEventsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    await deleteEvent(id);
+    const ev = events.find((e) => e.id === id);
+    if (!ev) return;
+    const auth = getAuthClient();
+    const adminEmail = auth?.currentUser?.email ?? "unknown";
+    const { getAdminName } = await import("@/lib/adminLog");
+    const sold = soldByEvent[id] ?? 0;
+    const revenue = revenueByEvent[id] ?? 0;
+    await archiveAndDeleteEvent(ev, sold, revenue, adminEmail, getAdminName(adminEmail));
+    await logAdminAction("DELETE_EVENT", `Archived event "${ev.title}" (${sold} tickets sold)`, { type: "event", id, name: ev.title });
     setDeleteConfirm(null);
     load();
   };
@@ -143,6 +184,7 @@ export default function AdminEventsPage() {
     setTogglingPast(ev.id);
     try {
       await updateEvent(ev.id, { isPast: !ev.isPast });
+      await logAdminAction("UPDATE_EVENT", `Marked event "${ev.title}" as ${!ev.isPast ? "past" : "upcoming"}`, { type: "event", id: ev.id, name: ev.title });
       setEvents((prev) => prev.map((e) => e.id === ev.id ? { ...e, isPast: !ev.isPast } : e));
     } finally {
       setTogglingPast(null);
@@ -339,13 +381,16 @@ export default function AdminEventsPage() {
           <motion.div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
             <motion.div
-              className="relative w-full sm:max-w-2xl max-h-[93svh] overflow-y-auto bg-[#070707] border border-[#FFFF00]/20 sm:rounded-2xl rounded-t-3xl"
+              className="relative w-full sm:max-w-2xl bg-[#070707] border border-[#FFFF00]/20 sm:rounded-2xl rounded-t-3xl"
               initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 260 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <span className="absolute top-0 left-0 w-8 h-8" style={{ borderTop: "2px solid #FFFF00", borderLeft: "2px solid #FFFF00" }} />
-              <span className="absolute bottom-0 right-0 w-8 h-8" style={{ borderBottom: "2px solid #FFFF00", borderRight: "2px solid #FFFF00" }} />
+              {/* Corner decorations — on the outer wrapper so they never scroll */}
+              <span className="absolute top-0 left-0 w-8 h-8 z-10 pointer-events-none" style={{ borderTop: "2px solid #FFFF00", borderLeft: "2px solid #FFFF00" }} />
+              <span className="absolute bottom-0 right-0 w-8 h-8 z-10 pointer-events-none" style={{ borderBottom: "2px solid #FFFF00", borderRight: "2px solid #FFFF00" }} />
+              {/* Scrollable content */}
+              <div className="overflow-y-auto max-h-[93svh]">
 
               <div className="sm:hidden flex justify-center pt-4 pb-1">
                 <div className="w-10 h-1 bg-white/20 rounded-full" />
@@ -560,8 +605,12 @@ export default function AdminEventsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Cover Image URL</label>
-                    <input value={form.imageUrl} onChange={(e) => setForm((p) => ({ ...p, imageUrl: e.target.value }))} placeholder="https://..." className={inputCls} />
+                    <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Cover Image</label>
+                    <ImageUpload
+                      value={form.imageUrl}
+                      onChange={(url) => setForm((p) => ({ ...p, imageUrl: url }))}
+                      folder="events"
+                    />
                   </div>
 
                   <div>
@@ -586,7 +635,7 @@ export default function AdminEventsPage() {
                     )}
                     <div className="space-y-2">
                       {form.sponsors.map((sp, idx) => (
-                        <div key={idx} className="flex gap-2 items-start">
+                        <div key={idx} className="flex gap-2 items-center">
                           <input
                             value={sp.name}
                             onChange={(e) => setForm((p) => {
@@ -597,16 +646,33 @@ export default function AdminEventsPage() {
                             placeholder="Sponsor name (e.g. FirstBank)"
                             className={`${inputCls} flex-1`}
                           />
-                          <input
-                            value={sp.logoUrl}
-                            onChange={(e) => setForm((p) => {
-                              const s = [...p.sponsors];
-                              s[idx] = { ...s[idx], logoUrl: e.target.value };
-                              return { ...p, sponsors: s };
-                            })}
-                            placeholder="Logo URL (https://...)"
-                            className={`${inputCls} flex-1`}
-                          />
+                          {/* Logo upload */}
+                          <label
+                            className="relative flex items-center gap-2 px-3 py-2.5 rounded-lg border text-xs cursor-pointer transition-all flex-shrink-0"
+                            style={{
+                              background: sp.logoUrl ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.03)",
+                              borderColor: logoUploading[idx] === "error" ? "#FF3333" : sp.logoUrl ? "rgba(255,255,0,0.3)" : "rgba(255,255,255,0.1)",
+                              color: sp.logoUrl ? "#FFFF00" : "rgba(255,255,255,0.4)",
+                            }}
+                          >
+                            {sp.logoUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={sp.logoUrl} alt="" className="w-6 h-6 object-contain rounded" />
+                            ) : (
+                              <UploadCloud className="w-4 h-4" />
+                            )}
+                            <span className="whitespace-nowrap">
+                              {logoUploading[idx] === "error" ? "Error" :
+                               typeof logoUploading[idx] === "number" ? `${logoUploading[idx]}%` :
+                               sp.logoUrl ? "Change" : "Upload Logo"}
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadSponsorLogo(idx, f); e.target.value = ""; }}
+                            />
+                          </label>
                           <button
                             type="button"
                             onClick={() => setForm((p) => ({ ...p, sponsors: p.sponsors.filter((_, i) => i !== idx) }))}
@@ -636,6 +702,7 @@ export default function AdminEventsPage() {
                   </motion.button>
                 </form>
               </div>
+              </div> {/* end scrollable inner */}
             </motion.div>
           </motion.div>
         )}

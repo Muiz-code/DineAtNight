@@ -1301,6 +1301,119 @@ export default function Home() {
       )}
 
       {/* ──────────────────────────────────────────
+          PAST EVENTS
+         ────────────────────────────────────────── */}
+      {pastEvents.length > 0 && (
+        <SectionFadeIn>
+          <section className="relative z-10 pt-10 pb-5 px-6 md:px-16 bg-black/85">
+            <div className="max-w-5xl mx-auto">
+              <motion.h2
+                className="text-4xl md:text-6xl uppercase tracking-wider text-center mb-4"
+                style={{
+                  color: "transparent",
+                  WebkitTextStroke: "2px #FF3333",
+                  textShadow: "0 0 20px rgba(255,51,51,0.5), 0 0 45px rgba(255,51,51,0.3)",
+                }}
+              >
+                Past Events
+              </motion.h2>
+              <p className="text-gray-500 text-center text-base tracking-widest uppercase mb-12">
+                Relive the nights that made Lagos talk
+              </p>
+
+              <div className="space-y-6">
+                {pastEvents.map((ev) => {
+                  const evDate = ev.date
+                    ?.toDate?.()
+                    ?.toLocaleDateString("en-NG", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    });
+
+                  return (
+                    <motion.div
+                      key={ev.id}
+                      className="relative rounded-2xl border overflow-hidden flex flex-col md:flex-row group"
+                      style={{
+                        borderColor: "rgba(255,51,51,0.25)",
+                        background: "linear-gradient(135deg, #090909, #040404)",
+                        boxShadow: "0 0 30px rgba(255,51,51,0.06)",
+                      }}
+                      whileHover={{
+                        borderColor: "rgba(255,51,51,0.5)",
+                        boxShadow: "0 0 40px rgba(255,51,51,0.12)",
+                      }}
+                    >
+                      {/* Corner accents */}
+                      <span className="absolute top-0 left-0 w-8 h-8 z-10" style={{ borderTop: "2px solid #FF3333", borderLeft: "2px solid #FF3333" }} />
+                      <span className="absolute bottom-0 right-0 w-8 h-8 z-10" style={{ borderBottom: "2px solid #FF3333", borderRight: "2px solid #FF3333" }} />
+
+                      {/* Image */}
+                      <div className="relative w-full md:w-2/5 lg:w-[45%] shrink-0 overflow-hidden">
+                        {ev.imageUrl ? (
+                          <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={ev.imageUrl}
+                              alt={ev.title}
+                              className="w-full h-auto block md:absolute md:inset-0 md:h-full md:object-cover md:object-center transition-transform duration-500 group-hover:scale-105"
+                            />
+                            <div className="absolute bottom-0 left-0 right-0 h-16 md:hidden" style={{ background: "linear-gradient(to bottom, transparent, #090909)" }} />
+                            <div className="absolute inset-0 hidden md:block" style={{ background: "linear-gradient(to right, transparent 55%, #090909 100%)" }} />
+                          </>
+                        ) : (
+                          <div className="w-full min-h-[220px]" style={{ background: "radial-gradient(ellipse at center, rgba(255,51,51,0.08), #030303)" }} />
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 flex flex-col gap-4 p-6 md:p-8">
+                        <div>
+                          <h3
+                            className="text-2xl md:text-3xl font-bold uppercase tracking-wide"
+                            style={{ color: "#FF3333", textShadow: "0 0 20px rgba(255,51,51,0.5)" }}
+                          >
+                            {ev.title}
+                          </h3>
+                          {evDate && <p className="text-gray-400 text-sm mt-1">{evDate}</p>}
+                          {ev.venue && (
+                            <p className="text-gray-500 text-sm mt-0.5 flex items-center gap-1">
+                              <span style={{ color: "rgba(255,51,51,0.6)" }}>📍</span> {ev.venue}
+                            </p>
+                          )}
+                        </div>
+
+                        {ev.description && (
+                          <p className="text-gray-400 text-sm leading-relaxed line-clamp-3">{ev.description}</p>
+                        )}
+
+                        <Link href={`/gallery?event=${ev.id}`} className="mt-auto">
+                          <motion.button
+                            className="w-full sm:w-auto px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm"
+                            style={{
+                              background: "transparent",
+                              color: "#FF3333",
+                              border: "2px solid #FF3333",
+                              boxShadow: "0 0 20px rgba(255,51,51,0.2)",
+                            }}
+                            whileHover={{ scale: 1.03, boxShadow: "0 0 30px rgba(255,51,51,0.4)" }}
+                            whileTap={{ scale: 0.97 }}
+                          >
+                            View Gallery →
+                          </motion.button>
+                        </Link>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        </SectionFadeIn>
+      )}
+
+      {/* ──────────────────────────────────────────
           VENDORS PREVIEW
          ────────────────────────────────────────── */}
       <SectionFadeIn>

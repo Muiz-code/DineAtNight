@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { logAdminAction } from "@/lib/adminLog";
+import ImageUpload from "@/app/_components/ImageUpload";
 import {
   getAllVendors,
+  getAllEvents,
   updateVendorStatus,
   createVendorDirect,
   deleteVendor,
   getVendorCategories,
   type DanVendor,
+  type DanEvent,
 } from "@/lib/firestore";
 import {
   Plus,
@@ -225,6 +229,7 @@ export default function AdminVendorsPage() {
   /* ── Actions ── */
   const handleApprove = async (v: DanVendor) => {
     await updateVendorStatus(v.id!, "approved");
+    await logAdminAction("APPROVE_VENDOR", `Approved vendor "${v.brandName}"`, { type: "vendor", id: v.id, name: v.brandName });
     const updated = { ...v, status: "approved" as const };
     setVendors((prev) => prev.map((x) => (x.id === v.id ? updated : x)));
     if (detailVendor?.id === v.id) setDetailVendor(updated);
@@ -240,6 +245,7 @@ export default function AdminVendorsPage() {
     if (!declineTarget) return;
     setDeclining(true);
     await updateVendorStatus(declineTarget.id!, "declined", declineReason);
+    await logAdminAction("DECLINE_VENDOR", `Declined vendor "${declineTarget.brandName}"${declineReason ? ` — Reason: ${declineReason}` : ""}`, { type: "vendor", id: declineTarget.id, name: declineTarget.brandName });
     const updated = {
       ...declineTarget,
       status: "declined" as const,
@@ -273,6 +279,7 @@ export default function AdminVendorsPage() {
     setRevoking(true);
     const reason = revokeReason.trim() || "Approval revoked by admin";
     await updateVendorStatus(revokeTarget.id!, "declined", reason);
+    await logAdminAction("REVOKE_VENDOR", `Revoked approval for vendor "${revokeTarget.brandName}" — Reason: ${reason}`, { type: "vendor", id: revokeTarget.id, name: revokeTarget.brandName });
     const updated = {
       ...revokeTarget,
       status: "declined" as const,
@@ -292,6 +299,7 @@ export default function AdminVendorsPage() {
     setDeleting(true);
     try {
       await deleteVendor(deleteTarget.id!);
+      await logAdminAction("DELETE_VENDOR", `Deleted vendor "${deleteTarget.brandName}"`, { type: "vendor", id: deleteTarget.id, name: deleteTarget.brandName });
       setVendors((prev) => prev.filter((x) => x.id !== deleteTarget.id));
       if (detailVendor?.id === deleteTarget.id) setDetailVendor(null);
       setDeleteTarget(null);
@@ -315,12 +323,18 @@ export default function AdminVendorsPage() {
     });
   };
 
+  const [allEvents, setAllEvents] = useState<DanEvent[]>([]);
   const [eventInput, setEventInput] = useState("");
-  const addFormEvent = () => {
-    const ev = eventInput.trim();
+  const [showOtherInput, setShowOtherInput] = useState(false);
+
+  useEffect(() => {
+    getAllEvents().then(setAllEvents).catch(() => {});
+  }, []);
+
+  const addFormEvent = (title: string) => {
+    const ev = title.trim();
     if (!ev || form.events.includes(ev)) return;
     setForm((p) => ({ ...p, events: [...p.events, ev] }));
-    setEventInput("");
   };
   const removeFormEvent = (ev: string) =>
     setForm((p) => ({ ...p, events: p.events.filter((e) => e !== ev) }));
@@ -330,9 +344,11 @@ export default function AdminVendorsPage() {
     setSaving(true);
     try {
       await createVendorDirect(form);
+      await logAdminAction("CREATE_VENDOR", `Added vendor "${form.brandName}" directly`, { type: "vendor", name: form.brandName });
       setFormOpen(false);
       setForm(EMPTY_FORM);
       setEventInput("");
+      setShowOtherInput(false);
       await load();
       setActiveTab(form.status === "approved" ? "approved" : "pending");
     } finally {
@@ -1186,26 +1202,24 @@ export default function AdminVendorsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
-                      Brand Name *
+                      Brand Name
                     </label>
                     <input
                       name="brandName"
                       value={form.brandName}
                       onChange={handleChange}
-                      required
                       placeholder="Suya Spot Lagos"
                       className={inputCls}
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
-                      Owner Name *
+                      Owner Name
                     </label>
                     <input
                       name="ownerName"
                       value={form.ownerName}
                       onChange={handleChange}
-                      required
                       placeholder="Full name"
                       className={inputCls}
                     />
@@ -1214,28 +1228,26 @@ export default function AdminVendorsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
-                      Email *
+                      Email
                     </label>
                     <input
                       name="email"
                       type="email"
                       value={form.email}
                       onChange={handleChange}
-                      required
                       placeholder="you@example.com"
                       className={inputCls}
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
-                      Phone *
+                      Phone
                     </label>
                     <input
                       name="phone"
                       type="tel"
                       value={form.phone}
                       onChange={handleChange}
-                      required
                       placeholder="+234 800 000 0000"
                       className={inputCls}
                     />
@@ -1256,7 +1268,7 @@ export default function AdminVendorsPage() {
                 {/* Multi-select categories */}
                 <div>
                   <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
-                    Food Categories *{" "}
+                    Food Categories{" "}
                     <span className="text-gray-700 normal-case">
                       (select up to 3)
                     </span>
@@ -1269,8 +1281,15 @@ export default function AdminVendorsPage() {
                         <button
                           key={cat}
                           type="button"
-                          onClick={() => toggleFormCategory(cat)}
-                          disabled={atMax}
+                          onClick={() => {
+                            if (cat === "Other") {
+                              setShowOtherInput((prev) => !prev);
+                              setEventInput("");
+                            } else {
+                              toggleFormCategory(cat);
+                            }
+                          }}
+                          disabled={cat !== "Other" && atMax}
                           className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide border transition-all"
                           style={{
                             borderColor: sel
@@ -1278,7 +1297,7 @@ export default function AdminVendorsPage() {
                               : "rgba(255,255,255,0.1)",
                             color: sel
                               ? "#FFFF00"
-                              : atMax
+                              : atMax && cat !== "Other"
                                 ? "rgba(255,255,255,0.2)"
                                 : "rgba(255,255,255,0.45)",
                             background: sel
@@ -1292,6 +1311,65 @@ export default function AdminVendorsPage() {
                       );
                     })}
                   </div>
+                  {showOtherInput && (
+                    <div className="flex gap-2 mt-2">
+                      <input
+                        autoFocus
+                        value={eventInput}
+                        onChange={(e) => setEventInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const val = eventInput.trim();
+                            if (val) toggleFormCategory(val);
+                            setEventInput("");
+                            setShowOtherInput(false);
+                          }
+                          if (e.key === "Escape") {
+                            setShowOtherInput(false);
+                            setEventInput("");
+                          }
+                        }}
+                        placeholder="Enter food category"
+                        className={`${inputCls} flex-1`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = eventInput.trim();
+                          if (val) toggleFormCategory(val);
+                          setEventInput("");
+                          setShowOtherInput(false);
+                        }}
+                        className="px-3 py-2.5 rounded-lg border border-white/10 text-gray-400 hover:text-white hover:border-white/25 text-xs font-bold uppercase tracking-wide transition-all flex-shrink-0"
+                      >
+                        + Add
+                      </button>
+                    </div>
+                  )}
+                  {form.categories.filter((c) => !FOOD_CATEGORIES.includes(c)).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {form.categories
+                        .filter((c) => !FOOD_CATEGORIES.includes(c))
+                        .map((cat) => (
+                          <span
+                            key={cat}
+                            className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full border font-bold uppercase tracking-wide"
+                            style={{ borderColor: "#FFFF00", color: "#FFFF00", background: "rgba(255,255,0,0.08)" }}
+                          >
+                            <Check className="w-2.5 h-2.5" />
+                            {cat}
+                            <button
+                              type="button"
+                              onClick={() => toggleFormCategory(cat)}
+                              className="ml-0.5 text-[#FFFF00] hover:text-[#FF3333] transition-colors"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          </span>
+                        ))}
+                    </div>
+                  )}
                   <p className="text-gray-700 text-xs mt-1">
                     {form.categories.length}/3 selected
                   </p>
@@ -1299,29 +1377,29 @@ export default function AdminVendorsPage() {
                 {/* Events */}
                 <div>
                   <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
-                    Events (optional)
+                    Events
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      value={eventInput}
-                      onChange={(e) => setEventInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          addFormEvent();
-                        }
-                      }}
-                      placeholder="e.g. Dine At Night — Edition 1"
-                      className={`${inputCls} flex-1`}
-                    />
-                    <button
-                      type="button"
-                      onClick={addFormEvent}
-                      className="px-3 py-2.5 rounded-lg border border-white/10 text-gray-400 hover:text-white hover:border-white/25 text-xs font-bold uppercase tracking-wide transition-all flex-shrink-0"
-                    >
-                      + Add
-                    </button>
-                  </div>
+                  <select
+                    className={`${inputCls} cursor-pointer`}
+                    value=""
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val) addFormEvent(val);
+                      e.target.value = "";
+                    }}
+                  >
+                    <option value="">— Select an event —</option>
+                    {allEvents.map((ev) => (
+                      <option
+                        key={ev.id}
+                        value={ev.title}
+                        disabled={form.events.includes(ev.title)}
+                      >
+                        {ev.title}
+                        {form.events.includes(ev.title) ? " ✓" : ""}
+                      </option>
+                    ))}
+                  </select>
                   {form.events.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {form.events.map((ev) => (
@@ -1344,13 +1422,12 @@ export default function AdminVendorsPage() {
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
-                    Description *
+                    Description
                   </label>
                   <textarea
                     name="description"
                     value={form.description}
                     onChange={handleChange}
-                    required
                     rows={2}
                     placeholder="About the brand"
                     className={`${inputCls} resize-none`}
@@ -1358,13 +1435,12 @@ export default function AdminVendorsPage() {
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
-                    Products / Menu *
+                    Products / Menu
                   </label>
                   <textarea
                     name="products"
                     value={form.products}
                     onChange={handleChange}
-                    required
                     rows={2}
                     placeholder="e.g. Suya, Chicken Wings, Peppered Fish"
                     className={`${inputCls} resize-none`}
@@ -1372,48 +1448,25 @@ export default function AdminVendorsPage() {
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
-                    Brand Logo URL{" "}
-                    <span className="text-gray-700 normal-case">
-                      (optional)
-                    </span>
+                    Brand Logo{" "}
+                    <span className="text-gray-700 normal-case">(optional)</span>
                   </label>
-                  <input
-                    name="logoUrl"
-                    type="url"
+                  <ImageUpload
                     value={form.logoUrl}
-                    onChange={handleChange}
-                    placeholder="https://... (square logo)"
-                    className={inputCls}
+                    onChange={(url) => setForm((p) => ({ ...p, logoUrl: url }))}
+                    folder="vendors/logos"
+                    square
+                    hint="Square logo shown in the vendor strip."
                   />
-                  {form.logoUrl && (
-                    <div className="mt-2 flex items-center gap-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={form.logoUrl}
-                        alt="logo"
-                        className="w-10 h-10 rounded-full object-contain border border-white/10 bg-white/5 p-1"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
-                      />
-                      <span className="text-gray-600 text-xs">
-                        Logo preview
-                      </span>
-                    </div>
-                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
-                    Photo URL *
+                    Brand / Food Photo
                   </label>
-                  <input
-                    name="imageUrl"
-                    type="url"
+                  <ImageUpload
                     value={form.imageUrl}
-                    onChange={handleChange}
-                    required
-                    placeholder="https://..."
-                    className={inputCls}
+                    onChange={(url) => setForm((p) => ({ ...p, imageUrl: url }))}
+                    folder="vendors/photos"
                   />
                 </div>
                 <div>

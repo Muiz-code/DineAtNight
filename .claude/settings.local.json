@@ -6,7 +6,15 @@
       "Bash(python:*)",
       "Bash(npx tsc --noEmit)",
       "Bash(npx tsc --noEmit --project tsconfig.json)",
-      "Bash(git checkout HEAD -- app/api/paystack/verify/route.ts app/api/vendors/route.ts app/tickets/verify/page.tsx)"
+      "Bash(git checkout HEAD -- app/api/paystack/verify/route.ts app/api/vendors/route.ts app/tickets/verify/page.tsx)",
+      "Bash(find /Users/user/Documents/Development/DineAtNight/app/api -type f -name \"route.ts\" -exec wc -l {})",
+      "Bash(wc -l /Users/user/Documents/Development/DineAtNight/lib/*.ts)",
+      "Bash(find /Users/user/Documents/Development/DineAtNight/app -type f -name *admin*)",
+      "Bash(grep -r \"audit\\\\|log\\\\|activity\" /Users/user/Documents/Development/DineAtNight/app/admin --include=*.ts --include=*.tsx)",
+      "Bash(find /Users/user/Documents/Development/DineAtNight -maxdepth 2 -name .env* -type f)",
+      "Bash(npm install:*)",
+      "Bash(npm list:*)",
+      "Bash(npm ls:*)"
     ]
   }
 }

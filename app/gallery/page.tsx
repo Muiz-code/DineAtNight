@@ -14,11 +14,6 @@ import NeonMarquee from "../_components/NeonMarquee";
 
 type MediaType = "all" | "photos" | "videos";
 
-const spanFor = (i: number) => {
-  if (i % 7 === 0) return "col-span-2 row-span-2";
-  if (i % 7 === 6) return "col-span-2";
-  return "";
-};
 
 const ACCENTS = ["#FFFF00", "#FF3333", "#00FF41"];
 const accentFor = (eventId: string, eventIds: string[]) => {
@@ -34,9 +29,11 @@ function GalleryContent() {
   const [loading, setLoading] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [mediaFilter, setMediaFilter] = useState<MediaType>("all");
+  const [overlayVisible, setOverlayVisible] = useState(25);
   const [lightbox, setLightbox] = useState<{ id: string; item: DanGalleryItem } | null>(null);
   const [direction, setDirection] = useState<1 | -1>(1);
   const [heroIdx, setHeroIdx] = useState(0);
+  const [numCols, setNumCols] = useState(4);
 
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const resolvedRef = useRef(false);
@@ -59,10 +56,9 @@ function GalleryContent() {
     });
   }, []);
 
-  // Reset lightbox whenever the media filter changes so a stale ID can't
-  // reference an item that no longer exists in the filtered list.
   useEffect(() => {
     setLightbox(null);
+    setOverlayVisible(25);
   }, [mediaFilter]);
 
   // Auto-open event overlay if URL param is present after items load
@@ -70,6 +66,14 @@ function GalleryContent() {
     const ev = params.get("event");
     if (ev && items.length > 0) setSelectedEventId(ev);
   }, [params, items]);
+
+  // Responsive column count
+  useEffect(() => {
+    const update = () => setNumCols(window.innerWidth < 768 ? 2 : window.innerWidth < 1024 ? 3 : 4);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   // Unique event IDs in insertion order
   const eventIds = [...new Set(items.map((i) => i.eventId))];
@@ -139,6 +143,7 @@ function GalleryContent() {
   const openEvent = (eid: string) => {
     setSelectedEventId(eid);
     setMediaFilter("all");
+    setOverlayVisible(25);
     setLightbox(null);
     router.replace(`/gallery?event=${eid}`, { scroll: false });
   };
@@ -159,6 +164,14 @@ function GalleryContent() {
         return i.eventId === selectedEventId && typeMatch;
       })
     : [];
+
+  // Distribute visible items into columns (round-robin → no blank gaps)
+  const overlayCols = useMemo(() => {
+    const visible = overlayItems.slice(0, overlayVisible);
+    const cols: DanGalleryItem[][] = Array.from({ length: numCols }, () => []);
+    visible.forEach((item, i) => cols[i % numCols].push(item));
+    return cols;
+  }, [overlayItems, overlayVisible, numCols]);
 
   // Lightbox helpers
   const openLightbox = (id: string) => {
@@ -550,95 +563,82 @@ function GalleryContent() {
             <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6">
               {overlayItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-48">
-                  <Camera
-                    className="w-8 h-8 mb-3"
-                    style={{ color: "rgba(255,255,255,0.1)" }}
-                  />
-                  <p className="text-gray-600 text-sm">
-                    No media for this filter.
-                  </p>
+                  <Camera className="w-8 h-8 mb-3" style={{ color: "rgba(255,255,255,0.1)" }} />
+                  <p className="text-gray-600 text-sm">No media for this filter.</p>
                 </div>
               ) : (
-                <motion.div
-                  layout
-                  className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 auto-rows-[200px]"
-                >
-                  <AnimatePresence mode="popLayout">
-                    {overlayItems.map((item, i) => {
-                      const accent = accentFor(item.eventId, eventIds);
-                      const span = spanFor(i);
-                      return (
-                        <motion.div
-                          key={item.id}
-                          layout
-                          className={`relative group cursor-pointer rounded-xl overflow-hidden border ${span}`}
-                          style={{ borderColor: `${accent}20` }}
-                          initial={{ opacity: 0, scale: 0.92 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.88 }}
-                          transition={{ delay: i * 0.04, duration: 0.35 }}
-                          whileHover={{
-                            borderColor: accent,
-                            boxShadow: `0 0 25px ${accent}40`,
-                          }}
-                          onClick={() => openLightbox(item.id!)}
-                        >
-                          {item.type === "video" ? (
-                            <video
-                              ref={(el) => {
-                                videoRefs.current[item.id!] = el;
-                              }}
-                              src={item.src}
-                              className="w-full h-full object-cover"
-                              muted
-                              loop
-                              playsInline
-                              onMouseEnter={(e) =>
-                                (e.currentTarget as HTMLVideoElement)
-                                  .play()
-                                  .catch(() => {})
-                              }
-                              onMouseLeave={(e) => {
-                                (e.currentTarget as HTMLVideoElement).pause();
-                                (
-                                  e.currentTarget as HTMLVideoElement
-                                ).currentTime = 0;
-                              }}
-                            />
-                          ) : (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={item.src}
-                              alt={item.caption}
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                            />
-                          )}
-                          {/* Overlay */}
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/55 transition-all duration-300 flex flex-col items-center justify-center">
-                            {item.type === "video" && (
-                              <div
-                                className="w-12 h-12 rounded-full border-2 flex items-center justify-center mb-2"
-                                style={{
-                                  borderColor: accent,
-                                  boxShadow: `0 0 14px ${accent}50`,
-                                  background: "rgba(0,0,0,0.7)",
-                                }}
-                              >
-                                <div
-                                  className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-b-[8px] border-b-transparent ml-0.5"
-                                  style={{ borderLeftColor: accent }}
+                <>
+                  <div className="flex gap-3">
+                    {overlayCols.map((col, ci) => (
+                      <div key={ci} className="flex-1 flex flex-col gap-3 min-w-0">
+                        {col.map((item) => {
+                          const accent = accentFor(item.eventId, eventIds);
+                          return (
+                            <div
+                              key={item.id}
+                              className="relative group cursor-pointer rounded-xl overflow-hidden border"
+                              style={{ borderColor: `${accent}20`, background: "#111" }}
+                              onClick={() => openLightbox(item.id!)}
+                            >
+                              {item.type === "video" ? (
+                                <video
+                                  ref={(el) => { videoRefs.current[item.id!] = el; }}
+                                  src={item.src}
+                                  className="w-full h-auto block"
+                                  muted
+                                  loop
+                                  playsInline
+                                  preload="none"
+                                  onMouseEnter={(e) => (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
+                                  onMouseLeave={(e) => {
+                                    (e.currentTarget as HTMLVideoElement).pause();
+                                    (e.currentTarget as HTMLVideoElement).currentTime = 0;
+                                  }}
                                 />
+                              ) : (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={item.src}
+                                  alt={item.caption}
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="w-full h-auto block"
+                                  style={{ opacity: 0, transition: "opacity 0.3s ease" }}
+                                  onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "1"; }}
+                                />
+                              )}
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/55 transition-all duration-300 flex flex-col items-center justify-center">
+                                {item.type === "video" && (
+                                  <div className="w-12 h-12 rounded-full border-2 flex items-center justify-center mb-2"
+                                    style={{ borderColor: accent, boxShadow: `0 0 14px ${accent}50`, background: "rgba(0,0,0,0.7)" }}
+                                  >
+                                    <div className="w-0 h-0 border-t-8 border-t-transparent border-l-14 border-b-8 border-b-transparent ml-0.5"
+                                      style={{ borderLeftColor: accent }}
+                                    />
+                                  </div>
+                                )}
+                                <p className="text-white text-xs text-center px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 leading-relaxed">
+                                  {item.caption}
+                                </p>
                               </div>
-                            )}
-                            <p className="text-white text-xs text-center px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 leading-relaxed">
-                              {item.caption}
-                            </p>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </AnimatePresence>
-                </motion.div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                  {overlayVisible < overlayItems.length && (
+                    <div className="flex justify-center mt-6">
+                      <button
+                        onClick={() => setOverlayVisible((n) => n + 25)}
+                        className="px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest border transition-all hover:opacity-80"
+                        style={{ borderColor: `${overlayAccent}40`, color: overlayAccent, background: `${overlayAccent}08` }}
+                      >
+                        Load More — {overlayItems.length - overlayVisible} remaining
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </motion.div>

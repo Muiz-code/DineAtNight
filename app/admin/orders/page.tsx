@@ -24,6 +24,7 @@ import {
   type DanMerchOrder,
 } from "@/lib/firestore";
 import { sendOrderStatusEmail } from "@/lib/emailjs";
+import { logAdminAction } from "@/lib/adminLog";
 type DeliveryStatus = DanMerchOrder["deliveryStatus"];
 type Tab = "all" | DeliveryStatus;
 
@@ -85,6 +86,7 @@ export default function AdminOrdersPage() {
       const order = orders.find((o) => o.id === id || o.reference === id);
       const wasReturned = order?.deliveryStatus === "returned";
       await updateMerchOrderDelivery(id, status, note);
+      await logAdminAction("UPDATE_ORDER", `Updated order ${order?.reference ?? id} status to "${status}"${note ? ` — ${note}` : ""}`, { type: "order", id, name: order?.reference });
       // Restock products when order is returned
       if (status === "returned" && order?.items?.length) {
         restockReturnedOrder(

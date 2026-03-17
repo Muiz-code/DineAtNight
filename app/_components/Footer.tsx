@@ -102,7 +102,7 @@ export default function Footer() {
               },
               {
                 label: "TikTok",
-                href: "https://tiktok.com/@dineatnight",
+                href: "https://tiktok.com/@dineatnight.ng",
                 color: "#FFFF00",
                 glow: "rgba(255,255,0,0.5)",
                 icon: (
@@ -150,8 +150,8 @@ export default function Footer() {
           <div className="space-y-2 mb-6">
             <p className="text-gray-600 text-sm">
               <span className="text-gray-700">General: </span>
-              <a href="mailto:hello@dineatnight.com" className="hover:text-[#00FF41] transition-colors duration-300">
-                hello@dineatnight.com
+              <a href="mailto:contact@dineatnight.com" className="hover:text-[#00FF41] transition-colors duration-300">
+                contact@dineatnight.com
               </a>
             </p>
             <p className="text-gray-600 text-sm">
@@ -159,6 +159,10 @@ export default function Footer() {
               <a href="mailto:sponsors@dineatnight.com" className="hover:text-[#FFFF00] transition-colors duration-300">
                 sponsors@dineatnight.com
               </a>
+            </p>
+            <p className="text-gray-600 text-sm">
+              <span className="text-gray-700">Location: </span>
+              Lagos, Nigeria
             </p>
           </div>
 

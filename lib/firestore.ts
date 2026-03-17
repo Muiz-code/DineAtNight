@@ -743,3 +743,122 @@ export const subscribeAllProducts = createSubscription<DanProduct>(
   "products",
   [orderBy("createdAt", "desc")],
 );
+
+/* ═══════════════════════════════════════════════
+   Admin Activity Logs
+═══════════════════════════════════════════════ */
+
+export interface DanAdminLog {
+  id?: string;
+  adminEmail: string;
+  adminName: string;
+  action: string;       // e.g. "LOGIN", "CREATE_EVENT", "APPROVE_VENDOR"
+  details: string;      // human-readable description
+  entityType?: string;  // "event" | "vendor" | "product" | "order" | "gallery" | "testimonial" | "ticket"
+  entityId?: string;
+  entityName?: string;
+  timestamp: Timestamp;
+}
+
+export async function createAdminLog(
+  data: Omit<DanAdminLog, "id" | "timestamp">,
+): Promise<void> {
+  await addDoc(collection(db, "admin_logs"), {
+    ...data,
+    timestamp: serverTimestamp(),
+  });
+}
+
+export async function getAdminLogs(limitCount = 200): Promise<DanAdminLog[]> {
+  const q = query(
+    collection(db, "admin_logs"),
+    orderBy("timestamp", "desc"),
+    limit(limitCount),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toDoc<DanAdminLog>(d));
+}
+
+export const subscribeAdminLogs = createSubscription<DanAdminLog>(
+  "admin_logs",
+  [orderBy("timestamp", "desc"), limit(300)],
+);
+
+/* ═══════════════════════════════════════════════
+   Deleted Events Archive
+   Soft-delete: saves a full snapshot to deleted_events
+   before removing from events. Tickets stay intact.
+═══════════════════════════════════════════════ */
+
+export interface DanDeletedEvent extends DanEvent {
+  deletedAt: Timestamp;
+  deletedBy: string;       // admin email
+  deletedByName: string;
+  snapshotTicketsSold: number;
+  snapshotRevenue: number; // in Naira at time of deletion
+}
+
+export async function archiveAndDeleteEvent(
+  event: DanEvent,
+  soldTickets: number,
+  revenue: number,
+  adminEmail: string,
+  adminName: string,
+): Promise<void> {
+  // Save full snapshot to deleted_events
+  await addDoc(collection(db, "deleted_events"), {
+    ...event,
+    deletedAt: serverTimestamp(),
+    deletedBy: adminEmail,
+    deletedByName: adminName,
+    snapshotTicketsSold: soldTickets,
+    snapshotRevenue: revenue,
+  });
+  // Remove from live events
+  await deleteDoc(doc(db, "events", event.id!));
+  clearCache("dan_active_events");
+  clearCache("dan_past_events");
+}
+
+export async function permanentlyDeleteArchivedEvent(id: string): Promise<void> {
+  await deleteDoc(doc(db, "deleted_events", id));
+}
+
+export const subscribeDeletedEvents = createSubscription<DanDeletedEvent>(
+  "deleted_events",
+  [orderBy("deletedAt", "desc")],
+);
+
+/* ═══════════════════════════════════════════════
+   Deleted Products Archive
+═══════════════════════════════════════════════ */
+
+export interface DanDeletedProduct extends DanProduct {
+  deletedAt: Timestamp;
+  deletedBy: string;
+  deletedByName: string;
+}
+
+export async function archiveAndDeleteProduct(
+  product: DanProduct,
+  adminEmail: string,
+  adminName: string,
+): Promise<void> {
+  await addDoc(collection(db, "deleted_products"), {
+    ...product,
+    deletedAt: serverTimestamp(),
+    deletedBy: adminEmail,
+    deletedByName: adminName,
+  });
+  await deleteDoc(doc(db, "products", product.id!));
+  clearCache("dan_products");
+}
+
+export async function permanentlyDeleteArchivedProduct(id: string): Promise<void> {
+  await deleteDoc(doc(db, "deleted_products", id));
+}
+
+export const subscribeDeletedProducts = createSubscription<DanDeletedProduct>(
+  "deleted_products",
+  [orderBy("deletedAt", "desc")],
+);

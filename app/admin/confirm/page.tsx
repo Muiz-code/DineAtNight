@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { confirmTicket, type DanTicket } from "@/lib/firestore";
+import { logAdminAction } from "@/lib/adminLog";
 import { QrCode, Search, Camera } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -94,7 +95,10 @@ function ConfirmContent() {
       const { ok, already, ticket: t } = await confirmTicket(r);
       setTicket(t);
       if (!t) { setState("error"); setErrorMsg("Ticket not found."); return; }
-      if (ok) { setState("success"); return; }
+      if (ok) {
+        await logAdminAction("CONFIRM_TICKET", `Confirmed ticket ${r} for "${t.name}" — ${t.eventTitle}`, { type: "ticket", id: r, name: t.name });
+        setState("success"); return;
+      }
       if (already) { setState("already"); return; }
       if (t.status === "pending") {
         setState("error");

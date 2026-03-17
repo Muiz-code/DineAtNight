@@ -2,13 +2,15 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { logAdminAction } from "@/lib/adminLog";
+import ImageUpload from "@/app/_components/ImageUpload";
 import { Plus, Pencil, Trash2, X, Package, Flame, ShoppingBag, Eye, EyeOff } from "lucide-react";
 import {
   subscribeAllProducts,
   subscribeMerchOrders,
   createProduct,
   updateProduct,
-  deleteProduct,
+  archiveAndDeleteProduct,
   type DanProduct,
   type DanMerchOrder,
 } from "@/lib/firestore";
@@ -123,8 +125,10 @@ export default function AdminShopPage() {
     try {
       if (editTarget?.id) {
         await updateProduct(editTarget.id, form);
+        await logAdminAction("UPDATE_PRODUCT", `Updated product "${form.name}"`, { type: "product", id: editTarget.id, name: form.name });
       } else {
         await createProduct({ ...form, soldCount: 0 });
+        await logAdminAction("CREATE_PRODUCT", `Created product "${form.name}"`, { type: "product", name: form.name });
       }
       setShowModal(false);
     } finally {
@@ -135,7 +139,14 @@ export default function AdminShopPage() {
   const handleDelete = async (id: string) => {
     setDeleting(true);
     try {
-      await deleteProduct(id);
+      const p = products.find((x) => x.id === id);
+      if (!p) return;
+      const { getAuthClient } = await import("@/lib/firebase");
+      const { getAdminName } = await import("@/lib/adminLog");
+      const auth = getAuthClient();
+      const adminEmail = auth?.currentUser?.email ?? "unknown";
+      await archiveAndDeleteProduct(p, adminEmail, getAdminName(adminEmail));
+      await logAdminAction("DELETE_PRODUCT", `Archived product "${p.name}"`, { type: "product", id, name: p.name });
       setDeleteId(null);
     } finally {
       setDeleting(false);
@@ -144,7 +155,9 @@ export default function AdminShopPage() {
 
   const handleToggleActive = async (p: DanProduct) => {
     if (!p.id) return;
-    await updateProduct(p.id, { active: !(p.active ?? true) });
+    const nextActive = !(p.active ?? true);
+    await updateProduct(p.id, { active: nextActive });
+    await logAdminAction("UPDATE_PRODUCT", `${nextActive ? "Activated" : "Deactivated"} product "${p.name}"`, { type: "product", id: p.id, name: p.name });
   };
 
   const f = (key: keyof typeof form, val: unknown) =>
@@ -476,23 +489,15 @@ export default function AdminShopPage() {
                   />
                 </div>
 
-                {/* Image URL */}
+                {/* Product Image */}
                 <div className="col-span-2 space-y-1.5">
-                  <label className="text-[10px] uppercase tracking-widest text-gray-600">Image URL</label>
-                  <input
-                    type="url"
-                    placeholder="https://…/product.jpg"
+                  <label className="text-[10px] uppercase tracking-widest text-gray-600">Product Image</label>
+                  <ImageUpload
                     value={form.imageUrl}
-                    onChange={(e) => f("imageUrl", e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-lg text-sm text-white border outline-none placeholder-gray-700"
-                    style={{ background: "#1a1a1a", borderColor: "rgba(255,255,255,0.1)" }}
+                    onChange={(url) => f("imageUrl", url)}
+                    folder="products"
+                    square
                   />
-                  {form.imageUrl && (
-                    <div className="mt-1.5 h-24 rounded-lg overflow-hidden border" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={form.imageUrl} alt="preview" className="w-full h-full object-cover" />
-                    </div>
-                  )}
                 </div>
 
                 {/* Accent color */}

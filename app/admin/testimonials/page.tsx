@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { logAdminAction } from "@/lib/adminLog";
 import {
   getAllTestimonials,
   createTestimonial,
@@ -125,6 +126,7 @@ export default function AdminTestimonialsPage() {
         eventTitle: addForm.eventTitle.trim() || undefined,
         createdBy: "admin",
       });
+      await logAdminAction("CREATE_TESTIMONIAL", `Created testimonial for "${addForm.name.trim()}"`, { type: "testimonial", name: addForm.name.trim() });
       setAddOpen(false);
       setAddForm(EMPTY_FORM);
       await load();
@@ -158,6 +160,7 @@ export default function AdminTestimonialsPage() {
         quote: editForm.quote.trim(),
         eventTitle: editForm.eventTitle.trim() || undefined,
       });
+      await logAdminAction("UPDATE_TESTIMONIAL", `Updated testimonial for "${editForm.name.trim()}"`, { type: "testimonial", id: editTarget.id, name: editForm.name.trim() });
       setTestimonials((prev) =>
         prev.map((t) =>
           t.id === editTarget.id
@@ -183,6 +186,7 @@ export default function AdminTestimonialsPage() {
     setDeleting(true);
     try {
       await deleteTestimonial(deleteTarget.id!);
+      await logAdminAction("DELETE_TESTIMONIAL", `Deleted testimonial from "${deleteTarget.name}"`, { type: "testimonial", id: deleteTarget.id, name: deleteTarget.name });
       setTestimonials((prev) => prev.filter((x) => x.id !== deleteTarget.id));
       setDeleteTarget(null);
     } finally {
@@ -194,6 +198,8 @@ export default function AdminTestimonialsPage() {
     setApproving(id);
     try {
       await approveTestimonial(id);
+      const t = testimonials.find((x) => x.id === id);
+      await logAdminAction("APPROVE_TESTIMONIAL", `Approved testimonial from "${t?.name ?? id}"`, { type: "testimonial", id, name: t?.name });
       setTestimonials((prev) =>
         prev.map((t) => (t.id === id ? { ...t, approved: true } : t))
       );

@@ -6,6 +6,7 @@ import SectionFadeIn from "../_components/SectionFadeIn";
 import {
   Mail,
   Instagram,
+  MapPin,
   Send,
   Check,
   CheckCircle2,
@@ -159,8 +160,8 @@ export default function ContactPage() {
                   {
                     icon: <Mail className="w-4 h-4" />,
                     label: "General",
-                    value: "hello@dineatnight.com",
-                    href: "mailto:hello@dineatnight.com",
+                    value: "contact@dineatnight.com",
+                    href: "mailto:contact@dineatnight.com",
                     color: "#FFFF00",
                   },
                   {
@@ -176,6 +177,13 @@ export default function ContactPage() {
                     value: "@dineatnight.ng",
                     href: "https://www.instagram.com/dineatnight.ng/",
                     color: "#00FF41",
+                  },
+                  {
+                    icon: <MapPin className="w-4 h-4" />,
+                    label: "Location",
+                    value: "Lagos, Nigeria",
+                    href: "https://maps.google.com/?q=Lagos,Nigeria",
+                    color: "#FFFF00",
                   },
                 ].map((item) => (
                   <a
@@ -292,7 +300,7 @@ export default function ContactPage() {
                   },
                   {
                     label: "TikTok",
-                    href: "https://tiktok.com/@dineatnight",
+                    href: "https://tiktok.com/@dineatnight.ng",
                     color: "#00FF41",
                     glow: "rgba(0,255,65,0.3)",
                     icon: (

@@ -28,6 +28,7 @@ import {
 } from "@/lib/firestore";
 import { getCache, setCache } from "@/lib/cache";
 import { useScrollLock } from "@/lib/useScrollLock";
+import ImageUpload from "@/app/_components/ImageUpload";
 
 interface VendorModalProps {
   isOpen: boolean;
@@ -177,10 +178,7 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
       setError("Please select at least one food category.");
       return;
     }
-    if (
-      !form.description.trim() ||
-      !form.imageUrl.trim()
-    ) {
+    if (!form.description.trim() || !form.imageUrl.trim()) {
       setError("Please fill in all required fields.");
       return;
     }
@@ -432,8 +430,7 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
           <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" />
 
           <motion.div
-            ref={modalScrollRef}
-            className="relative w-full sm:max-w-lg max-h-[93svh] sm:max-h-[88vh] overflow-y-auto scrollbar-hide bg-[#050505] border border-[#FFFF00]/25 sm:rounded-2xl rounded-t-3xl"
+            className="relative w-full sm:max-w-lg bg-[#050505] border border-[#FFFF00]/25 sm:rounded-2xl rounded-t-3xl"
             style={{
               boxShadow:
                 "0 0 60px rgba(255,255,0,0.12), 0 0 120px rgba(255,255,0,0.05)",
@@ -443,8 +440,29 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 260 }}
             onClick={(e) => e.stopPropagation()}
-            onScroll={handleModalScroll}
           >
+            {/* Corner decorations — on the outer wrapper so they never scroll */}
+            <span
+              className="absolute top-0 left-0 w-8 h-8 hidden sm:block pointer-events-none z-10"
+              style={{
+                borderTop: "2px solid #FFFF00",
+                borderLeft: "2px solid #FFFF00",
+              }}
+            />
+            <span
+              className="absolute bottom-0 right-0 w-8 h-8 hidden sm:block pointer-events-none z-10"
+              style={{
+                borderBottom: "2px solid #FFFF00",
+                borderRight: "2px solid #FFFF00",
+              }}
+            />
+
+            {/* Scrollable content */}
+            <div
+              ref={modalScrollRef}
+              className="overflow-y-auto scrollbar-hide max-h-[93svh] sm:max-h-[88vh]"
+              onScroll={handleModalScroll}
+            >
             {/* Modal scroll progress bar */}
             <div className="sticky top-0 left-0 w-full h-[3px] z-10 pointer-events-none">
               <div
@@ -457,20 +475,6 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                 }}
               />
             </div>
-            <span
-              className="absolute top-0 left-0 w-8 h-8 hidden sm:block pointer-events-none"
-              style={{
-                borderTop: "2px solid #FFFF00",
-                borderLeft: "2px solid #FFFF00",
-              }}
-            />
-            <span
-              className="absolute bottom-0 right-0 w-8 h-8 hidden sm:block pointer-events-none"
-              style={{
-                borderBottom: "2px solid #FFFF00",
-                borderRight: "2px solid #FFFF00",
-              }}
-            />
 
             <div className="sm:hidden flex justify-center pt-4 pb-1">
               <div className="w-10 h-1 bg-white/20 rounded-full" />
@@ -773,50 +777,28 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                           </p>
                         </Field>
 
-                        <Field label="Brand Logo URL">
-                          <input
-                            name="logoUrl"
-                            type="url"
+                        <Field label="Brand Logo">
+                          <ImageUpload
                             value={form.logoUrl}
-                            onChange={handleChange}
-                            placeholder="https://example.com/your-logo.png"
-                            className={inputCls}
+                            onChange={(url) =>
+                              setForm((p) => ({ ...p, logoUrl: url }))
+                            }
+                            folder="vendors/logos"
+                            compact
+                            hint="Square logo shown in the vendor strip. Optional."
                           />
-                          {form.logoUrl && (
-                            <div className="mt-2 flex items-center gap-3">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={form.logoUrl}
-                                alt="logo preview"
-                                className="w-12 h-12 rounded-full object-contain border border-white/10 bg-white/5 p-1"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display =
-                                    "none";
-                                }}
-                              />
-                              <p className="text-gray-600 text-xs">
-                                Logo preview
-                              </p>
-                            </div>
-                          )}
-                          <p className="text-gray-700 text-xs mt-1">
-                            Square logo shown in the vendor strip. Optional.
-                          </p>
                         </Field>
 
-                        <Field label="Brand / Food Photo URL" required>
-                          <input
-                            name="imageUrl"
-                            type="url"
+                        <Field label="Brand / Food Photo" required>
+                          <ImageUpload
                             value={form.imageUrl}
-                            onChange={handleChange}
-                            required
-                            placeholder="https://example.com/your-food-photo.jpg"
-                            className={inputCls}
+                            onChange={(url) =>
+                              setForm((p) => ({ ...p, imageUrl: url }))
+                            }
+                            folder="vendors/photos"
+                            compact
+                            hint="A clear photo of your food or brand."
                           />
-                          <p className="text-gray-700 text-xs mt-1">
-                            Link to a photo of your food or brand.
-                          </p>
                         </Field>
 
                         {error && (
@@ -1326,6 +1308,7 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                 </>
               )}
             </div>
+            </div> {/* end scrollable inner */}
           </motion.div>
         </motion.div>
       )}

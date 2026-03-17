@@ -5,6 +5,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { getAuthClient } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { logAdminAction } from "@/lib/adminLog";
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
@@ -43,6 +44,7 @@ export default function AdminLoginPage() {
         return;
       }
 
+      await logAdminAction("LOGIN", `Signed in to admin panel`);
       router.push("/admin");
     } catch {
       setError("Invalid email or password.");
