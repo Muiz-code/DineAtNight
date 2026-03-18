@@ -1,7 +1,7 @@
 "use client";
 
-import Loader from "../../_components/loader";
 import { useEffect, useState, useRef, useMemo } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { Images } from "@/assets/images";
@@ -14,11 +14,8 @@ import {
   useScroll,
   useTransform,
 } from "framer-motion";
-import VendorModal from "../../_components/VendorModal";
 import CardCountdown from "../../_components/CardCountdown";
 import NeonMarquee from "../../_components/NeonMarquee";
-import Antigravity from "@/components/Antigravity";
-import TestimonialSection from "../../_components/TestimonialSection";
 import {
   subscribeActiveEvents,
   subscribePastEvents,
@@ -35,7 +32,13 @@ import { getCache, setCache } from "@/lib/cache";
 import { Camera, MapPin, ChevronDown } from "lucide-react";
 import Footer from "@/app/_components/Footer";
 import SectionFadeIn from "@/app/_components/SectionFadeIn";
-import NewsletterModal from "@/app/_components/NewsletterModal";
+
+// Heavy / below-fold components — loaded after initial render
+const Loader = dynamic(() => import("../../_components/loader"), { ssr: false, loading: () => null });
+const Antigravity = dynamic(() => import("@/components/Antigravity"), { ssr: false, loading: () => null });
+const VendorModal = dynamic(() => import("../../_components/VendorModal"), { ssr: false, loading: () => null });
+const NewsletterModal = dynamic(() => import("../../_components/NewsletterModal"), { ssr: false, loading: () => null });
+const TestimonialSection = dynamic(() => import("../../_components/TestimonialSection"), { ssr: false, loading: () => null });
 
 /* ═══════════════════════════════════════════════
    Motion Variants
@@ -568,7 +571,8 @@ export default function Home() {
   const tagY = useTransform(scrollY, [0, 500], [0, -35]);
 
   useEffect(() => {
-    setIsLoading(false);
+    const t = setTimeout(() => setIsLoading(false), 2000);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
@@ -718,7 +722,7 @@ export default function Home() {
     [galleryItems],
   );
 
-  if (isLoading) return <Loader />;
+  if (isLoading) return <Loader duration={2000} />;
 
   return (
     <div className="relative w-full bg-black overflow-x-hidden overflow-y-hidden">
