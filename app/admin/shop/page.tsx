@@ -10,7 +10,7 @@ import {
   subscribeMerchOrders,
   createProduct,
   updateProduct,
-  archiveAndDeleteProduct,
+  deleteProduct,
   type DanProduct,
   type DanMerchOrder,
 } from "@/lib/firestore";
@@ -141,12 +141,8 @@ export default function AdminShopPage() {
     try {
       const p = products.find((x) => x.id === id);
       if (!p) return;
-      const { getAuthClient } = await import("@/lib/firebase");
-      const { getAdminName } = await import("@/lib/adminLog");
-      const auth = getAuthClient();
-      const adminEmail = auth?.currentUser?.email ?? "unknown";
-      await archiveAndDeleteProduct(p, adminEmail, getAdminName(adminEmail));
-      await logAdminAction("DELETE_PRODUCT", `Archived product "${p.name}"`, { type: "product", id, name: p.name });
+      await deleteProduct(id);
+      await logAdminAction("DELETE_PRODUCT", `Deleted product "${p.name}"`, { type: "product", id, name: p.name });
       setDeleteId(null);
     } finally {
       setDeleting(false);

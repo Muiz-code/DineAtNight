@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Timestamp } from "firebase/firestore";
 import {
-  getAllEvents, getAllTickets, createEvent, updateEvent, archiveAndDeleteEvent,
+  getAllEvents, getAllTickets, createEvent, updateEvent, deleteEvent,
   type DanEvent, type DanSponsor, type DanTicketType,
 } from "@/lib/firestore";
 import { getAuthClient, storage } from "@/lib/firebase";
@@ -168,13 +168,8 @@ export default function AdminEventsPage() {
   const handleDelete = async (id: string) => {
     const ev = events.find((e) => e.id === id);
     if (!ev) return;
-    const auth = getAuthClient();
-    const adminEmail = auth?.currentUser?.email ?? "unknown";
-    const { getAdminName } = await import("@/lib/adminLog");
-    const sold = soldByEvent[id] ?? 0;
-    const revenue = revenueByEvent[id] ?? 0;
-    await archiveAndDeleteEvent(ev, sold, revenue, adminEmail, getAdminName(adminEmail));
-    await logAdminAction("DELETE_EVENT", `Archived event "${ev.title}" (${sold} tickets sold)`, { type: "event", id, name: ev.title });
+    await deleteEvent(id);
+    await logAdminAction("DELETE_EVENT", `Deleted event "${ev.title}"`, { type: "event", id, name: ev.title });
     setDeleteConfirm(null);
     load();
   };

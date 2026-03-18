@@ -1,20 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   subscribeAdminLogs,
-  subscribeDeletedEvents,
-  subscribeDeletedProducts,
-  permanentlyDeleteArchivedEvent,
-  permanentlyDeleteArchivedProduct,
+  deleteOldAdminLogs,
   type DanAdminLog,
-  type DanDeletedEvent,
-  type DanDeletedProduct,
 } from "@/lib/firestore";
 import { ADMIN_NAME_MAP } from "@/lib/adminLog";
-import { Timestamp } from "firebase/firestore";
-import { Search, Trash2, AlertTriangle, X } from "lucide-react";
+import { Search } from "lucide-react";
 
 /* ── Helpers ─────────────────────────────────────────────────── */
 
@@ -66,89 +59,18 @@ function avatarColor(email: string): string {
   return AVATAR_COLORS[hash];
 }
 
-function fmt(n: number) {
-  return `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`;
-}
-
-type Tab = "activity" | "events" | "products";
-
-/* ── Confirm Delete Modal ────────────────────────────────────── */
-function ConfirmDelete({ name, onConfirm, onCancel, deleting }: {
-  name: string; onConfirm: () => void; onCancel: () => void; deleting: boolean;
-}) {
-  return (
-    <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-    >
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onCancel} />
-      <motion.div
-        className="relative w-full max-w-sm rounded-2xl border p-6 space-y-4"
-        style={{ background: "#0d0d0d", borderColor: "rgba(255,51,51,0.3)" }}
-        initial={{ scale: 0.93 }} animate={{ scale: 1 }} exit={{ scale: 0.93 }}
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#FF3333]/15 flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 text-[#FF3333]" />
-          </div>
-          <div>
-            <p className="text-white text-sm font-bold">Permanent Delete</p>
-            <p className="text-gray-600 text-xs">This cannot be undone</p>
-          </div>
-        </div>
-        <p className="text-gray-400 text-sm">
-          Permanently delete <span className="text-white font-medium">"{name}"</span>? All associated archive data will be lost forever.
-        </p>
-        <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-2 rounded-lg border text-gray-400 text-sm hover:text-white transition-colors"
-            style={{ borderColor: "rgba(255,255,255,0.1)" }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={deleting}
-            className="flex-1 py-2 rounded-lg text-sm font-bold transition-all"
-            style={{ background: deleting ? "rgba(255,51,51,0.2)" : "#FF3333", color: "#fff" }}
-          >
-            {deleting ? "Deleting…" : "Delete Forever"}
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
 /* ── Page ─────────────────────────────────────────────────────── */
 export default function AdminLogsPage() {
-  const [tab, setTab] = useState<Tab>("activity");
-
-  // Activity logs
   const [logs, setLogs] = useState<DanAdminLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterAdmin, setFilterAdmin] = useState("all");
   const [filterAction, setFilterAction] = useState("all");
 
-  // Deleted events
-  const [deletedEvents, setDeletedEvents] = useState<DanDeletedEvent[]>([]);
-  const [eventsLoading, setEventsLoading] = useState(true);
-  const [deleteEventTarget, setDeleteEventTarget] = useState<DanDeletedEvent | null>(null);
-  const [deletingEvent, setDeletingEvent] = useState(false);
-
-  // Deleted products
-  const [deletedProducts, setDeletedProducts] = useState<DanDeletedProduct[]>([]);
-  const [productsLoading, setProductsLoading] = useState(true);
-  const [deleteProductTarget, setDeleteProductTarget] = useState<DanDeletedProduct | null>(null);
-  const [deletingProduct, setDeletingProduct] = useState(false);
-
   useEffect(() => {
+    deleteOldAdminLogs().catch(() => {});
     const u1 = subscribeAdminLogs((items) => { setLogs(items); setLogsLoading(false); });
-    const u2 = subscribeDeletedEvents((items) => { setDeletedEvents(items); setEventsLoading(false); });
-    const u3 = subscribeDeletedProducts((items) => { setDeletedProducts(items); setProductsLoading(false); });
-    return () => { u1(); u2(); u3(); };
+    return () => { u1(); };
   }, []);
 
   const filteredLogs = logs.filter((log) => {
@@ -168,55 +90,17 @@ export default function AdminLogsPage() {
 
   const actionKeys = Array.from(new Set(logs.map((l) => l.action))).sort();
 
-  const TABS: { key: Tab; label: string; count: number }[] = [
-    { key: "activity", label: "Activity Log",      count: logs.length },
-    { key: "events",   label: "Deleted Events",    count: deletedEvents.length },
-    { key: "products", label: "Deleted Products",  count: deletedProducts.length },
-  ];
-
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold uppercase tracking-widest" style={{ color: "#FFFF00", textShadow: "0 0 20px rgba(255,255,0,0.4)" }}>
-          Logs & Archive
+          Activity Log
         </h1>
-        <p className="text-gray-600 text-xs mt-0.5">Activity history and deleted record archive</p>
+        <p className="text-gray-600 text-xs mt-0.5">Admin activity history · auto-clears after 48 hours</p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-xl border border-white/8 bg-white/[0.02] w-fit">
-        {TABS.map(({ key, label, count }) => {
-          const active = tab === key;
-          const color = key === "activity" ? "#FFFF00" : "#FF3333";
-          return (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all"
-              style={{
-                color: active ? color : "rgba(255,255,255,0.3)",
-                background: active ? `${color}12` : "transparent",
-              }}
-            >
-              {label}
-              <span
-                className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
-                style={{
-                  background: active ? `${color}25` : "rgba(255,255,255,0.06)",
-                  color: active ? color : "rgba(255,255,255,0.3)",
-                }}
-              >
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Activity Log tab ── */}
-      {tab === "activity" && (
-        <div className="space-y-4">
+      <div className="space-y-4">
           {/* Filters */}
           <div className="flex flex-wrap gap-3">
             <div className="relative flex-1 min-w-48">
@@ -280,7 +164,7 @@ export default function AdminLogsPage() {
                       return (
                         <tr
                           key={log.id ?? i}
-                          className="border-b transition-colors hover:bg-white/[0.02]"
+                          className="border-b transition-colors hover:bg-white/2"
                           style={{ borderColor: "rgba(255,255,255,0.04)" }}
                         >
                           <td className="px-4 py-3 whitespace-nowrap">
@@ -320,139 +204,6 @@ export default function AdminLogsPage() {
             </div>
           )}
         </div>
-      )}
-
-      {/* ── Deleted Events tab ── */}
-      {tab === "events" && (
-        <div className="space-y-4">
-          <p className="text-gray-600 text-xs">
-            Events archived when deleted. Tickets & revenue data is preserved. Permanently delete only when you no longer need the record.
-          </p>
-          {eventsLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="w-8 h-8 border-2 border-[#FF3333] border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : deletedEvents.length === 0 ? (
-            <div className="text-center py-20 text-gray-700 text-sm">No deleted events.</div>
-          ) : (
-            <div className="space-y-3">
-              {deletedEvents.map((ev) => (
-                <div
-                  key={ev.id}
-                  className="rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center gap-4"
-                  style={{ borderColor: "rgba(255,51,51,0.2)", background: "rgba(255,51,51,0.03)" }}
-                >
-                  {ev.imageUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={ev.imageUrl} alt={ev.title} className="w-16 h-16 rounded-lg object-cover shrink-0 border border-white/10" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-white font-bold text-sm">{ev.title}</p>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase" style={{ background: "rgba(255,51,51,0.15)", color: "#FF3333" }}>
-                        Deleted
-                      </span>
-                    </div>
-                    <p className="text-gray-600 text-xs mt-0.5">{ev.venue} — {ev.date?.toDate?.()?.toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" }) ?? "—"}</p>
-                    <div className="flex flex-wrap gap-4 mt-2 text-xs">
-                      <span className="text-gray-500">🎟 <span className="text-white">{ev.snapshotTicketsSold}</span> tickets sold</span>
-                      <span className="text-gray-500">💰 <span className="text-[#00FF41]">{fmt(ev.snapshotRevenue)}</span> revenue</span>
-                      <span className="text-gray-500">🗑 Deleted by <span className="text-gray-300">{ev.deletedByName}</span> · {formatTs(ev.deletedAt)}</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setDeleteEventTarget(ev)}
-                    className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-bold uppercase tracking-widest transition-all hover:bg-[#FF3333]/20"
-                    style={{ borderColor: "rgba(255,51,51,0.3)", color: "#FF3333" }}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Delete Forever
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Deleted Products tab ── */}
-      {tab === "products" && (
-        <div className="space-y-4">
-          <p className="text-gray-600 text-xs">
-            Products archived when deleted. Permanently delete only when the record is no longer needed.
-          </p>
-          {productsLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="w-8 h-8 border-2 border-[#FF3333] border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : deletedProducts.length === 0 ? (
-            <div className="text-center py-20 text-gray-700 text-sm">No deleted products.</div>
-          ) : (
-            <div className="space-y-3">
-              {deletedProducts.map((p) => (
-                <div
-                  key={p.id}
-                  className="rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center gap-4"
-                  style={{ borderColor: "rgba(255,51,51,0.2)", background: "rgba(255,51,51,0.03)" }}
-                >
-                  {p.imageUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.imageUrl} alt={p.name} className="w-16 h-16 rounded-lg object-cover shrink-0 border border-white/10" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-white font-bold text-sm">{p.name}</p>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase capitalize" style={{ background: "rgba(255,184,0,0.15)", color: "#FFB800" }}>
-                        {p.category}
-                      </span>
-                    </div>
-                    <p className="text-gray-500 text-xs mt-0.5">{fmt(p.price)} · {p.soldCount ?? 0} sold</p>
-                    <p className="text-gray-600 text-[11px] mt-1">🗑 Deleted by <span className="text-gray-300">{p.deletedByName}</span> · {formatTs(p.deletedAt)}</p>
-                  </div>
-                  <button
-                    onClick={() => setDeleteProductTarget(p)}
-                    className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-bold uppercase tracking-widest transition-all hover:bg-[#FF3333]/20"
-                    style={{ borderColor: "rgba(255,51,51,0.3)", color: "#FF3333" }}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Delete Forever
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Confirm modals ── */}
-      <AnimatePresence>
-        {deleteEventTarget && (
-          <ConfirmDelete
-            name={deleteEventTarget.title}
-            deleting={deletingEvent}
-            onCancel={() => setDeleteEventTarget(null)}
-            onConfirm={async () => {
-              setDeletingEvent(true);
-              await permanentlyDeleteArchivedEvent(deleteEventTarget.id!);
-              setDeleteEventTarget(null);
-              setDeletingEvent(false);
-            }}
-          />
-        )}
-        {deleteProductTarget && (
-          <ConfirmDelete
-            name={deleteProductTarget.name}
-            deleting={deletingProduct}
-            onCancel={() => setDeleteProductTarget(null)}
-            onConfirm={async () => {
-              setDeletingProduct(true);
-              await permanentlyDeleteArchivedProduct(deleteProductTarget.id!);
-              setDeleteProductTarget(null);
-              setDeletingProduct(false);
-            }}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }

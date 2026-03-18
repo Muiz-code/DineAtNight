@@ -103,21 +103,23 @@ export default function AdminDashboard() {
   }, []);
 
   const { totalRevenue, confirmedTickets, paidTickets, soldByEvent, revenueByEvent } = useMemo(() => {
-    const paid = tickets.filter((t) => t.status !== "pending");
+    const existingEventIds = new Set(events.map((e) => e.id));
+    const activeTickets = tickets.filter((t) => existingEventIds.has(t.eventId));
+    const paid = activeTickets.filter((t) => t.status !== "pending");
     const byEvent: Record<string, number> = {};
     const revByEvent: Record<string, number> = {};
     for (const t of paid) {
-      byEvent[t.eventId]   = (byEvent[t.eventId]   ?? 0) + t.quantity;
-      revByEvent[t.eventId]= (revByEvent[t.eventId] ?? 0) + t.amount / 100;
+      byEvent[t.eventId]    = (byEvent[t.eventId]    ?? 0) + t.quantity;
+      revByEvent[t.eventId] = (revByEvent[t.eventId] ?? 0) + t.amount / 100;
     }
     return {
       totalRevenue:     paid.reduce((s, t) => s + t.amount, 0) / 100,
-      confirmedTickets: tickets.filter((t) => t.status === "confirmed").reduce((s, t) => s + t.quantity, 0),
+      confirmedTickets: activeTickets.filter((t) => t.status === "confirmed").reduce((s, t) => s + t.quantity, 0),
       paidTickets:      paid.reduce((s, t) => s + t.quantity, 0),
       soldByEvent:      byEvent,
       revenueByEvent:   revByEvent,
     };
-  }, [tickets]);
+  }, [tickets, events]);
 
   const activeEvents = useMemo(() => events.filter((e) => e.status === "active").length, [events]);
 
@@ -498,7 +500,7 @@ export default function AdminDashboard() {
                         <td className="px-4 py-4"><div className="h-3 w-14 bg-white/5 rounded animate-pulse" /></td>
                       </tr>
                     ))
-                  : tickets.slice(0, 8).map((t) => {
+                  : tickets.filter((t) => events.some((e) => e.id === t.eventId)).slice(0, 8).map((t) => {
                       const color = t.status === "confirmed" ? "#00FF41" : t.status === "paid" ? "#FFFF00" : "#666";
                       return (
                         <tr key={t.id} className="border-b transition-colors hover:bg-white/[0.02]" style={{ borderColor: "rgba(255,255,255,0.04)" }}>

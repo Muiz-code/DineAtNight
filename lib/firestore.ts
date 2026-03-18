@@ -17,6 +17,7 @@ import {
   increment,
   serverTimestamp,
   arrayUnion,
+  writeBatch,
   type DocumentSnapshot,
   type QueryDocumentSnapshot,
   type QueryConstraint,
@@ -166,6 +167,13 @@ export async function updateEvent(id: string, data: Partial<DanEvent>): Promise<
 }
 
 export async function deleteEvent(id: string): Promise<void> {
+  // Delete all tickets for this event
+  const ticketSnap = await getDocs(query(collection(db, "tickets"), where("eventId", "==", id)));
+  if (!ticketSnap.empty) {
+    const batch = writeBatch(db);
+    ticketSnap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
   await deleteDoc(doc(db, "events", id));
   clearCache("dan_active_events");
   clearCache("dan_past_events");
@@ -656,6 +664,16 @@ export async function reapplyOrderSoldCount(
 }
 
 export async function deleteProduct(id: string): Promise<void> {
+  // Delete all merch orders that contain this product
+  const orderSnap = await getDocs(collection(db, "merch_orders"));
+  const affected = orderSnap.docs.filter((d) =>
+    (d.data().items as { productId: string }[] ?? []).some((item) => item.productId === id)
+  );
+  if (affected.length > 0) {
+    const batch = writeBatch(db);
+    affected.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
   await deleteDoc(doc(db, "products", id));
   clearCache("dan_products");
 }
@@ -784,6 +802,18 @@ export const subscribeAdminLogs = createSubscription<DanAdminLog>(
   [orderBy("timestamp", "desc"), limit(300)],
 );
 
+/** Deletes all admin_logs older than 48 hours in a single batch. */
+export async function deleteOldAdminLogs(): Promise<void> {
+  const cutoff = Timestamp.fromDate(new Date(Date.now() - 48 * 60 * 60 * 1000));
+  const snap = await getDocs(
+    query(collection(db, "admin_logs"), where("timestamp", "<", cutoff)),
+  );
+  if (snap.empty) return;
+  const batch = writeBatch(db);
+  snap.docs.forEach((d) => batch.delete(d.ref));
+  await batch.commit();
+}
+
 /* ═══════════════════════════════════════════════
    Deleted Events Archive
    Soft-delete: saves a full snapshot to deleted_events
@@ -805,8 +835,8 @@ export async function archiveAndDeleteEvent(
   adminEmail: string,
   adminName: string,
 ): Promise<void> {
-  // Save full snapshot to deleted_events
-  await addDoc(collection(db, "deleted_events"), {
+  // Save full snapshot to deleted_events using the event's own ID as document key
+  await setDoc(doc(db, "deleted_events", event.id!), {
     ...event,
     deletedAt: serverTimestamp(),
     deletedBy: adminEmail,
@@ -844,7 +874,8 @@ export async function archiveAndDeleteProduct(
   adminEmail: string,
   adminName: string,
 ): Promise<void> {
-  await addDoc(collection(db, "deleted_products"), {
+  // Save full snapshot to deleted_products using the product's own ID as document key
+  await setDoc(doc(db, "deleted_products", product.id!), {
     ...product,
     deletedAt: serverTimestamp(),
     deletedBy: adminEmail,
