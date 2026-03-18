@@ -8,7 +8,7 @@ const ITEMS = [
   "Night Market",
   "After Dark",
   "Food & Culture",
-  "Live Music",
+  "Music",
 ];
 
 // Two copies → translateX(-50%) = exactly one set width → seamless loop

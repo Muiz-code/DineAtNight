@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   },
 
   description:
-    "Dine At Night is Lagos's premier nighttime food market — an outdoor experience combining the best local food vendors, live music, and neon-lit vibes. Get your tickets now.",
+    "Dine At Night is Lagos's premier nighttime food market — an outdoor experience combining the best local food vendors, music, and neon-lit vibes. Get your tickets now.",
 
   keywords: [
     "Dine At Night",
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
     siteName: "Dine At Night",
     title: "Dine At Night — Lagos's Premier Nighttime Food Market",
     description:
-      "Lagos's premier nighttime food market. Local vendors, live music, neon-lit vibes. Get your tickets now.",
+      "Lagos's premier nighttime food market. Local vendors, music, neon-lit vibes. Get your tickets now.",
     images: [
       {
         url: "/og-image.png",
@@ -76,7 +76,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Dine At Night — Lagos's Premier Nighttime Food Market",
     description:
-      "Lagos's premier nighttime food market. Local vendors, live music, neon-lit vibes. Get your tickets now.",
+      "Lagos's premier nighttime food market. Local vendors, music, neon-lit vibes. Get your tickets now.",
     images: ["/og-image.png"],
   },
 
@@ -106,9 +106,14 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="preconnect" href="https://firebasestorage.googleapis.com" />
-        <link rel="dns-prefetch" href="https://firebasestorage.googleapis.com" />
+        <link
+          rel="dns-prefetch"
+          href="https://firebasestorage.googleapis.com"
+        />
       </head>
-      <body className={`${poppins.variable} ${anton.variable} ${spaceGrotesk.variable} antialiased`}>
+      <body
+        className={`${poppins.variable} ${anton.variable} ${spaceGrotesk.variable} antialiased`}
+      >
         <ScrollProgressBar />
         <Navbar />
         {children}

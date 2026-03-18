@@ -4,23 +4,44 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Timestamp } from "firebase/firestore";
 import {
-  getAllEvents, getAllTickets, createEvent, updateEvent, deleteEvent,
-  type DanEvent, type DanSponsor, type DanTicketType,
+  getAllEvents,
+  getAllTickets,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  type DanEvent,
+  type DanSponsor,
+  type DanTicketType,
 } from "@/lib/firestore";
 import { getAuthClient, storage } from "@/lib/firebase";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { Plus, Pencil, Trash2, X, AlertTriangle, Lock, UploadCloud } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  AlertTriangle,
+  Lock,
+  UploadCloud,
+} from "lucide-react";
 import { logAdminAction } from "@/lib/adminLog";
 import ImageUpload from "@/app/_components/ImageUpload";
 
-const inputCls = "w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700";
+const inputCls =
+  "w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700";
 
 const EMPTY_FORM = {
-  title: "", date: "", time: "19:00",
-  venue: "", description: "", isPast: false,
-  ticketPrice: 5000, totalTickets: 500,
+  title: "",
+  date: "",
+  time: "19:00",
+  venue: "",
+  description: "",
+  isPast: false,
+  ticketPrice: 5000,
+  totalTickets: 500,
   status: "draft" as DanEvent["status"],
-  imageUrl: "", highlights: "",
+  imageUrl: "",
+  highlights: "",
   sponsors: [] as DanSponsor[],
   ticketTypes: [] as DanTicketType[],
 };
@@ -30,10 +51,10 @@ type FormState = typeof EMPTY_FORM;
 type EventTab = "all" | "active" | "draft" | "ended";
 
 const EVENT_TABS: { key: EventTab; label: string; accent: string }[] = [
-  { key: "all",    label: "All",    accent: "#FFFF00" },
+  { key: "all", label: "All", accent: "#FFFF00" },
   { key: "active", label: "Active", accent: "#00FF41" },
-  { key: "draft",  label: "Draft",  accent: "#888888" },
-  { key: "ended",  label: "Ended",  accent: "#FF3333" },
+  { key: "draft", label: "Draft", accent: "#888888" },
+  { key: "ended", label: "Ended", accent: "#FF3333" },
 ];
 
 export default function AdminEventsPage() {
@@ -47,9 +68,13 @@ export default function AdminEventsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [togglingPast, setTogglingPast] = useState<string | null>(null);
-  const [revenueByEvent, setRevenueByEvent] = useState<Record<string, number>>({});
+  const [revenueByEvent, setRevenueByEvent] = useState<Record<string, number>>(
+    {},
+  );
   // per-sponsor logo upload progress: index → 0-100 | "done" | "error"
-  const [logoUploading, setLogoUploading] = useState<Record<number, number | "done" | "error">>({});
+  const [logoUploading, setLogoUploading] = useState<
+    Record<number, number | "done" | "error">
+  >({});
 
   const uploadSponsorLogo = (idx: number, file: File) => {
     const path = `sponsors/${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
@@ -57,7 +82,11 @@ export default function AdminEventsPage() {
     setLogoUploading((p) => ({ ...p, [idx]: 0 }));
     task.on(
       "state_changed",
-      (snap) => setLogoUploading((p) => ({ ...p, [idx]: Math.round((snap.bytesTransferred / snap.totalBytes) * 100) })),
+      (snap) =>
+        setLogoUploading((p) => ({
+          ...p,
+          [idx]: Math.round((snap.bytesTransferred / snap.totalBytes) * 100),
+        })),
       () => setLogoUploading((p) => ({ ...p, [idx]: "error" })),
       async () => {
         const url = await getDownloadURL(task.snapshot.ref);
@@ -79,8 +108,9 @@ export default function AdminEventsPage() {
       const revenue: Record<string, number> = {};
       for (const t of txs) {
         if (t.status !== "pending") {
-          counts[t.eventId]  = (counts[t.eventId]  ?? 0) + t.quantity;
-          revenue[t.eventId] = (revenue[t.eventId] ?? 0) + (t.amount ?? 0) / 100;
+          counts[t.eventId] = (counts[t.eventId] ?? 0) + t.quantity;
+          revenue[t.eventId] =
+            (revenue[t.eventId] ?? 0) + (t.amount ?? 0) / 100;
         }
       }
       setEvents(evs);
@@ -91,9 +121,16 @@ export default function AdminEventsPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setLogoUploading({}); setModalOpen(true); };
+  const openCreate = () => {
+    setEditing(null);
+    setForm(EMPTY_FORM);
+    setLogoUploading({});
+    setModalOpen(true);
+  };
   const openEdit = (ev: DanEvent) => {
     const d = ev.date?.toDate?.() ?? new Date();
     setEditing(ev);
@@ -122,7 +159,7 @@ export default function AdminEventsPage() {
     try {
       const dateTime = new Date(`${form.date}T${form.time}:00`);
       const validTicketTypes = form.ticketTypes.filter(
-        (t) => t.name.trim() && t.price > 0
+        (t) => t.name.trim() && t.price > 0,
       );
       const hasTiers = validTicketTypes.length > 0;
       // Base price = lowest tier price (backward compat); falls back to manual entry
@@ -131,7 +168,8 @@ export default function AdminEventsPage() {
         : Number(form.ticketPrice);
       // Total = sum of all tier limits when tiers are active; otherwise manual entry
       const totalTickets = hasTiers
-        ? validTicketTypes.reduce((sum, t) => sum + (t.limit ?? 0), 0) || Number(form.totalTickets)
+        ? validTicketTypes.reduce((sum, t) => sum + (t.limit ?? 0), 0) ||
+          Number(form.totalTickets)
         : Number(form.totalTickets);
 
       const data = {
@@ -146,16 +184,29 @@ export default function AdminEventsPage() {
         totalTickets,
         status: form.status,
         imageUrl: form.imageUrl,
-        highlights: form.highlights.split("\n").map((s) => s.trim()).filter(Boolean),
-        sponsors: form.sponsors.filter((s) => s.name.trim() || s.logoUrl.trim()),
+        highlights: form.highlights
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        sponsors: form.sponsors.filter(
+          (s) => s.name.trim() || s.logoUrl.trim(),
+        ),
       };
 
       if (editing?.id) {
         await updateEvent(editing.id, data);
-        await logAdminAction("UPDATE_EVENT", `Updated event "${data.title}"`, { type: "event", id: editing.id, name: data.title });
+        await logAdminAction("UPDATE_EVENT", `Updated event "${data.title}"`, {
+          type: "event",
+          id: editing.id,
+          name: data.title,
+        });
       } else {
         const newId = await createEvent(data);
-        await logAdminAction("CREATE_EVENT", `Created event "${data.title}"`, { type: "event", id: newId, name: data.title });
+        await logAdminAction("CREATE_EVENT", `Created event "${data.title}"`, {
+          type: "event",
+          id: newId,
+          name: data.title,
+        });
       }
 
       setModalOpen(false);
@@ -169,7 +220,11 @@ export default function AdminEventsPage() {
     const ev = events.find((e) => e.id === id);
     if (!ev) return;
     await deleteEvent(id);
-    await logAdminAction("DELETE_EVENT", `Deleted event "${ev.title}"`, { type: "event", id, name: ev.title });
+    await logAdminAction("DELETE_EVENT", `Deleted event "${ev.title}"`, {
+      type: "event",
+      id,
+      name: ev.title,
+    });
     setDeleteConfirm(null);
     load();
   };
@@ -179,8 +234,14 @@ export default function AdminEventsPage() {
     setTogglingPast(ev.id);
     try {
       await updateEvent(ev.id, { isPast: !ev.isPast });
-      await logAdminAction("UPDATE_EVENT", `Marked event "${ev.title}" as ${!ev.isPast ? "past" : "upcoming"}`, { type: "event", id: ev.id, name: ev.title });
-      setEvents((prev) => prev.map((e) => e.id === ev.id ? { ...e, isPast: !ev.isPast } : e));
+      await logAdminAction(
+        "UPDATE_EVENT",
+        `Marked event "${ev.title}" as ${!ev.isPast ? "past" : "upcoming"}`,
+        { type: "event", id: ev.id, name: ev.title },
+      );
+      setEvents((prev) =>
+        prev.map((e) => (e.id === ev.id ? { ...e, isPast: !ev.isPast } : e)),
+      );
     } finally {
       setTogglingPast(null);
     }
@@ -190,25 +251,33 @@ export default function AdminEventsPage() {
     s === "active" ? "#00FF41" : s === "ended" ? "#FF3333" : "#888";
 
   const tabCounts = {
-    all:    events.length,
+    all: events.length,
     active: events.filter((e) => e.status === "active").length,
-    draft:  events.filter((e) => e.status === "draft").length,
-    ended:  events.filter((e) => e.status === "ended").length,
+    draft: events.filter((e) => e.status === "draft").length,
+    ended: events.filter((e) => e.status === "ended").length,
   };
 
-  const filteredEvents = activeTab === "all" ? events : events.filter((e) => e.status === activeTab);
+  const filteredEvents =
+    activeTab === "all" ? events : events.filter((e) => e.status === activeTab);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-white uppercase tracking-widest">Events</h1>
-          <p className="text-gray-600 text-sm mt-0.5">Manage past and upcoming events</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white uppercase tracking-widest">
+            Events
+          </h1>
+          <p className="text-gray-600 text-sm mt-0.5">
+            Manage past and upcoming events
+          </p>
         </div>
         <motion.button
           onClick={openCreate}
           className="flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold uppercase tracking-widest text-black flex-shrink-0"
-          style={{ background: "#FFFF00", boxShadow: "0 0 20px rgba(255,255,0,0.4)" }}
+          style={{
+            background: "#FFFF00",
+            boxShadow: "0 0 20px rgba(255,255,0,0.4)",
+          }}
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
         >
@@ -220,40 +289,45 @@ export default function AdminEventsPage() {
 
       {/* Tabs — scrollable on mobile */}
       <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
-      <div className="flex gap-1 p-1 rounded-xl border border-white/8 bg-white/[0.02] w-fit min-w-max">
-        {EVENT_TABS.map(({ key, label, accent }) => {
-          const active = activeTab === key;
-          return (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              className="relative flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold uppercase tracking-widest transition-all duration-200"
-              style={{
-                color: active ? accent : "rgba(255,255,255,0.3)",
-                background: active ? `${accent}12` : "transparent",
-              }}
-            >
-              {label}
-              <span
-                className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
+        <div className="flex gap-1 p-1 rounded-xl border border-white/8 bg-white/[0.02] w-fit min-w-max">
+          {EVENT_TABS.map(({ key, label, accent }) => {
+            const active = activeTab === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className="relative flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold uppercase tracking-widest transition-all duration-200"
                 style={{
-                  background: active ? `${accent}25` : "rgba(255,255,255,0.06)",
                   color: active ? accent : "rgba(255,255,255,0.3)",
+                  background: active ? `${accent}12` : "transparent",
                 }}
               >
-                {tabCounts[key]}
-              </span>
-              {active && (
-                <motion.span
-                  layoutId="event-tab-underline"
-                  className="absolute bottom-0 left-3 right-3 h-px rounded-full"
-                  style={{ background: accent, boxShadow: `0 0 8px ${accent}` }}
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
+                {label}
+                <span
+                  className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
+                  style={{
+                    background: active
+                      ? `${accent}25`
+                      : "rgba(255,255,255,0.06)",
+                    color: active ? accent : "rgba(255,255,255,0.3)",
+                  }}
+                >
+                  {tabCounts[key]}
+                </span>
+                {active && (
+                  <motion.span
+                    layoutId="event-tab-underline"
+                    className="absolute bottom-0 left-3 right-3 h-px rounded-full"
+                    style={{
+                      background: accent,
+                      boxShadow: `0 0 8px ${accent}`,
+                    }}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {loading ? (
@@ -261,109 +335,208 @@ export default function AdminEventsPage() {
           <div className="w-8 h-8 border-4 border-[#FFFF00] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : filteredEvents.length === 0 ? (
-        <div className="rounded-xl border border-dashed py-16 text-center" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
-          <p className="text-gray-600 text-sm">{activeTab === "all" ? "No events yet." : `No ${activeTab} events.`}</p>
-          {activeTab === "all" && <button onClick={openCreate} className="mt-4 text-[#FFFF00] text-sm underline">Create your first event</button>}
+        <div
+          className="rounded-xl border border-dashed py-16 text-center"
+          style={{ borderColor: "rgba(255,255,255,0.1)" }}
+        >
+          <p className="text-gray-600 text-sm">
+            {activeTab === "all" ? "No events yet." : `No ${activeTab} events.`}
+          </p>
+          {activeTab === "all" && (
+            <button
+              onClick={openCreate}
+              className="mt-4 text-[#FFFF00] text-sm underline"
+            >
+              Create your first event
+            </button>
+          )}
         </div>
       ) : (
         <AnimatePresence mode="wait">
-        <motion.div key={activeTab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="space-y-3">
-          {filteredEvents.map((ev) => {
-            const evDate = ev.date?.toDate?.()?.toLocaleDateString("en-NG", { weekday: "short", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
-            const sold = soldByEvent[ev.id ?? ""] ?? 0;
-            const remaining = ev.totalTickets - sold;
-            const pct = ev.totalTickets > 0 ? Math.round((sold / ev.totalTickets) * 100) : 0;
-            const sc = statusColor(ev.status);
-            return (
-              <div
-                key={ev.id}
-                className="rounded-xl border p-4 sm:p-5 flex items-start gap-4 sm:gap-5"
-                style={{ borderColor: "rgba(255,255,255,0.06)", background: "#0a0a0a" }}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-1">
-                    <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full" style={{ background: `${sc}15`, color: sc }}>
-                      {ev.status}
-                    </span>
-                    <span className="text-gray-600 text-xs">{ev.edition}</span>
-                  </div>
-                  <h3 className="text-white font-bold text-base">{ev.title}</h3>
-                  <p className="text-gray-500 text-xs mt-0.5">{evDate} · {ev.venue}</p>
-
-                  <div className="mt-3 flex items-center gap-4">
-                    <div>
-                      <p className="text-gray-600 text-[10px] uppercase tracking-widest">Sold</p>
-                      <p className="text-white text-sm font-bold">{sold}/{ev.totalTickets} <span className="text-gray-600 font-normal text-xs">({remaining} left)</span></p>
-                    </div>
-                    <div className="w-28 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: pct >= 90 ? "#FF3333" : "#FFFF00" }} />
-                    </div>
-                    <div>
-                      <p className="text-gray-600 text-[10px] uppercase tracking-widest">Price</p>
-                      <p className="text-white text-sm font-bold">₦{ev.ticketPrice.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                  {/* Past toggle */}
-                  <button
-                    onClick={() => togglePast(ev)}
-                    disabled={togglingPast === ev.id}
-                    title={ev.isPast ? "Mark as upcoming" : "Mark as past"}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-widest transition-all"
-                    style={{
-                      borderColor: ev.isPast ? "rgba(255,51,51,0.4)" : "rgba(255,255,255,0.1)",
-                      background: ev.isPast ? "rgba(255,51,51,0.1)" : "rgba(255,255,255,0.04)",
-                      color: ev.isPast ? "#FF3333" : "rgba(255,255,255,0.3)",
-                      opacity: togglingPast === ev.id ? 0.5 : 1,
-                    }}
-                  >
-                    {togglingPast === ev.id ? (
-                      <span className="w-2.5 h-2.5 border border-current border-t-transparent rounded-full animate-spin inline-block" />
-                    ) : (
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-3"
+          >
+            {filteredEvents.map((ev) => {
+              const evDate = ev.date
+                ?.toDate?.()
+                ?.toLocaleDateString("en-NG", {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+              const sold = soldByEvent[ev.id ?? ""] ?? 0;
+              const remaining = ev.totalTickets - sold;
+              const pct =
+                ev.totalTickets > 0
+                  ? Math.round((sold / ev.totalTickets) * 100)
+                  : 0;
+              const sc = statusColor(ev.status);
+              return (
+                <div
+                  key={ev.id}
+                  className="rounded-xl border p-4 sm:p-5 flex items-start gap-4 sm:gap-5"
+                  style={{
+                    borderColor: "rgba(255,255,255,0.06)",
+                    background: "#0a0a0a",
+                  }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-1">
                       <span
-                        className="w-2 h-2 rounded-full inline-block"
-                        style={{ background: ev.isPast ? "#FF3333" : "rgba(255,255,255,0.2)" }}
-                      />
-                    )}
-                    {ev.isPast ? "Past" : "Upcoming"}
-                  </button>
+                        className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full"
+                        style={{ background: `${sc}15`, color: sc }}
+                      >
+                        {ev.status}
+                      </span>
+                      <span className="text-gray-600 text-xs">
+                        {ev.edition}
+                      </span>
+                    </div>
+                    <h3 className="text-white font-bold text-base">
+                      {ev.title}
+                    </h3>
+                    <p className="text-gray-500 text-xs mt-0.5">
+                      {evDate} · {ev.venue}
+                    </p>
 
-                  <div className="flex items-center gap-2">
+                    <div className="mt-3 flex items-center gap-4">
+                      <div>
+                        <p className="text-gray-600 text-[10px] uppercase tracking-widest">
+                          Sold
+                        </p>
+                        <p className="text-white text-sm font-bold">
+                          {sold}/{ev.totalTickets}{" "}
+                          <span className="text-gray-600 font-normal text-xs">
+                            ({remaining} left)
+                          </span>
+                        </p>
+                      </div>
+                      <div className="w-28 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${pct}%`,
+                            background: pct >= 90 ? "#FF3333" : "#FFFF00",
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <p className="text-gray-600 text-[10px] uppercase tracking-widest">
+                          Price
+                        </p>
+                        <p className="text-white text-sm font-bold">
+                          ₦{ev.ticketPrice.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                    {/* Past toggle */}
                     <button
-                      onClick={() => openEdit(ev)}
-                      className="w-9 h-9 rounded-lg border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/30 transition-all"
+                      onClick={() => togglePast(ev)}
+                      disabled={togglingPast === ev.id}
+                      title={ev.isPast ? "Mark as upcoming" : "Mark as past"}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-widest transition-all"
+                      style={{
+                        borderColor: ev.isPast
+                          ? "rgba(255,51,51,0.4)"
+                          : "rgba(255,255,255,0.1)",
+                        background: ev.isPast
+                          ? "rgba(255,51,51,0.1)"
+                          : "rgba(255,255,255,0.04)",
+                        color: ev.isPast ? "#FF3333" : "rgba(255,255,255,0.3)",
+                        opacity: togglingPast === ev.id ? 0.5 : 1,
+                      }}
                     >
-                      <Pencil className="w-4 h-4" />
+                      {togglingPast === ev.id ? (
+                        <span className="w-2.5 h-2.5 border border-current border-t-transparent rounded-full animate-spin inline-block" />
+                      ) : (
+                        <span
+                          className="w-2 h-2 rounded-full inline-block"
+                          style={{
+                            background: ev.isPast
+                              ? "#FF3333"
+                              : "rgba(255,255,255,0.2)",
+                          }}
+                        />
+                      )}
+                      {ev.isPast ? "Past" : "Upcoming"}
                     </button>
-                    <button
-                      onClick={() => setDeleteConfirm(ev.id!)}
-                      className="w-9 h-9 rounded-lg border border-white/10 flex items-center justify-center text-gray-400 hover:text-[#FF3333] hover:border-[#FF3333]/30 transition-all"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openEdit(ev)}
+                        className="w-9 h-9 rounded-lg border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/30 transition-all"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteConfirm(ev.id!)}
+                        className="w-9 h-9 rounded-lg border border-white/10 flex items-center justify-center text-gray-400 hover:text-[#FF3333] hover:border-[#FF3333]/30 transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </motion.div>
+              );
+            })}
+          </motion.div>
         </AnimatePresence>
       )}
 
       {/* Delete confirm */}
       <AnimatePresence>
         {deleteConfirm && (
-          <motion.div className="fixed inset-0 z-50 flex items-center justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div className="absolute inset-0 bg-black/80" onClick={() => setDeleteConfirm(null)} />
-            <motion.div className="relative z-10 bg-[#0a0a0a] border border-[#FF3333]/30 rounded-2xl p-7 max-w-sm w-full mx-4 text-center" initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}>
-              <AlertTriangle className="w-10 h-10 mx-auto mb-4" style={{ color: "#FF3333" }} />
-              <h3 className="text-white font-bold uppercase tracking-wide mb-2">Delete Event?</h3>
-              <p className="text-gray-500 text-sm mb-6">This action cannot be undone. All data for this event will be lost.</p>
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div
+              className="absolute inset-0 bg-black/80"
+              onClick={() => setDeleteConfirm(null)}
+            />
+            <motion.div
+              className="relative z-10 bg-[#0a0a0a] border border-[#FF3333]/30 rounded-2xl p-7 max-w-sm w-full mx-4 text-center"
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+            >
+              <AlertTriangle
+                className="w-10 h-10 mx-auto mb-4"
+                style={{ color: "#FF3333" }}
+              />
+              <h3 className="text-white font-bold uppercase tracking-wide mb-2">
+                Delete Event?
+              </h3>
+              <p className="text-gray-500 text-sm mb-6">
+                This action cannot be undone. All data for this event will be
+                lost.
+              </p>
               <div className="flex gap-3">
-                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-full border border-white/15 text-gray-400 text-sm hover:text-white transition-all">Cancel</button>
-                <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 py-2.5 rounded-full bg-[#FF3333] text-black text-sm font-bold hover:opacity-90 transition-all">Delete</button>
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 py-2.5 rounded-full border border-white/15 text-gray-400 text-sm hover:text-white transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDelete(deleteConfirm)}
+                  className="flex-1 py-2.5 rounded-full bg-[#FF3333] text-black text-sm font-bold hover:opacity-90 transition-all"
+                >
+                  Delete
+                </button>
               </div>
             </motion.div>
           </motion.div>
@@ -373,331 +546,570 @@ export default function AdminEventsPage() {
       {/* Create / Edit modal */}
       <AnimatePresence>
         {modalOpen && (
-          <motion.div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
+          <motion.div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div
+              className="absolute inset-0 bg-black/85 backdrop-blur-sm"
+              onClick={() => setModalOpen(false)}
+            />
             <motion.div
               className="relative w-full sm:max-w-2xl bg-[#070707] border border-[#FFFF00]/20 sm:rounded-2xl rounded-t-3xl"
-              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 260 }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Corner decorations — on the outer wrapper so they never scroll */}
-              <span className="absolute top-0 left-0 w-8 h-8 z-10 pointer-events-none" style={{ borderTop: "2px solid #FFFF00", borderLeft: "2px solid #FFFF00" }} />
-              <span className="absolute bottom-0 right-0 w-8 h-8 z-10 pointer-events-none" style={{ borderBottom: "2px solid #FFFF00", borderRight: "2px solid #FFFF00" }} />
+              <span
+                className="absolute top-0 left-0 w-8 h-8 z-10 pointer-events-none"
+                style={{
+                  borderTop: "2px solid #FFFF00",
+                  borderLeft: "2px solid #FFFF00",
+                }}
+              />
+              <span
+                className="absolute bottom-0 right-0 w-8 h-8 z-10 pointer-events-none"
+                style={{
+                  borderBottom: "2px solid #FFFF00",
+                  borderRight: "2px solid #FFFF00",
+                }}
+              />
               {/* Scrollable content */}
               <div className="overflow-y-auto max-h-[93svh]">
-
-              <div className="sm:hidden flex justify-center pt-4 pb-1">
-                <div className="w-10 h-1 bg-white/20 rounded-full" />
-              </div>
-
-              <div className="p-6 sm:p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold uppercase tracking-widest" style={{ color: "#FFFF00" }}>
-                    {editing ? "Edit Event" : "New Event"}
-                  </h2>
-                  <button onClick={() => setModalOpen(false)} className="w-9 h-9 rounded-full border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all">
-                    <X className="w-4 h-4" />
-                  </button>
+                <div className="sm:hidden flex justify-center pt-4 pb-1">
+                  <div className="w-10 h-1 bg-white/20 rounded-full" />
                 </div>
 
-                <form onSubmit={handleSave} className="space-y-4">
-                  <div>
-                    <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Title *</label>
-                    <input required value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="Dine At Night — Edition 2" className={inputCls} />
+                <div className="p-6 sm:p-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2
+                      className="text-xl font-bold uppercase tracking-widest"
+                      style={{ color: "#FFFF00" }}
+                    >
+                      {editing ? "Edit Event" : "New Event"}
+                    </h2>
+                    <button
+                      onClick={() => setModalOpen(false)}
+                      className="w-9 h-9 rounded-full border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <form onSubmit={handleSave} className="space-y-4">
                     <div>
-                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Date *</label>
-                      <input required type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} className={inputCls} />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Time *</label>
-                      <input required type="time" value={form.time} onChange={(e) => setForm((p) => ({ ...p, time: e.target.value }))} className={inputCls} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Venue *</label>
-                    <input required value={form.venue} onChange={(e) => setForm((p) => ({ ...p, venue: e.target.value }))} placeholder="Eko Atlantic, Lagos" className={inputCls} />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Description *</label>
-                    <textarea required rows={3} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} placeholder="What makes this edition special…" className={`${inputCls} resize-none`} />
-                  </div>
-
-                  {(() => {
-                    const hasTiers = form.ticketTypes.length > 0;
-                    const autoTotal = form.ticketTypes.reduce((sum, t) => sum + (t.limit ?? 0), 0);
-                    const autoPrice = hasTiers && form.ticketTypes.some(t => t.price > 0)
-                      ? Math.min(...form.ticketTypes.filter(t => t.price > 0).map(t => t.price))
-                      : form.ticketPrice;
-                    return (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
-                            Ticket Price (₦) {hasTiers && <span className="text-gray-700 normal-case">(auto from types)</span>}
-                          </label>
-                          <div className="relative">
-                            {hasTiers && (
-                              <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600 pointer-events-none" />
-                            )}
-                            <input
-                              type="number" min="0"
-                              value={autoPrice}
-                              readOnly={hasTiers}
-                              onChange={(e) => setForm((p) => ({ ...p, ticketPrice: Number(e.target.value) }))}
-                              className={`${inputCls} ${hasTiers ? "opacity-50 cursor-not-allowed pr-8" : ""}`}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
-                            Total Tickets {hasTiers && <span className="text-gray-700 normal-case">(auto from limits)</span>}
-                          </label>
-                          <div className="relative">
-                            {hasTiers && (
-                              <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600 pointer-events-none" />
-                            )}
-                            <input
-                              type="number" min="1"
-                              value={hasTiers ? autoTotal : form.totalTickets}
-                              readOnly={hasTiers}
-                              onChange={(e) => setForm((p) => ({ ...p, totalTickets: Number(e.target.value) }))}
-                              className={`${inputCls} ${hasTiers ? "opacity-50 cursor-not-allowed pr-8" : ""}`}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Ticket Types */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest">
-                        Ticket Types
-                        <span className="ml-1.5 text-gray-700 normal-case">(optional — e.g. VIP, VVIP)</span>
+                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
+                        Title *
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => setForm((p) => ({ ...p, ticketTypes: [...p.ticketTypes, { name: "", price: 0 }] }))}
-                        className="text-[10px] text-[#FFFF00] uppercase tracking-widest hover:opacity-70 transition-opacity"
-                      >
-                        + Add Tier
-                      </button>
-                    </div>
-                    {form.ticketTypes.length === 0 && (
-                      <p className="text-gray-700 text-xs italic">No tiers — single price above applies. Click + Add Tier to create multiple ticket types.</p>
-                    )}
-                    {/* Column headers */}
-                    {form.ticketTypes.length > 0 && (
-                      <div className="grid grid-cols-[1fr_1fr_1fr_2rem] gap-2 mb-1 px-0.5">
-                        <span className="text-[9px] text-gray-700 uppercase tracking-widest">Name</span>
-                        <span className="text-[9px] text-gray-700 uppercase tracking-widest">Price (₦)</span>
-                        <span className="text-[9px] text-gray-700 uppercase tracking-widest">Limit (tickets)</span>
-                        <span />
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      {form.ticketTypes.map((tt, idx) => (
-                        <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_2rem] gap-2 items-center">
-                          {/* Name */}
-                          <input
-                            value={tt.name}
-                            onChange={(e) => setForm((p) => {
-                              const types = [...p.ticketTypes];
-                              types[idx] = { ...types[idx], name: e.target.value };
-                              return { ...p, ticketTypes: types };
-                            })}
-                            placeholder="e.g. VIP"
-                            className={inputCls}
-                          />
-                          {/* Price */}
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">₦</span>
-                            <input
-                              type="number"
-                              min="0"
-                              value={tt.price || ""}
-                              onChange={(e) => setForm((p) => {
-                                const types = [...p.ticketTypes];
-                                types[idx] = { ...types[idx], price: Number(e.target.value) };
-                                return { ...p, ticketTypes: types };
-                              })}
-                              placeholder="0"
-                              className={`${inputCls} pl-7`}
-                            />
-                          </div>
-                          {/* Limit */}
-                          <input
-                            type="number"
-                            min="1"
-                            value={tt.limit ?? ""}
-                            onChange={(e) => setForm((p) => {
-                              const types = [...p.ticketTypes];
-                              const val = e.target.value;
-                              types[idx] = { ...types[idx], limit: val === "" ? undefined : Number(val) };
-                              return { ...p, ticketTypes: types };
-                            })}
-                            placeholder="Unlimited"
-                            className={inputCls}
-                          />
-                          {/* Remove */}
-                          <button
-                            type="button"
-                            onClick={() => setForm((p) => ({ ...p, ticketTypes: p.ticketTypes.filter((_, i) => i !== idx) }))}
-                            className="h-10 flex items-center justify-center text-gray-600 hover:text-[#FF3333] transition-colors"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                        Status
-                        {form.isPast && <Lock className="w-3 h-3 text-gray-600 inline" />}
-                      </label>
-                      <div className="relative">
-                        {form.isPast && (
-                          <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600 pointer-events-none z-10" />
-                        )}
-                        <select
-                          value={form.status}
-                          onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as DanEvent["status"] }))}
-                          disabled={form.isPast}
-                          className={`w-full px-4 py-2.5 bg-[#0a0a0a] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all ${form.isPast ? "opacity-50 cursor-not-allowed pr-8" : "cursor-pointer"}`}
-                        >
-                          <option value="draft">Draft</option>
-                          <option value="active">Active</option>
-                          <option value="ended">Ended</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 pt-5">
                       <input
-                        type="checkbox"
-                        id="isPast"
-                        checked={form.isPast}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
+                        required
+                        value={form.title}
+                        onChange={(e) =>
+                          setForm((p) => ({ ...p, title: e.target.value }))
+                        }
+                        placeholder="Dine At Night — Edition 2"
+                        className={inputCls}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
+                          Date *
+                        </label>
+                        <input
+                          required
+                          type="date"
+                          value={form.date}
+                          onChange={(e) =>
+                            setForm((p) => ({ ...p, date: e.target.value }))
+                          }
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
+                          Time *
+                        </label>
+                        <input
+                          required
+                          type="time"
+                          value={form.time}
+                          onChange={(e) =>
+                            setForm((p) => ({ ...p, time: e.target.value }))
+                          }
+                          className={inputCls}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
+                        Venue *
+                      </label>
+                      <input
+                        required
+                        value={form.venue}
+                        onChange={(e) =>
+                          setForm((p) => ({ ...p, venue: e.target.value }))
+                        }
+                        placeholder="Eko Atlantic, Lagos"
+                        className={inputCls}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
+                        Description *
+                      </label>
+                      <textarea
+                        required
+                        rows={3}
+                        value={form.description}
+                        onChange={(e) =>
                           setForm((p) => ({
                             ...p,
-                            isPast: checked,
-                            ...(checked ? { status: "ended" as DanEvent["status"] } : {}),
-                          }));
-                        }}
-                        className="w-4 h-4 accent-yellow-400"
+                            description: e.target.value,
+                          }))
+                        }
+                        placeholder="What makes this edition special…"
+                        className={`${inputCls} resize-none`}
                       />
-                      <label htmlFor="isPast" className="text-gray-400 text-sm">Mark as past event</label>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Cover Image</label>
-                    <ImageUpload
-                      value={form.imageUrl}
-                      onChange={(url) => setForm((p) => ({ ...p, imageUrl: url }))}
-                      folder="events"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Highlights (one per line)</label>
-                    <textarea rows={3} value={form.highlights} onChange={(e) => setForm((p) => ({ ...p, highlights: e.target.value }))} placeholder={"50+ Vendors\nLive Music\nBar Activations"} className={`${inputCls} resize-none`} />
-                  </div>
-
-                  {/* Sponsors */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest">Sponsors & Partners</label>
-                      <button
-                        type="button"
-                        onClick={() => setForm((p) => ({ ...p, sponsors: [...p.sponsors, { name: "", logoUrl: "" }] }))}
-                        className="text-[10px] text-[#FFFF00] uppercase tracking-widest hover:opacity-70 transition-opacity"
-                      >
-                        + Add Sponsor
-                      </button>
-                    </div>
-                    {form.sponsors.length === 0 && (
-                      <p className="text-gray-700 text-xs italic">No sponsors yet. Click + Add Sponsor to add one.</p>
-                    )}
-                    <div className="space-y-2">
-                      {form.sponsors.map((sp, idx) => (
-                        <div key={idx} className="flex gap-2 items-center">
-                          <input
-                            value={sp.name}
-                            onChange={(e) => setForm((p) => {
-                              const s = [...p.sponsors];
-                              s[idx] = { ...s[idx], name: e.target.value };
-                              return { ...p, sponsors: s };
-                            })}
-                            placeholder="Sponsor name (e.g. FirstBank)"
-                            className={`${inputCls} flex-1`}
-                          />
-                          {/* Logo upload */}
-                          <label
-                            className="relative flex items-center gap-2 px-3 py-2.5 rounded-lg border text-xs cursor-pointer transition-all flex-shrink-0"
-                            style={{
-                              background: sp.logoUrl ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.03)",
-                              borderColor: logoUploading[idx] === "error" ? "#FF3333" : sp.logoUrl ? "rgba(255,255,0,0.3)" : "rgba(255,255,255,0.1)",
-                              color: sp.logoUrl ? "#FFFF00" : "rgba(255,255,255,0.4)",
-                            }}
-                          >
-                            {sp.logoUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={sp.logoUrl} alt="" className="w-6 h-6 object-contain rounded" />
-                            ) : (
-                              <UploadCloud className="w-4 h-4" />
-                            )}
-                            <span className="whitespace-nowrap">
-                              {logoUploading[idx] === "error" ? "Error" :
-                               typeof logoUploading[idx] === "number" ? `${logoUploading[idx]}%` :
-                               sp.logoUrl ? "Change" : "Upload Logo"}
-                            </span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadSponsorLogo(idx, f); e.target.value = ""; }}
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => setForm((p) => ({ ...p, sponsors: p.sponsors.filter((_, i) => i !== idx) }))}
-                            className="w-9 h-10 flex items-center justify-center text-gray-600 hover:text-[#FF3333] transition-colors flex-shrink-0"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
+                    {(() => {
+                      const hasTiers = form.ticketTypes.length > 0;
+                      const autoTotal = form.ticketTypes.reduce(
+                        (sum, t) => sum + (t.limit ?? 0),
+                        0,
+                      );
+                      const autoPrice =
+                        hasTiers && form.ticketTypes.some((t) => t.price > 0)
+                          ? Math.min(
+                              ...form.ticketTypes
+                                .filter((t) => t.price > 0)
+                                .map((t) => t.price),
+                            )
+                          : form.ticketPrice;
+                      return (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
+                              Ticket Price (₦){" "}
+                              {hasTiers && (
+                                <span className="text-gray-700 normal-case">
+                                  (auto from types)
+                                </span>
+                              )}
+                            </label>
+                            <div className="relative">
+                              {hasTiers && (
+                                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600 pointer-events-none" />
+                              )}
+                              <input
+                                type="number"
+                                min="0"
+                                value={autoPrice}
+                                readOnly={hasTiers}
+                                onChange={(e) =>
+                                  setForm((p) => ({
+                                    ...p,
+                                    ticketPrice: Number(e.target.value),
+                                  }))
+                                }
+                                className={`${inputCls} ${hasTiers ? "opacity-50 cursor-not-allowed pr-8" : ""}`}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
+                              Total Tickets{" "}
+                              {hasTiers && (
+                                <span className="text-gray-700 normal-case">
+                                  (auto from limits)
+                                </span>
+                              )}
+                            </label>
+                            <div className="relative">
+                              {hasTiers && (
+                                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600 pointer-events-none" />
+                              )}
+                              <input
+                                type="number"
+                                min="1"
+                                value={hasTiers ? autoTotal : form.totalTickets}
+                                readOnly={hasTiers}
+                                onChange={(e) =>
+                                  setForm((p) => ({
+                                    ...p,
+                                    totalTickets: Number(e.target.value),
+                                  }))
+                                }
+                                className={`${inputCls} ${hasTiers ? "opacity-50 cursor-not-allowed pr-8" : ""}`}
+                              />
+                            </div>
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                      );
+                    })()}
 
-                  <motion.button
-                    type="submit"
-                    disabled={saving}
-                    className="w-full py-3.5 rounded-full font-bold uppercase tracking-widest text-sm mt-2"
-                    style={{ background: saving ? "transparent" : "#FFFF00", color: saving ? "#FFFF00" : "#000", border: "2px solid #FFFF00", boxShadow: saving ? "0 0 15px rgba(255,255,0,0.2)" : "0 0 25px rgba(255,255,0,0.4)" }}
-                    whileHover={!saving ? { scale: 1.01 } : {}}
-                    whileTap={!saving ? { scale: 0.98 } : {}}
-                  >
-                    {saving ? (
-                      <span className="flex items-center justify-center gap-3">
-                        <span className="w-4 h-4 border-2 border-[#FFFF00] border-t-transparent rounded-full animate-spin" />
-                        Saving…
-                      </span>
-                    ) : editing ? "Save Changes" : "Create Event"}
-                  </motion.button>
-                </form>
-              </div>
-              </div> {/* end scrollable inner */}
+                    {/* Ticket Types */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-[10px] text-gray-600 uppercase tracking-widest">
+                          Ticket Types
+                          <span className="ml-1.5 text-gray-700 normal-case">
+                            (optional — e.g. VIP, VVIP)
+                          </span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setForm((p) => ({
+                              ...p,
+                              ticketTypes: [
+                                ...p.ticketTypes,
+                                { name: "", price: 0 },
+                              ],
+                            }))
+                          }
+                          className="text-[10px] text-[#FFFF00] uppercase tracking-widest hover:opacity-70 transition-opacity"
+                        >
+                          + Add Tier
+                        </button>
+                      </div>
+                      {form.ticketTypes.length === 0 && (
+                        <p className="text-gray-700 text-xs italic">
+                          No tiers — single price above applies. Click + Add
+                          Tier to create multiple ticket types.
+                        </p>
+                      )}
+                      {/* Column headers */}
+                      {form.ticketTypes.length > 0 && (
+                        <div className="grid grid-cols-[1fr_1fr_1fr_2rem] gap-2 mb-1 px-0.5">
+                          <span className="text-[9px] text-gray-700 uppercase tracking-widest">
+                            Name
+                          </span>
+                          <span className="text-[9px] text-gray-700 uppercase tracking-widest">
+                            Price (₦)
+                          </span>
+                          <span className="text-[9px] text-gray-700 uppercase tracking-widest">
+                            Limit (tickets)
+                          </span>
+                          <span />
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        {form.ticketTypes.map((tt, idx) => (
+                          <div
+                            key={idx}
+                            className="grid grid-cols-[1fr_1fr_1fr_2rem] gap-2 items-center"
+                          >
+                            {/* Name */}
+                            <input
+                              value={tt.name}
+                              onChange={(e) =>
+                                setForm((p) => {
+                                  const types = [...p.ticketTypes];
+                                  types[idx] = {
+                                    ...types[idx],
+                                    name: e.target.value,
+                                  };
+                                  return { ...p, ticketTypes: types };
+                                })
+                              }
+                              placeholder="e.g. VIP"
+                              className={inputCls}
+                            />
+                            {/* Price */}
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">
+                                ₦
+                              </span>
+                              <input
+                                type="number"
+                                min="0"
+                                value={tt.price || ""}
+                                onChange={(e) =>
+                                  setForm((p) => {
+                                    const types = [...p.ticketTypes];
+                                    types[idx] = {
+                                      ...types[idx],
+                                      price: Number(e.target.value),
+                                    };
+                                    return { ...p, ticketTypes: types };
+                                  })
+                                }
+                                placeholder="0"
+                                className={`${inputCls} pl-7`}
+                              />
+                            </div>
+                            {/* Limit */}
+                            <input
+                              type="number"
+                              min="1"
+                              value={tt.limit ?? ""}
+                              onChange={(e) =>
+                                setForm((p) => {
+                                  const types = [...p.ticketTypes];
+                                  const val = e.target.value;
+                                  types[idx] = {
+                                    ...types[idx],
+                                    limit: val === "" ? undefined : Number(val),
+                                  };
+                                  return { ...p, ticketTypes: types };
+                                })
+                              }
+                              placeholder="Unlimited"
+                              className={inputCls}
+                            />
+                            {/* Remove */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setForm((p) => ({
+                                  ...p,
+                                  ticketTypes: p.ticketTypes.filter(
+                                    (_, i) => i !== idx,
+                                  ),
+                                }))
+                              }
+                              className="h-10 flex items-center justify-center text-gray-600 hover:text-[#FF3333] transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                          Status
+                          {form.isPast && (
+                            <Lock className="w-3 h-3 text-gray-600 inline" />
+                          )}
+                        </label>
+                        <div className="relative">
+                          {form.isPast && (
+                            <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600 pointer-events-none z-10" />
+                          )}
+                          <select
+                            value={form.status}
+                            onChange={(e) =>
+                              setForm((p) => ({
+                                ...p,
+                                status: e.target.value as DanEvent["status"],
+                              }))
+                            }
+                            disabled={form.isPast}
+                            className={`w-full px-4 py-2.5 bg-[#0a0a0a] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all ${form.isPast ? "opacity-50 cursor-not-allowed pr-8" : "cursor-pointer"}`}
+                          >
+                            <option value="draft">Draft</option>
+                            <option value="active">Active</option>
+                            <option value="ended">Ended</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 pt-5">
+                        <input
+                          type="checkbox"
+                          id="isPast"
+                          checked={form.isPast}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setForm((p) => ({
+                              ...p,
+                              isPast: checked,
+                              ...(checked
+                                ? { status: "ended" as DanEvent["status"] }
+                                : {}),
+                            }));
+                          }}
+                          className="w-4 h-4 accent-yellow-400"
+                        />
+                        <label
+                          htmlFor="isPast"
+                          className="text-gray-400 text-sm"
+                        >
+                          Mark as past event
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
+                        Cover Image
+                      </label>
+                      <ImageUpload
+                        value={form.imageUrl}
+                        onChange={(url) =>
+                          setForm((p) => ({ ...p, imageUrl: url }))
+                        }
+                        folder="events"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
+                        Highlights (one per line)
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={form.highlights}
+                        onChange={(e) =>
+                          setForm((p) => ({ ...p, highlights: e.target.value }))
+                        }
+                        placeholder={"50+ Vendors\nmusic\nBar Activations"}
+                        className={`${inputCls} resize-none`}
+                      />
+                    </div>
+
+                    {/* Sponsors */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-[10px] text-gray-600 uppercase tracking-widest">
+                          Sponsors & Partners
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setForm((p) => ({
+                              ...p,
+                              sponsors: [
+                                ...p.sponsors,
+                                { name: "", logoUrl: "" },
+                              ],
+                            }))
+                          }
+                          className="text-[10px] text-[#FFFF00] uppercase tracking-widest hover:opacity-70 transition-opacity"
+                        >
+                          + Add Sponsor
+                        </button>
+                      </div>
+                      {form.sponsors.length === 0 && (
+                        <p className="text-gray-700 text-xs italic">
+                          No sponsors yet. Click + Add Sponsor to add one.
+                        </p>
+                      )}
+                      <div className="space-y-2">
+                        {form.sponsors.map((sp, idx) => (
+                          <div key={idx} className="flex gap-2 items-center">
+                            <input
+                              value={sp.name}
+                              onChange={(e) =>
+                                setForm((p) => {
+                                  const s = [...p.sponsors];
+                                  s[idx] = { ...s[idx], name: e.target.value };
+                                  return { ...p, sponsors: s };
+                                })
+                              }
+                              placeholder="Sponsor name (e.g. FirstBank)"
+                              className={`${inputCls} flex-1`}
+                            />
+                            {/* Logo upload */}
+                            <label
+                              className="relative flex items-center gap-2 px-3 py-2.5 rounded-lg border text-xs cursor-pointer transition-all flex-shrink-0"
+                              style={{
+                                background: sp.logoUrl
+                                  ? "rgba(255,255,255,0.04)"
+                                  : "rgba(255,255,255,0.03)",
+                                borderColor:
+                                  logoUploading[idx] === "error"
+                                    ? "#FF3333"
+                                    : sp.logoUrl
+                                      ? "rgba(255,255,0,0.3)"
+                                      : "rgba(255,255,255,0.1)",
+                                color: sp.logoUrl
+                                  ? "#FFFF00"
+                                  : "rgba(255,255,255,0.4)",
+                              }}
+                            >
+                              {sp.logoUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={sp.logoUrl}
+                                  alt=""
+                                  className="w-6 h-6 object-contain rounded"
+                                />
+                              ) : (
+                                <UploadCloud className="w-4 h-4" />
+                              )}
+                              <span className="whitespace-nowrap">
+                                {logoUploading[idx] === "error"
+                                  ? "Error"
+                                  : typeof logoUploading[idx] === "number"
+                                    ? `${logoUploading[idx]}%`
+                                    : sp.logoUrl
+                                      ? "Change"
+                                      : "Upload Logo"}
+                              </span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) uploadSponsorLogo(idx, f);
+                                  e.target.value = "";
+                                }}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setForm((p) => ({
+                                  ...p,
+                                  sponsors: p.sponsors.filter(
+                                    (_, i) => i !== idx,
+                                  ),
+                                }))
+                              }
+                              className="w-9 h-10 flex items-center justify-center text-gray-600 hover:text-[#FF3333] transition-colors flex-shrink-0"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <motion.button
+                      type="submit"
+                      disabled={saving}
+                      className="w-full py-3.5 rounded-full font-bold uppercase tracking-widest text-sm mt-2"
+                      style={{
+                        background: saving ? "transparent" : "#FFFF00",
+                        color: saving ? "#FFFF00" : "#000",
+                        border: "2px solid #FFFF00",
+                        boxShadow: saving
+                          ? "0 0 15px rgba(255,255,0,0.2)"
+                          : "0 0 25px rgba(255,255,0,0.4)",
+                      }}
+                      whileHover={!saving ? { scale: 1.01 } : {}}
+                      whileTap={!saving ? { scale: 0.98 } : {}}
+                    >
+                      {saving ? (
+                        <span className="flex items-center justify-center gap-3">
+                          <span className="w-4 h-4 border-2 border-[#FFFF00] border-t-transparent rounded-full animate-spin" />
+                          Saving…
+                        </span>
+                      ) : editing ? (
+                        "Save Changes"
+                      ) : (
+                        "Create Event"
+                      )}
+                    </motion.button>
+                  </form>
+                </div>
+              </div>{" "}
+              {/* end scrollable inner */}
             </motion.div>
           </motion.div>
         )}

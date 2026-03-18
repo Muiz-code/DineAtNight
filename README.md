@@ -1,6 +1,6 @@
 # Dine At Night
 
-Lagos's premier nighttime food market platform — an outdoor experience combining the best local food vendors, live music, and neon-lit vibes.
+Lagos's premier nighttime food market platform — an outdoor experience combining the best local food vendors, music, and neon-lit vibes.
 
 **Live site:** https://dine-at-night.vercel.app
 **Admin panel:** https://dine-at-night.vercel.app/admin
@@ -9,18 +9,18 @@ Lagos's premier nighttime food market platform — an outdoor experience combini
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router) |
-| Language | TypeScript 5 |
-| Styling | Tailwind CSS 4 |
-| UI / Animation | Framer Motion, Lucide React, Shadcn/ui |
-| Backend / DB | Firebase (Firestore + Auth) |
-| Payments | Paystack |
-| Email | EmailJS |
-| QR Codes | `qrcode` (generate) + `html5-qrcode` (scan) |
-| Excel Export | XLSX |
-| Deployment | Vercel |
+| Layer          | Technology                                  |
+| -------------- | ------------------------------------------- |
+| Framework      | Next.js 16 (App Router)                     |
+| Language       | TypeScript 5                                |
+| Styling        | Tailwind CSS 4                              |
+| UI / Animation | Framer Motion, Lucide React, Shadcn/ui      |
+| Backend / DB   | Firebase (Firestore + Auth)                 |
+| Payments       | Paystack                                    |
+| Email          | EmailJS                                     |
+| QR Codes       | `qrcode` (generate) + `html5-qrcode` (scan) |
+| Excel Export   | XLSX                                        |
+| Deployment     | Vercel                                      |
 
 ---
 
@@ -108,12 +108,12 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Scripts
 
-| Command | Description |
-|---|---|
-| `npm run dev` | Start development server |
-| `npm run build` | Production build |
-| `npm start` | Start production server |
-| `npm run lint` | Run ESLint |
+| Command         | Description              |
+| --------------- | ------------------------ |
+| `npm run dev`   | Start development server |
+| `npm run build` | Production build         |
+| `npm start`     | Start production server  |
+| `npm run lint`  | Run ESLint               |
 
 ---
 
@@ -121,10 +121,10 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 The admin panel is accessible at `/admin/login`.
 
-| Field | Value |
-|---|---|
-| Email | admin@dineatnight.com |
-| Password | admin1 |
+| Field    | Value                 |
+| -------- | --------------------- |
+| Email    | admin@dineatnight.com |
+| Password | admin1                |
 
 Admin access is controlled by the `NEXT_PUBLIC_ADMIN_EMAILS` environment variable. Only Firebase-authenticated users whose email is in that list can access admin routes.
 

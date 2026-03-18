@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
-import { Images } from "@/assets/images";
+import { Images, heroCarouselImages } from "@/assets/images";
 import {
   animate,
   AnimatePresence,
@@ -34,11 +34,22 @@ import Footer from "@/app/_components/Footer";
 import SectionFadeIn from "@/app/_components/SectionFadeIn";
 
 // Heavy / below-fold components — loaded after initial render
-const Loader = dynamic(() => import("../../_components/loader"), { ssr: false, loading: () => null });
-const Antigravity = dynamic(() => import("@/components/Antigravity"), { ssr: false, loading: () => null });
-const VendorModal = dynamic(() => import("../../_components/VendorModal"), { ssr: false, loading: () => null });
-const NewsletterModal = dynamic(() => import("../../_components/NewsletterModal"), { ssr: false, loading: () => null });
-const TestimonialSection = dynamic(() => import("../../_components/TestimonialSection"), { ssr: false, loading: () => null });
+const Loader = dynamic(() => import("../../_components/loader"), {
+  ssr: false,
+  loading: () => null,
+});
+const VendorModal = dynamic(() => import("../../_components/VendorModal"), {
+  ssr: false,
+  loading: () => null,
+});
+const NewsletterModal = dynamic(
+  () => import("../../_components/NewsletterModal"),
+  { ssr: false, loading: () => null },
+);
+const TestimonialSection = dynamic(
+  () => import("../../_components/TestimonialSection"),
+  { ssr: false, loading: () => null },
+);
 
 /* ═══════════════════════════════════════════════
    Motion Variants
@@ -386,11 +397,6 @@ const stats = [
   // },
 ];
 
-const formatFollowers = (count: number) => {
-  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M+`;
-  if (count >= 1_000) return `${Math.round(count / 100) / 10}K+`;
-  return `${count}`;
-};
 
 /* ═══════════════════════════════════════════════
    Stacked Gallery (mobile swipe)
@@ -550,7 +556,6 @@ function StackedGalleryMobile({ items }: { items: DanGalleryItem[] }) {
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
-  const [followers, setFollowers] = useState<string | null>(null);
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
   const [activeEvents, setActiveEvents] = useState<DanEvent[]>([]);
   const [pastEvents, setPastEvents] = useState<DanEvent[]>([]);
@@ -561,9 +566,8 @@ export default function Home() {
   const [vendorsLoading, setVendorsLoading] = useState(true);
   const [vendorsError, setVendorsError] = useState(false);
   const [galleryItems, setGalleryItems] = useState<DanGalleryItem[]>([]);
-  const [showParticles, setShowParticles] = useState(false);
+  const [heroCarouselIdx, setHeroCarouselIdx] = useState(0);
   const { logo } = Images();
-  const cursorRef = useRef<HTMLDivElement>(null);
   const vendorsResolvedRef = useRef(false);
 
   // Parallax transforms — logo moves up slower than the page
@@ -577,12 +581,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const mobile = window.innerWidth < 768;
-    setIsMobile(mobile);
-    // On mobile, wait until after the loader clears before loading Three.js
-    // On desktop, start immediately
-    const t = setTimeout(() => setShowParticles(true), mobile ? 2200 : 0);
-    return () => clearTimeout(t);
+    setIsMobile(window.innerWidth < 768);
   }, []);
 
   // Events — serve cache instantly, subscribe for live updates
@@ -642,7 +641,10 @@ export default function Home() {
     };
     const delay = window.innerWidth < 768 ? 1000 : 0;
     const t = setTimeout(start, delay);
-    return () => { clearTimeout(t); unsub?.(); };
+    return () => {
+      clearTimeout(t);
+      unsub?.();
+    };
   }, []);
 
   // Gallery — delayed on mobile to avoid competing with hero paint
@@ -658,19 +660,10 @@ export default function Home() {
     };
     const delay = window.innerWidth < 768 ? 1200 : 0;
     const t = setTimeout(start, delay);
-    return () => { clearTimeout(t); unsub?.(); };
-  }, []);
-
-  // Cursor spotlight — direct DOM write for zero re-renders
-  useEffect(() => {
-    const move = (e: MouseEvent) => {
-      if (cursorRef.current) {
-        cursorRef.current.style.left = `${e.clientX - 250}px`;
-        cursorRef.current.style.top = `${e.clientY - 250}px`;
-      }
+    return () => {
+      clearTimeout(t);
+      unsub?.();
     };
-    window.addEventListener("mousemove", move, { passive: true });
-    return () => window.removeEventListener("mousemove", move);
   }, []);
 
   useEffect(() => {
@@ -740,38 +733,50 @@ export default function Home() {
     [galleryItems],
   );
 
+  // Auto-advance hero carousel
+  useEffect(() => {
+    const t = setInterval(
+      () => setHeroCarouselIdx((i) => (i + 1) % heroCarouselImages.length),
+      8000,
+    );
+    return () => clearInterval(t);
+  }, []);
+
   if (isLoading) return <Loader duration={2000} />;
 
   return (
     <div className="relative w-full bg-black overflow-x-hidden overflow-y-hidden">
-      {/* Fixed Particle Background — deferred on mobile until after loader */}
-      {showParticles && (
-        <div className="fixed inset-0 z-0 w-full">
-          <Antigravity color="#00FF41" count={isMobile ? 60 : 300} />
-        </div>
-      )}
-
-      {/* Cursor spotlight glow — follows mouse, no re-renders */}
-      <div
-        ref={cursorRef}
-        className="fixed pointer-events-none"
-        style={{
-          zIndex: 2,
-          width: 500,
-          height: 500,
-          background:
-            "radial-gradient(circle, rgba(0,255,65,0.06) 0%, transparent 70%)",
-        }}
-      />
-
       {/* ──────────────────────────────────────────
-          HERO  — pointer-events-none lets Antigravity
-          particles respond to touch/mouse through the overlay.
-          Interactive children override with pointer-events-auto.
+          HERO — carousel is scoped to this section only.
          ────────────────────────────────────────── */}
-      <section className="relative z-10 flex flex-col items-center justify-center min-h-[100svh] px-4 sm:px-6 text-center bg-black/55 pointer-events-none">
+      <section className="relative overflow-hidden flex flex-col items-center justify-center min-h-[100svh] px-4 sm:px-6 text-center pointer-events-none">
+        {/* Background carousel — absolute so it stays inside the hero */}
+        <div className="absolute inset-0 z-0">
+          <AnimatePresence mode="sync">
+            <motion.div
+              key={heroCarouselIdx}
+              className="absolute inset-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.2, ease: "easeInOut" }}
+            >
+              <Image
+                src={heroCarouselImages[heroCarouselIdx]}
+                alt="DAN event photo"
+                fill
+                sizes="100vw"
+                className="object-cover"
+                priority
+              />
+            </motion.div>
+          </AnimatePresence>
+          {/* Dark overlay so text stays legible */}
+          <div className="absolute inset-0 bg-black/65" />
+        </div>
         {/* Logo — no hover effect, pure parallax display */}
         <motion.div
+          className="relative z-10"
           style={{ y: logoY }}
           initial={{ opacity: 0, y: -30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -796,7 +801,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, delay: 0.3, ease: "easeOut" }}
-          className="mt-6 sm:mt-8 space-y-3 sm:space-y-4 px-2"
+          className="relative z-10 mt-6 sm:mt-8 space-y-3 sm:space-y-4 px-2"
         >
           <h1
             className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold tracking-wide uppercase leading-tight"
@@ -832,7 +837,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, delay: 0.65, ease: "easeOut" }}
-          className="mt-10 sm:mt-14 flex flex-col sm:flex-row gap-3 sm:gap-5 w-full sm:w-auto px-6 sm:px-0 pointer-events-auto"
+          className="relative z-10 mt-10 sm:mt-14 flex flex-col sm:flex-row gap-3 sm:gap-5 w-full sm:w-auto px-6 sm:px-0 pointer-events-auto"
         >
           <Link href="/event" className="w-full sm:w-auto">
             <NeonButton
@@ -866,7 +871,7 @@ export default function Home() {
         </motion.div>
 
         {/* Scroll hint */}
-        <motion.div
+        {/* <motion.div
           className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -884,7 +889,7 @@ export default function Home() {
           <span className="text-[9px] sm:text-[10px] tracking-[0.3em] text-gray-600 uppercase">
             Scroll
           </span>
-        </motion.div>
+        </motion.div> */}
       </section>
 
       {/* Neon ticker after hero */}
@@ -941,7 +946,7 @@ export default function Home() {
             </div>
 
             {/* Neon divider */}
-            <div className="flex items-center justify-center gap-3 pt-4">
+            {/* <div className="flex items-center justify-center gap-3 pt-4">
               <span
                 className="block h-px flex-1 max-w-25"
                 style={{
@@ -964,7 +969,7 @@ export default function Home() {
                   boxShadow: "0 0 10px rgba(255,51,51,0.6)",
                 }}
               />
-            </div>
+            </div> */}
           </div>
         </section>
       </SectionFadeIn>
@@ -1007,18 +1012,13 @@ export default function Home() {
               </motion.div>
             ))}
 
-            {/* 4th stat: IG followers (live when API is connected) */}
+            {/* 4th stat: Vendors */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.38, duration: 0.5 }}
               className="relative overflow-hidden rounded-2xl bg-transparent from-[#0e0e0e] to-[#040404] px-2 py-3 text-center"
-              // style={{
-              //   borderColor: "#FFFF00",
-              //   boxShadow:
-              //     "0 0 25px rgba(255,255,0,0.25), inset 0 0 25px rgba(255,255,0,0.1)",
-              // }}
             >
               <div
                 className="text-4xl md:text-6xl font-bold"
@@ -1027,10 +1027,10 @@ export default function Home() {
                   textShadow: "0 0 20px rgba(255,51,51,0.25)",
                 }}
               >
-                {followers ?? "20K+"}
+                10+
               </div>
               <div className="mt-3 text-gray-400 text-[10px] md:text-sm tracking-widest uppercase">
-                Followers
+                Vendors
               </div>
             </motion.div>
           </div>
@@ -1135,17 +1135,26 @@ export default function Home() {
                             />
                             <div
                               className="absolute bottom-0 left-0 right-0 h-16 md:hidden"
-                              style={{ background: "linear-gradient(to bottom, transparent, #090909)" }}
+                              style={{
+                                background:
+                                  "linear-gradient(to bottom, transparent, #090909)",
+                              }}
                             />
                             <div
                               className="absolute inset-0 hidden md:block"
-                              style={{ background: "linear-gradient(to right, transparent 55%, #090909 100%)" }}
+                              style={{
+                                background:
+                                  "linear-gradient(to right, transparent 55%, #090909 100%)",
+                              }}
                             />
                           </>
                         ) : (
                           <div
                             className="w-full min-h-[220px]"
-                            style={{ background: "radial-gradient(ellipse at center, rgba(255,255,0,0.08), #030303)" }}
+                            style={{
+                              background:
+                                "radial-gradient(ellipse at center, rgba(255,255,0,0.08), #030303)",
+                            }}
                           />
                         )}
                       </div>
@@ -1164,7 +1173,8 @@ export default function Home() {
                             {ev.title}
                           </h3>
                           <p className="text-gray-400 text-sm mt-1">
-                            {evDate}{evTime ? ` · ${evTime}` : ""}
+                            {evDate}
+                            {evTime ? ` · ${evTime}` : ""}
                           </p>
                           <p className="text-gray-500 text-sm mt-0.5 flex items-center gap-1">
                             <MapPin className="w-3.5 h-3.5 shrink-0" />{" "}
@@ -1187,14 +1197,22 @@ export default function Home() {
                           className="flex md:hidden items-center justify-between w-full py-2 border-t text-xs font-bold uppercase tracking-widest transition-colors"
                           style={{
                             borderColor: "rgba(255,255,0,0.12)",
-                            color: isExpanded ? "rgba(255,255,0,0.9)" : "rgba(255,255,0,0.55)",
+                            color: isExpanded
+                              ? "rgba(255,255,0,0.9)"
+                              : "rgba(255,255,0,0.55)",
                           }}
                           onClick={toggleExpand}
                         >
-                          <span>{isExpanded ? "Hide Details" : "See Details"}</span>
+                          <span>
+                            {isExpanded ? "Hide Details" : "See Details"}
+                          </span>
                           <ChevronDown
                             className="w-4 h-4 transition-transform duration-300"
-                            style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}
+                            style={{
+                              transform: isExpanded
+                                ? "rotate(180deg)"
+                                : "rotate(0deg)",
+                            }}
                           />
                         </button>
 
@@ -1202,8 +1220,9 @@ export default function Home() {
                         <div
                           className="grid transition-all duration-300 ease-in-out"
                           style={{
-                            gridTemplateRows: (!isMobile || isExpanded) ? "1fr" : "0fr",
-                            opacity: (!isMobile || isExpanded) ? 1 : 0,
+                            gridTemplateRows:
+                              !isMobile || isExpanded ? "1fr" : "0fr",
+                            opacity: !isMobile || isExpanded ? 1 : 0,
                           }}
                         >
                           <div className="overflow-hidden flex flex-col gap-4 min-h-0">
@@ -1269,7 +1288,10 @@ export default function Home() {
                                   <p className="text-gray-600 text-xs uppercase tracking-widest">
                                     Price per ticket
                                   </p>
-                                  <p className="text-2xl font-bold" style={{ color: "#FFFF00" }}>
+                                  <p
+                                    className="text-2xl font-bold"
+                                    style={{ color: "#FFFF00" }}
+                                  >
                                     ₦{ev.ticketPrice.toLocaleString()}
                                   </p>
                                 </div>
@@ -1278,17 +1300,27 @@ export default function Home() {
                               {/* Progress bar */}
                               <div>
                                 <div className="flex justify-between text-xs mb-1">
-                                  <span style={{ color: pct >= 90 ? "#FF3333" : "rgba(255,255,255,0.4)" }}>
+                                  <span
+                                    style={{
+                                      color:
+                                        pct >= 90
+                                          ? "#FF3333"
+                                          : "rgba(255,255,255,0.4)",
+                                    }}
+                                  >
                                     {pct}% sold
                                   </span>
-                                  <span className="text-gray-600">{remaining} remaining</span>
+                                  <span className="text-gray-600">
+                                    {remaining} remaining
+                                  </span>
                                 </div>
                                 <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                                   <div
                                     className="h-full rounded-full transition-all duration-700"
                                     style={{
                                       width: `${pct}%`,
-                                      background: pct >= 90 ? "#FF3333" : "#FFFF00",
+                                      background:
+                                        pct >= 90 ? "#FF3333" : "#FFFF00",
                                     }}
                                   />
                                 </div>
@@ -1305,8 +1337,12 @@ export default function Home() {
                             style={{
                               background: soldOut ? "transparent" : "#FFFF00",
                               color: soldOut ? "#666" : "#000",
-                              border: soldOut ? "2px solid #333" : "2px solid #FFFF00",
-                              boxShadow: soldOut ? "none" : "0 0 20px rgba(255,255,0,0.4)",
+                              border: soldOut
+                                ? "2px solid #333"
+                                : "2px solid #FFFF00",
+                              boxShadow: soldOut
+                                ? "none"
+                                : "0 0 20px rgba(255,255,0,0.4)",
                               cursor: soldOut ? "not-allowed" : "pointer",
                             }}
                             whileHover={!soldOut ? { scale: 1.03 } : {}}
@@ -1337,7 +1373,8 @@ export default function Home() {
                 style={{
                   color: "transparent",
                   WebkitTextStroke: "2px #FF3333",
-                  textShadow: "0 0 20px rgba(255,51,51,0.5), 0 0 45px rgba(255,51,51,0.3)",
+                  textShadow:
+                    "0 0 20px rgba(255,51,51,0.5), 0 0 45px rgba(255,51,51,0.3)",
                 }}
               >
                 Past Events
@@ -1371,8 +1408,20 @@ export default function Home() {
                       }}
                     >
                       {/* Corner accents */}
-                      <span className="absolute top-0 left-0 w-8 h-8 z-10" style={{ borderTop: "2px solid #FF3333", borderLeft: "2px solid #FF3333" }} />
-                      <span className="absolute bottom-0 right-0 w-8 h-8 z-10" style={{ borderBottom: "2px solid #FF3333", borderRight: "2px solid #FF3333" }} />
+                      <span
+                        className="absolute top-0 left-0 w-8 h-8 z-10"
+                        style={{
+                          borderTop: "2px solid #FF3333",
+                          borderLeft: "2px solid #FF3333",
+                        }}
+                      />
+                      <span
+                        className="absolute bottom-0 right-0 w-8 h-8 z-10"
+                        style={{
+                          borderBottom: "2px solid #FF3333",
+                          borderRight: "2px solid #FF3333",
+                        }}
+                      />
 
                       {/* Image */}
                       <div className="relative w-full md:w-2/5 lg:w-[45%] shrink-0 overflow-hidden">
@@ -1384,11 +1433,29 @@ export default function Home() {
                               alt={ev.title}
                               className="w-full h-auto block md:absolute md:inset-0 md:h-full md:object-cover md:object-center transition-transform duration-500 group-hover:scale-105"
                             />
-                            <div className="absolute bottom-0 left-0 right-0 h-16 md:hidden" style={{ background: "linear-gradient(to bottom, transparent, #090909)" }} />
-                            <div className="absolute inset-0 hidden md:block" style={{ background: "linear-gradient(to right, transparent 55%, #090909 100%)" }} />
+                            <div
+                              className="absolute bottom-0 left-0 right-0 h-16 md:hidden"
+                              style={{
+                                background:
+                                  "linear-gradient(to bottom, transparent, #090909)",
+                              }}
+                            />
+                            <div
+                              className="absolute inset-0 hidden md:block"
+                              style={{
+                                background:
+                                  "linear-gradient(to right, transparent 55%, #090909 100%)",
+                              }}
+                            />
                           </>
                         ) : (
-                          <div className="w-full min-h-[220px]" style={{ background: "radial-gradient(ellipse at center, rgba(255,51,51,0.08), #030303)" }} />
+                          <div
+                            className="w-full min-h-[220px]"
+                            style={{
+                              background:
+                                "radial-gradient(ellipse at center, rgba(255,51,51,0.08), #030303)",
+                            }}
+                          />
                         )}
                       </div>
 
@@ -1397,23 +1464,38 @@ export default function Home() {
                         <div>
                           <h3
                             className="text-2xl md:text-3xl font-bold uppercase tracking-wide"
-                            style={{ color: "#FF3333", textShadow: "0 0 20px rgba(255,51,51,0.5)" }}
+                            style={{
+                              color: "#FF3333",
+                              textShadow: "0 0 20px rgba(255,51,51,0.5)",
+                            }}
                           >
                             {ev.title}
                           </h3>
-                          {evDate && <p className="text-gray-400 text-sm mt-1">{evDate}</p>}
+                          {evDate && (
+                            <p className="text-gray-400 text-sm mt-1">
+                              {evDate}
+                            </p>
+                          )}
                           {ev.venue && (
                             <p className="text-gray-500 text-sm mt-0.5 flex items-center gap-1">
-                              <span style={{ color: "rgba(255,51,51,0.6)" }}>📍</span> {ev.venue}
+                              <span style={{ color: "rgba(255,51,51,0.6)" }}>
+                                📍
+                              </span>{" "}
+                              {ev.venue}
                             </p>
                           )}
                         </div>
 
                         {ev.description && (
-                          <p className="text-gray-400 text-sm leading-relaxed line-clamp-3">{ev.description}</p>
+                          <p className="text-gray-400 text-sm leading-relaxed line-clamp-3">
+                            {ev.description}
+                          </p>
                         )}
 
-                        <Link href={`/gallery?event=${ev.id}`} className="mt-auto">
+                        <Link
+                          href={`/gallery?event=${ev.id}`}
+                          className="mt-auto"
+                        >
                           <motion.button
                             className="w-full sm:w-auto px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm"
                             style={{
@@ -1422,7 +1504,10 @@ export default function Home() {
                               border: "2px solid #FF3333",
                               boxShadow: "0 0 20px rgba(255,51,51,0.2)",
                             }}
-                            whileHover={{ scale: 1.03, boxShadow: "0 0 30px rgba(255,51,51,0.4)" }}
+                            whileHover={{
+                              scale: 1.03,
+                              boxShadow: "0 0 30px rgba(255,51,51,0.4)",
+                            }}
                             whileTap={{ scale: 0.97 }}
                           >
                             View Gallery →

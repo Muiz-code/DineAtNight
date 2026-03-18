@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import VendorModal from "../_components/VendorModal";
 import Footer from "../_components/Footer";
 import Carousel from "../_components/Carousel";
+import HeroCarousel from "../_components/HeroCarousel";
 import TestimonialSection from "../_components/TestimonialSection";
 import CardCountdown, { useCountdown } from "../_components/CardCountdown";
 import NeonMarquee from "../_components/NeonMarquee";
@@ -511,7 +512,7 @@ const faqs = [
   },
   {
     q: "How do I become a vendor?",
-    a: "Click \u2018Apply to Vend\u2019 on this page to submit your application. We review all applicants carefully.",
+    a: "Click \u2018Apply\u2019 on this page to submit your application. We review all applicants carefully.",
   },
 ];
 
@@ -520,8 +521,8 @@ const highlights = [
   {
     id: 1,
     icon: <Utensils className="w-12 h-12 mx-auto" />,
-    title: "50+ Vendors",
-    desc: "Curated food vendors serving the best bites in Lagos.",
+    title: "Curated Vendors",
+    desc: "Handpicked food vendors serving the best bites in Lagos.",
     color: "#FFFF00",
     imageUrl:
       "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80",
@@ -529,7 +530,7 @@ const highlights = [
   {
     id: 2,
     icon: <Music2 className="w-12 h-12 mx-auto" />,
-    title: "Live Music & DJs",
+    title: "Music & DJs",
     desc: "A curated soundtrack that keeps the energy high all night.",
     color: "#FF3333",
     imageUrl:
@@ -555,19 +556,10 @@ const highlights = [
   },
   {
     id: 5,
-    icon: <Trophy className="w-12 h-12 mx-auto" />,
-    title: "Vendor Competitions",
-    desc: "Watch the best vendors compete for the crowd\u2019s favourite.",
-    color: "#FF3333",
-    imageUrl:
-      "https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800&q=80",
-  },
-  {
-    id: 6,
     icon: <Moon className="w-12 h-12 mx-auto" />,
     title: "Open Air Neon Market",
     desc: "An immersive night market unlike anything in Lagos.",
-    color: "#00FF41",
+    color: "#FF3333",
     imageUrl:
       "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80",
   },
@@ -578,38 +570,39 @@ export default function EventPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
   const [ticketEvent, setTicketEvent] = useState<DanEvent | null>(null);
-  const [activeEvents, setActiveEvents] = useState<DanEvent[]>([]);
-  const [pastEvents, setPastEvents] = useState<DanEvent[]>([]);
+  const [activeEvents, setActiveEvents] = useState<DanEvent[]>(
+    () => getCache<DanEvent[]>("dan_active_events") ?? [],
+  );
+  const [pastEvents, setPastEvents] = useState<DanEvent[]>(
+    () => getCache<DanEvent[]>("dan_past_events") ?? [],
+  );
   const [soldByEvent, setSoldByEvent] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
-  const [heroIdx, setHeroIdx] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
+  const [loading, setLoading] = useState(
+    () => !getCache<DanEvent[]>("dan_past_events"),
+  );
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false,
+  );
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [galleryPhotoUrls, setGalleryPhotoUrls] = useState<string[]>([]);
-  const pastResolvedRef = useRef(false);
+  const pastResolvedRef = useRef(!!getCache<DanEvent[]>("dan_past_events"));
 
   useEffect(() => {
-    setIsMobile(window.innerWidth < 768);
-    getAllGalleryItems().then((items) => {
-      const photos = items.filter((i) => i.type === "photo").map((i) => i.src);
-      // Shuffle and pick up to 6
-      const shuffled = [...photos].sort(() => Math.random() - 0.5).slice(0, 6);
-      setGalleryPhotoUrls(shuffled);
-    }).catch(() => {});
+    getAllGalleryItems()
+      .then((items) => {
+        const photos = items
+          .filter((i) => i.type === "photo")
+          .map((i) => i.src);
+        // Shuffle and pick up to 6
+        const shuffled = [...photos]
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 6);
+        setGalleryPhotoUrls(shuffled);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
-    pastResolvedRef.current = false;
-    // Serve from cache immediately — network picks up in background
-    const cachedActive = getCache<DanEvent[]>("dan_active_events");
-    if (cachedActive) setActiveEvents(cachedActive);
-    const cachedPast = getCache<DanEvent[]>("dan_past_events");
-    if (cachedPast) {
-      setPastEvents(cachedPast);
-      setLoading(false);
-      pastResolvedRef.current = true;
-    }
-
     const unsubActive = subscribeActiveEvents((evs) => {
       setActiveEvents(evs);
       setCache("dan_active_events", evs);
@@ -650,15 +643,6 @@ export default function EventPage() {
     .filter((e) => e.imageUrl)
     .map((e) => e.imageUrl as string);
 
-  useEffect(() => {
-    if (heroImages.length <= 1) return;
-    const id = setInterval(
-      () => setHeroIdx((i) => (i + 1) % heroImages.length),
-      5000,
-    );
-    return () => clearInterval(id);
-  }, [heroImages.length]);
-
   const nextEventDate =
     activeEvents.length > 0 ? (activeEvents[0].date?.toDate?.() ?? null) : null;
   const countdown = useCountdown(nextEventDate);
@@ -667,35 +651,7 @@ export default function EventPage() {
     <div className="relative w-full min-h-screen bg-black overflow-x-hidden">
       {/* ── HERO ── */}
       <section className="relative flex flex-col items-center justify-center min-h-[70svh] px-6 text-center pt-24 pb-16 overflow-hidden">
-        {/* Event image slideshow background */}
-        <AnimatePresence mode="sync">
-          {heroImages.length > 0 && (
-            <motion.div
-              key={heroIdx}
-              className="absolute inset-0"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 1.2 }}
-            >
-              <img
-                src={heroImages[heroIdx]}
-                alt=""
-                className="w-full h-full object-cover object-center"
-              />
-              {/* Dark overlay */}
-              <div className="absolute inset-0 bg-black/45" />
-              {/* Bottom-to-black gradient */}
-              <div
-                className="absolute inset-0"
-                style={{
-                  background:
-                    "linear-gradient(to top, #000000 0%, rgba(0,0,0,0.75) 22%, rgba(0,0,0,0.2) 55%, transparent 100%)",
-                }}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <HeroCarousel images={heroImages} accent="#FFFF00" />
 
         {/* Neon radial glow on top */}
         <div
@@ -707,17 +663,6 @@ export default function EventPage() {
         />
 
         {/* Text content */}
-        <motion.p
-          className="relative z-10 text-xs sm:text-sm tracking-[0.7em] uppercase mb-4"
-          style={{
-            color: "#FFFF00",
-            textShadow: "0 0 12px rgba(255,255,0,0.7)",
-          }}
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          Dine At Night
-        </motion.p>
         <motion.h1
           className="relative z-10 text-5xl sm:text-7xl md:text-8xl uppercase tracking-tight leading-none"
           style={{
@@ -763,29 +708,9 @@ export default function EventPage() {
             glowColor="rgba(255,51,51,0.65)"
             onClick={() => setVendorModalOpen(true)}
           >
-            Apply to Vend
+            Apply
           </NeonButton>
         </motion.div>
-
-        {/* Slide dot indicators */}
-        {heroImages.length > 1 && (
-          <div className="relative z-10 flex gap-2 mt-8">
-            {heroImages.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setHeroIdx(i)}
-                className="w-2 h-2 rounded-full transition-all duration-300"
-                style={{
-                  background:
-                    i === heroIdx ? "#FFFF00" : "rgba(255,255,255,0.3)",
-                  boxShadow:
-                    i === heroIdx ? "0 0 8px rgba(255,255,0,0.8)" : "none",
-                  transform: i === heroIdx ? "scale(1.4)" : "scale(1)",
-                }}
-              />
-            ))}
-          </div>
-        )}
       </section>
 
       {!loading && activeEvents.length > 0 && <NeonMarquee />}

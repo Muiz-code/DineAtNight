@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Footer from "../_components/Footer";
 import Carousel from "../_components/Carousel";
+import HeroCarousel from "../_components/HeroCarousel";
 import { subscribeAllProducts, type DanProduct } from "@/lib/firestore";
 import { useScrollLock } from "@/lib/useScrollLock";
 import { getCache, setCache } from "@/lib/cache";
@@ -142,6 +143,8 @@ export default function ShopPage() {
 
   useEffect(() => {
     setMounted(true);
+    const t = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(t);
   }, []);
 
   const showOutOfStockTooltip = (id: string) => {
@@ -334,26 +337,16 @@ export default function ShopPage() {
   return (
     <div className="relative w-full min-h-screen bg-black overflow-x-hidden">
       {/* ── HERO ── */}
-      <section className="relative flex flex-col items-center justify-center pt-28 pb-16 px-6 text-center">
+      <section className="relative flex flex-col items-center justify-center pt-28 pb-16 px-6 text-center overflow-hidden">
+        <HeroCarousel accent="#00FF41" />
+
         <div
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-0 pointer-events-none z-1"
           style={{
             background:
               "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,255,65,0.06) 0%, transparent 70%)",
           }}
         />
-        <motion.p
-          className="text-xs tracking-[0.7em] uppercase mb-3"
-          style={{
-            color: "#00FF41",
-            textShadow: "0 0 12px rgba(0,255,65,0.7)",
-          }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6 }}
-        >
-          Official Merch
-        </motion.p>
         <motion.h1
           className="text-5xl sm:text-7xl uppercase tracking-tight"
           style={{

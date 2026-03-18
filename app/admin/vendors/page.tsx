@@ -9,10 +9,12 @@ import {
   getAllEvents,
   updateVendorStatus,
   createVendorDirect,
+  updateVendor,
   deleteVendor,
   getVendorCategories,
   type DanVendor,
   type DanEvent,
+  type VendorMenuCategory,
 } from "@/lib/firestore";
 import {
   Plus,
@@ -30,21 +32,13 @@ import {
   ShoppingBag,
   Calendar,
   BookOpen,
+  Pencil,
 } from "lucide-react";
 
 const inputCls =
   "w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700";
 
-const FOOD_CATEGORIES = [
-  "Street Food",
-  "Grilled & BBQ",
-  "Rice & Stews",
-  "Snacks & Finger Foods",
-  "Desserts & Sweets",
-  "Drinks & Cocktails",
-  "Fusion / International",
-  "Other",
-];
+const FOOD_CATEGORIES = ["Food", "Drinks", "Dessert"];
 
 const EMPTY_FORM = {
   brandName: "",
@@ -58,6 +52,8 @@ const EMPTY_FORM = {
   products: "",
   logoUrl: "",
   imageUrl: "",
+  imageUrls: [] as string[],
+  menu: [] as VendorMenuCategory[],
   status: "approved" as DanVendor["status"],
 };
 
@@ -168,10 +164,12 @@ export default function AdminVendorsPage() {
   const [detailVendor, setDetailVendor] = useState<DanVendor | null>(null);
   const [showPreviousDetails, setShowPreviousDetails] = useState(false);
 
-  // Add vendor form modal
+  // Add / Edit vendor form modal
   const [formOpen, setFormOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<DanVendor | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [addPhotoKey, setAddPhotoKey] = useState(0);
 
   // Decline reason modal
   const [declineTarget, setDeclineTarget] = useState<DanVendor | null>(null);
@@ -339,18 +337,51 @@ export default function AdminVendorsPage() {
   const removeFormEvent = (ev: string) =>
     setForm((p) => ({ ...p, events: p.events.filter((e) => e !== ev) }));
 
+  const openEdit = (v: DanVendor) => {
+    setEditTarget(v);
+    setForm({
+      brandName: v.brandName,
+      ownerName: v.ownerName,
+      email: v.email,
+      phone: v.phone,
+      instagram: v.instagram ?? "",
+      categories: getVendorCategories(v),
+      events: v.events ?? [],
+      description: v.description,
+      products: v.products ?? "",
+      logoUrl: v.logoUrl ?? "",
+      imageUrl: v.imageUrl,
+      imageUrls: v.imageUrls ?? (v.imageUrl ? [v.imageUrl] : []),
+      menu: v.menu ?? [],
+      status: v.status,
+    });
+    setAddPhotoKey((k) => k + 1);
+    setFormOpen(true);
+  };
+
   const handleAddVendor = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await createVendorDirect(form);
-      await logAdminAction("CREATE_VENDOR", `Added vendor "${form.brandName}" directly`, { type: "vendor", name: form.brandName });
+      if (editTarget) {
+        // Edit mode
+        await updateVendor(editTarget.id!, form);
+        await logAdminAction("UPDATE_VENDOR", `Updated vendor "${form.brandName}"`, { type: "vendor", id: editTarget.id, name: form.brandName });
+        const updated = { ...editTarget, ...form };
+        setVendors((prev) => prev.map((x) => (x.id === editTarget.id ? updated : x)));
+        if (detailVendor?.id === editTarget.id) setDetailVendor(updated);
+        setEditTarget(null);
+      } else {
+        // Add mode
+        await createVendorDirect(form);
+        await logAdminAction("CREATE_VENDOR", `Added vendor "${form.brandName}" directly`, { type: "vendor", name: form.brandName });
+        await load();
+        setActiveTab(form.status === "approved" ? "approved" : "pending");
+      }
       setFormOpen(false);
       setForm(EMPTY_FORM);
       setEventInput("");
       setShowOtherInput(false);
-      await load();
-      setActiveTab(form.status === "approved" ? "approved" : "pending");
     } finally {
       setSaving(false);
     }
@@ -386,6 +417,7 @@ export default function AdminVendorsPage() {
         </div>
         <button
           onClick={() => {
+            setEditTarget(null);
             setForm(EMPTY_FORM);
             setFormOpen(true);
           }}
@@ -1038,6 +1070,13 @@ export default function AdminVendorsPage() {
                   </button>
                 )}
                 <button
+                  onClick={() => openEdit(detailVendor)}
+                  className="w-10 h-10 rounded-lg border border-white/10 flex items-center justify-center text-gray-500 hover:text-[#FFFF00] hover:border-yellow-400/25 transition-all flex-shrink-0"
+                  title="Edit vendor"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button
                   onClick={() => setDeleteTarget(detailVendor)}
                   className="w-10 h-10 rounded-lg border border-white/10 flex items-center justify-center text-gray-500 hover:text-[#FF3333] hover:border-red-400/25 transition-all flex-shrink-0"
                 >
@@ -1174,7 +1213,7 @@ export default function AdminVendorsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setFormOpen(false)}
+            onClick={() => { setFormOpen(false); setEditTarget(null); }}
           >
             <div className="absolute inset-0 bg-black/80" />
             <motion.div
@@ -1189,10 +1228,10 @@ export default function AdminVendorsPage() {
                   className="text-xl font-bold uppercase tracking-widest"
                   style={{ color: "#FFFF00" }}
                 >
-                  Add Vendor Directly
+                  {editTarget ? `Edit — ${editTarget.brandName}` : "Add Vendor Directly"}
                 </h3>
                 <button
-                  onClick={() => setFormOpen(false)}
+                  onClick={() => { setFormOpen(false); setEditTarget(null); }}
                   className="text-gray-500 hover:text-white"
                 >
                   <X className="w-5 h-5" />
@@ -1435,7 +1474,8 @@ export default function AdminVendorsPage() {
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
-                    Products / Menu
+                    Products / Menu{" "}
+                    <span className="text-gray-700 normal-case">(short summary)</span>
                   </label>
                   <textarea
                     name="products"
@@ -1446,6 +1486,169 @@ export default function AdminVendorsPage() {
                     className={`${inputCls} resize-none`}
                   />
                 </div>
+
+                {/* ── Structured Menu ── */}
+                <div className="space-y-3">
+                  <label className="block text-[10px] text-gray-500 uppercase tracking-widest">
+                    Menu{" "}
+                    <span className="text-gray-700 normal-case">(optional)</span>
+                  </label>
+
+                  {form.menu.map((cat, ci) => (
+                    <div
+                      key={ci}
+                      className="rounded-xl border border-white/8 bg-white/[0.015] p-4 space-y-3"
+                    >
+                      {/* Category name + remove */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={cat.name}
+                          onChange={(e) =>
+                            setForm((p) => ({
+                              ...p,
+                              menu: p.menu.map((c, i) =>
+                                i === ci ? { ...c, name: e.target.value } : c,
+                              ),
+                            }))
+                          }
+                          placeholder="Category name (e.g. Starters, Mains, Drinks)"
+                          className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm font-bold focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700"
+                        />
+                        {form.menu.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setForm((p) => ({
+                                ...p,
+                                menu: p.menu.filter((_, i) => i !== ci),
+                              }))
+                            }
+                            className="w-8 h-8 rounded-lg border border-white/8 flex items-center justify-center text-gray-600 hover:text-[#FF3333] hover:border-red-400/25 transition-all flex-shrink-0"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Items */}
+                      <div className="space-y-2 pl-1">
+                        {cat.items.map((item, ii) => (
+                          <div key={ii} className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={item.name}
+                              onChange={(e) =>
+                                setForm((p) => ({
+                                  ...p,
+                                  menu: p.menu.map((c, i) =>
+                                    i !== ci
+                                      ? c
+                                      : {
+                                          ...c,
+                                          items: c.items.map((it, j) =>
+                                            j === ii
+                                              ? { ...it, name: e.target.value }
+                                              : it,
+                                          ),
+                                        },
+                                  ),
+                                }))
+                              }
+                              placeholder="Item name"
+                              className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700"
+                            />
+                            <div className="relative flex-shrink-0">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm pointer-events-none">
+                                ₦
+                              </span>
+                              <input
+                                type="text"
+                                value={item.price}
+                                onChange={(e) =>
+                                  setForm((p) => ({
+                                    ...p,
+                                    menu: p.menu.map((c, i) =>
+                                      i !== ci
+                                        ? c
+                                        : {
+                                            ...c,
+                                            items: c.items.map((it, j) =>
+                                              j === ii
+                                                ? { ...it, price: e.target.value }
+                                                : it,
+                                            ),
+                                          },
+                                    ),
+                                  }))
+                                }
+                                placeholder="Price"
+                                className="w-24 pl-7 pr-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700"
+                              />
+                            </div>
+                            {cat.items.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setForm((p) => ({
+                                    ...p,
+                                    menu: p.menu.map((c, i) =>
+                                      i !== ci
+                                        ? c
+                                        : {
+                                            ...c,
+                                            items: c.items.filter((_, j) => j !== ii),
+                                          },
+                                    ),
+                                  }))
+                                }
+                                className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-700 hover:text-[#FF3333] transition-all flex-shrink-0"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Add item */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm((p) => ({
+                            ...p,
+                            menu: p.menu.map((c, i) =>
+                              i !== ci
+                                ? c
+                                : { ...c, items: [...c.items, { name: "", price: "" }] },
+                            ),
+                          }))
+                        }
+                        className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-600 hover:text-[#FFFF00] transition-all ml-1"
+                      >
+                        <Plus className="w-3 h-3" /> Add item
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Add category */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setForm((p) => ({
+                        ...p,
+                        menu: [
+                          ...p.menu,
+                          { name: "", items: [{ name: "", price: "" }] },
+                        ],
+                      }))
+                    }
+                    className="flex items-center gap-2 w-full px-4 py-3 rounded-xl border border-dashed border-white/15 text-gray-600 text-xs font-bold uppercase tracking-widest hover:border-[#FFFF00]/40 hover:text-[#FFFF00] transition-all justify-center"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add New Category
+                  </button>
+                </div>
+
                 <div>
                   <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
                     Brand Logo{" "}
@@ -1461,12 +1664,80 @@ export default function AdminVendorsPage() {
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
-                    Brand / Food Photo
+                    Photos{" "}
+                    <span className="text-gray-700 normal-case">
+                      (first photo is primary · shown in drawer carousel)
+                    </span>
                   </label>
+
+                  {/* Existing photos grid */}
+                  {form.imageUrls.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      {form.imageUrls.map((url, i) => (
+                        <div
+                          key={url + i}
+                          className="relative aspect-video rounded-lg overflow-hidden border border-white/10 group"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={`Photo ${i + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = "none";
+                            }}
+                          />
+                          {i === 0 && (
+                            <span className="absolute top-1 left-1 text-[8px] font-bold bg-[#FFFF00] text-black px-1.5 py-0.5 rounded uppercase tracking-widest leading-none">
+                              Primary
+                            </span>
+                          )}
+                          <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setForm((p) => {
+                                  const next = p.imageUrls.filter((_, j) => j !== i);
+                                  return {
+                                    ...p,
+                                    imageUrls: next,
+                                    imageUrl: next[0] ?? "",
+                                  };
+                                })
+                              }
+                              className="w-7 h-7 rounded-full bg-[#FF3333]/20 border border-[#FF3333]/40 flex items-center justify-center text-[#FF3333] hover:bg-[#FF3333]/40 transition-all"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add photo uploader — resets after each successful upload */}
                   <ImageUpload
-                    value={form.imageUrl}
-                    onChange={(url) => setForm((p) => ({ ...p, imageUrl: url }))}
+                    key={addPhotoKey}
+                    value=""
+                    onChange={(url) => {
+                      setForm((p) => {
+                        const next = [...p.imageUrls, url];
+                        return {
+                          ...p,
+                          imageUrls: next,
+                          imageUrl: next[0],
+                        };
+                      });
+                      setAddPhotoKey((k) => k + 1);
+                    }}
                     folder="vendors/photos"
+                    free
+                    compact
+                    hint={
+                      form.imageUrls.length === 0
+                        ? "Upload the main brand / food photo."
+                        : "Add another photo to the carousel."
+                    }
                   />
                 </div>
                 <div>
@@ -1506,7 +1777,7 @@ export default function AdminVendorsPage() {
                     {saving && (
                       <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
                     )}
-                    {saving ? "Saving…" : "Add Vendor"}
+                    {saving ? "Saving…" : editTarget ? "Save Changes" : "Add Vendor"}
                   </button>
                 </div>
               </form>

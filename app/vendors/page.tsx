@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import SectionFadeIn from "../_components/SectionFadeIn";
 import VendorModal from "../_components/VendorModal";
 import Footer from "../_components/Footer";
+import HeroCarousel from "../_components/HeroCarousel";
 import NeonMarquee from "../_components/NeonMarquee";
-import TestimonialSection from "../_components/TestimonialSection";
 import {
   subscribeApprovedVendors,
   subscribeActiveEvents,
@@ -27,7 +27,6 @@ import {
   BookOpen,
 } from "lucide-react";
 
-
 // Map a single Firestore category string to filter key
 const categoryToFilter = (cat: string): string => {
   const c = cat.toLowerCase();
@@ -40,7 +39,6 @@ const categoryToFilter = (cat: string): string => {
   if (c.includes("fusion") || c.includes("international")) return "fusion";
   return "other";
 };
-
 
 // ── Vendor Detail Modal ───────────────────────────────────────────────────────
 function VendorDetailModal({
@@ -572,7 +570,9 @@ export default function VendorsPage() {
   const [vendors, setVendors] = useState<DanVendor[]>([]);
   const [loadingVendors, setLoadingVendors] = useState(true);
   const [vendorLoadError, setVendorLoadError] = useState(false);
-  const [activeEventTitle, setActiveEventTitle] = useState("");
+  const [activeEventTitle, setActiveEventTitle] = useState(
+    () => getCache<DanEvent[]>("dan_active_events")?.[0]?.title ?? "",
+  );
   const [selected, setSelected] = useState<{
     v: DanVendor;
     palette: { color: string; glow: string };
@@ -590,8 +590,6 @@ export default function VendorsPage() {
   }, []);
 
   useEffect(() => {
-    const cached = getCache<DanEvent[]>("dan_active_events");
-    if (cached?.[0]?.title) setActiveEventTitle(cached[0].title);
     return subscribeActiveEvents((evs) => {
       setCache("dan_active_events", evs);
       if (evs[0]?.title) setActiveEventTitle(evs[0].title);
@@ -609,23 +607,8 @@ export default function VendorsPage() {
     <div className="relative w-full min-h-screen bg-black overflow-x-hidden">
       {/* ── HERO ── */}
       <section className="relative flex flex-col items-center justify-center pt-28 pb-16 px-6 text-center overflow-hidden">
-        {/* Background image */}
-        <div className="absolute inset-0">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="https://i.pinimg.com/1200x/b8/5b/60/b85b605e6fcf1210ddcb6cf456957f5e.jpg"
-            alt=""
-            className="w-full h-full object-cover object-center"
-          />
-          {/* Dark overlay */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,0.92) 100%)",
-            }}
-          />
-        </div>
+        <HeroCarousel accent="#FF3333" />
+
         {/* Red neon tint */}
         <div
           className="absolute inset-0 pointer-events-none z-[1]"
@@ -634,17 +617,6 @@ export default function VendorsPage() {
               "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,51,51,0.08) 0%, transparent 70%)",
           }}
         />
-        <motion.p
-          className="relative z-10 text-xs tracking-[0.7em] uppercase mb-3"
-          style={{
-            color: "#FF3333",
-            textShadow: "0 0 12px rgba(255,51,51,0.7)",
-          }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          Curated Vendors
-        </motion.p>
         <motion.h1
           className="relative z-10 text-5xl sm:text-7xl uppercase tracking-tight"
           style={{
@@ -687,7 +659,7 @@ export default function VendorsPage() {
             }}
             whileTap={{ scale: 0.97 }}
           >
-            Apply to Vend →
+            Apply →
           </motion.button>
         </motion.div>
       </section>
@@ -871,7 +843,7 @@ export default function VendorsPage() {
                 textShadow: "0 0 30px rgba(255,255,0,0.3)",
               }}
             >
-              Want to Vend?
+              apply to become a vendor?
             </h2>
             <p className="text-gray-400 text-base leading-relaxed">
               {activeEventTitle
@@ -905,21 +877,8 @@ export default function VendorsPage() {
               }}
               whileTap={{ scale: 0.97 }}
             >
-              Apply to Vend →
+              Apply →
             </motion.button>
-          </div>
-        </section>
-      </SectionFadeIn>
-
-      {/* ── TESTIMONIALS (live from Firestore) ── */}
-      <SectionFadeIn>
-        <section className="py-20 px-6 md:px-16 border-t border-white/5 bg-black/80">
-          <div className="max-w-5xl mx-auto">
-            <TestimonialSection
-              title="What They Say"
-              accentColor="#FF3333"
-              showForm={true}
-            />
           </div>
         </section>
       </SectionFadeIn>

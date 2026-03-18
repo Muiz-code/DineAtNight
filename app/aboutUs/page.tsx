@@ -6,6 +6,7 @@ import { motion, useInView, animate, AnimatePresence } from "framer-motion";
 import SectionFadeIn from "../_components/SectionFadeIn";
 import Footer from "../_components/Footer";
 import Carousel from "../_components/Carousel";
+import HeroCarousel from "../_components/HeroCarousel";
 import NeonMarquee from "../_components/NeonMarquee";
 import VendorModal from "../_components/VendorModal";
 import { useState } from "react";
@@ -228,94 +229,95 @@ function TeamModal({
 
           {/* Scrollable content area */}
           <div className="overflow-y-auto flex-1">
-          <div className="p-7 pt-6">
-            {/* Header */}
-            <div className="flex items-center gap-4 mb-2">
-              <div
-                style={{
-                  color: team.color,
-                  filter: `drop-shadow(0 0 8px ${team.glow})`,
-                }}
-              >
-                {team.icon}
-              </div>
-              <div>
-                <h3
-                  className="text-2xl font-bold uppercase tracking-wide"
+            <div className="p-7 pt-6">
+              {/* Header */}
+              <div className="flex items-center gap-4 mb-2">
+                <div
                   style={{
                     color: team.color,
-                    textShadow: `0 0 16px ${team.glow}`,
+                    filter: `drop-shadow(0 0 8px ${team.glow})`,
                   }}
                 >
-                  {team.name}
-                </h3>
-                <p className="text-gray-500 text-xs uppercase tracking-widest">
-                  {team.role}
-                </p>
-              </div>
-            </div>
-
-            <div
-              className="h-px w-full my-4"
-              style={{
-                background: `linear-gradient(to right, ${team.color}40, transparent)`,
-              }}
-            />
-
-            <p className="text-gray-300 text-sm leading-relaxed mb-7">
-              {team.modalDesc}
-            </p>
-
-            {/* Member grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {team.members.map((person) => (
-                <div
-                  key={person.name}
-                  className="flex gap-4 items-start rounded-xl border p-4"
-                  style={{
-                    borderColor: `${team.color}18`,
-                    background: "rgba(255,255,255,0.02)",
-                  }}
-                >
-                  {/* Avatar */}
-                  <div
-                    className="flex-shrink-0 w-14 h-14 rounded-full overflow-hidden border-2 flex items-center justify-center text-xl font-bold uppercase"
+                  {team.icon}
+                </div>
+                <div>
+                  <h3
+                    className="text-2xl font-bold uppercase tracking-wide"
                     style={{
-                      borderColor: `${team.color}50`,
-                      background: `${team.color}10`,
                       color: team.color,
+                      textShadow: `0 0 16px ${team.glow}`,
                     }}
                   >
-                    {person.imageUrl ? (
-                      <img
-                        src={person.imageUrl}
-                        alt={person.name}
-                        className="w-full h-full object-cover object-center"
-                      />
-                    ) : (
-                      person.name[0]
-                    )}
-                  </div>
-
-                  <div className="min-w-0">
-                    <p
-                      className="font-bold text-sm uppercase tracking-wide"
-                      style={{ color: team.color }}
-                    >
-                      {person.name}
-                    </p>
-                    <p className="text-gray-500 text-[10px] uppercase tracking-widest mb-2">
-                      {person.title}
-                    </p>
-                    <p className="text-gray-400 text-xs leading-relaxed">
-                      {person.bio}
-                    </p>
-                  </div>
+                    {team.name}
+                  </h3>
+                  <p className="text-gray-500 text-xs uppercase tracking-widest">
+                    {team.role}
+                  </p>
                 </div>
-              ))}
+              </div>
+
+              <div
+                className="h-px w-full my-4"
+                style={{
+                  background: `linear-gradient(to right, ${team.color}40, transparent)`,
+                }}
+              />
+
+              <p className="text-gray-300 text-sm leading-relaxed mb-7">
+                {team.modalDesc}
+              </p>
+
+              {/* Member grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {team.members.map((person) => (
+                  <div
+                    key={person.name}
+                    className="flex gap-4 items-start rounded-xl border p-4"
+                    style={{
+                      borderColor: `${team.color}18`,
+                      background: "rgba(255,255,255,0.02)",
+                    }}
+                  >
+                    {/* Avatar */}
+                    <div
+                      className="flex-shrink-0 w-14 h-14 rounded-full overflow-hidden border-2 flex items-center justify-center text-xl font-bold uppercase"
+                      style={{
+                        borderColor: `${team.color}50`,
+                        background: `${team.color}10`,
+                        color: team.color,
+                      }}
+                    >
+                      {person.imageUrl ? (
+                        <img
+                          src={person.imageUrl}
+                          alt={person.name}
+                          className="w-full h-full object-cover object-center"
+                        />
+                      ) : (
+                        person.name[0]
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <p
+                        className="font-bold text-sm uppercase tracking-wide"
+                        style={{ color: team.color }}
+                      >
+                        {person.name}
+                      </p>
+                      <p className="text-gray-500 text-[10px] uppercase tracking-widest mb-2">
+                        {person.title}
+                      </p>
+                      <p className="text-gray-400 text-xs leading-relaxed">
+                        {person.bio}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          </div>{/* end overflow-y-auto */}
+          {/* end overflow-y-auto */}
         </motion.div>
       </motion.div>
     </AnimatePresence>
@@ -359,7 +361,7 @@ const timeline = [
   {
     year: "2024",
     title: "Edition 1",
-    desc: "The first Dine At Night sells 850+ tickets, attracts 30+ vendors, and has a 90% sell-out rate. Edition 2 is immediately demanded.",
+    desc: "The first Dine At Night sells 850+ tickets and has a 90% sell-out rate. Edition 2 is immediately demanded.",
     color: "#FF3333",
   },
   {
@@ -384,39 +386,15 @@ export default function AboutPage() {
     <div className="relative w-full min-h-screen bg-black overflow-x-hidden">
       {/* ── HERO ── */}
       <section className="relative flex flex-col items-center justify-center pt-28 pb-20 px-6 text-center overflow-hidden">
-        {/* Background image */}
-        <div className="absolute inset-0">
-          <img
-            src="https://res.cloudinary.com/dhhvxjczm/image/upload/v1771715446/PlateOpen_s92wrz.png"
-            alt=""
-            className="w-full h-full object-cover object-center md:hidden block"
-          />
-          <div
-            className="absolute inset-0 opacity-75"
-            style={{
-              background:
-                "linear-gradient(to bottom, rgba(0,0,0,0.6) 100%, rgba(0,0,0,0.82) 10%, rgba(0,0,0,0.95) 100%)",
-            }}
-          />
-        </div>
+        <HeroCarousel accent="#FFFF00" />
+
         <div
-          className="absolute inset-0 pointer-events-none relative z-10"
+          className="absolute inset-0 pointer-events-none z-[1]"
           style={{
             background:
               "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,255,0,0.06) 0%, transparent 70%)",
           }}
         />
-        <motion.p
-          className="relative z-10 text-xs tracking-[0.7em] uppercase mb-3"
-          style={{
-            color: "#FFFF00",
-            textShadow: "0 0 12px rgba(255,255,0,0.7)",
-          }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          Our Story
-        </motion.p>
         <motion.h1
           className="relative z-10 text-5xl sm:text-7xl md:text-8xl uppercase tracking-tight leading-none"
           style={{
@@ -454,13 +432,6 @@ export default function AboutPage() {
                 suffix: "+",
                 color: "#FFFF00",
                 glow: "rgba(255,255,0,0.25)",
-              },
-              {
-                label: "Vendors",
-                value: 30,
-                suffix: "+",
-                color: "#FF3333",
-                glow: "rgba(255,51,51,0.25)",
               },
               {
                 label: "Vendors Sold Out",
@@ -796,7 +767,7 @@ export default function AboutPage() {
                 }}
                 whileTap={{ scale: 0.97 }}
               >
-                Apply to Vend
+                Apply
               </motion.button>
               <Link href="/contact">
                 <motion.button
@@ -936,10 +907,7 @@ export default function AboutPage() {
         onClose={() => setVendorModalOpen(false)}
       />
       {selectedTeam && (
-        <TeamModal
-          team={selectedTeam}
-          onClose={() => setSelectedTeam(null)}
-        />
+        <TeamModal team={selectedTeam} onClose={() => setSelectedTeam(null)} />
       )}
     </div>
   );

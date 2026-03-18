@@ -14,6 +14,7 @@ interface ImageUploadProps {
   hint?: string;
   required?: boolean;
   square?: boolean;
+  free?: boolean;   // free-form crop — no fixed aspect ratio
   compact?: boolean;
 }
 
@@ -25,6 +26,11 @@ function centerAspectCrop(width: number, height: number, aspect: number) {
   );
 }
 
+/** Default crop for free mode — 90% of the image, no ratio lock */
+function defaultFreeCrop(): Crop {
+  return { unit: "%", x: 5, y: 5, width: 90, height: 90 };
+}
+
 export default function ImageUpload({
   value,
   onChange,
@@ -32,6 +38,7 @@ export default function ImageUpload({
   hint,
   required,
   square = false,
+  free = false,
   compact = false,
 }: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -47,7 +54,7 @@ export default function ImageUpload({
   const [crop, setCrop] = useState<Crop>();
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
-  const aspect = square ? 1 : 16 / 9;
+  const aspect = square ? 1 : free ? undefined : 16 / 9;
 
   const openCropper = (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -67,7 +74,7 @@ export default function ImageUpload({
 
   const onImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
-    setCrop(centerAspectCrop(w, h, aspect));
+    setCrop(aspect === undefined ? defaultFreeCrop() : centerAspectCrop(w, h, aspect));
   }, [aspect]);
 
   const uploadBlob = (blob: Blob, ext: string) => {
@@ -152,7 +159,13 @@ export default function ImageUpload({
     setError("");
   };
 
-  const previewClass = compact ? "w-full h-24" : square ? "w-full aspect-square" : "w-full aspect-video";
+  const previewClass = compact
+    ? "w-full h-24"
+    : square
+      ? "w-full aspect-square"
+      : free
+        ? "w-full aspect-[4/3]"
+        : "w-full aspect-video";
 
   return (
     <>
@@ -164,7 +177,7 @@ export default function ImageUpload({
               <div className="flex items-center gap-2">
                 <CropIcon className="w-4 h-4 text-[#FFFF00]" />
                 <span className="text-xs font-bold uppercase tracking-widest text-white">
-                  Crop Image
+                  {square ? "Square Crop" : free ? "Free Crop" : "Crop Image"}
                 </span>
               </div>
               <button type="button" onClick={cancelCrop} className="text-gray-600 hover:text-white transition-colors">
@@ -175,7 +188,7 @@ export default function ImageUpload({
               <ReactCrop
                 crop={crop}
                 onChange={(_, pct) => setCrop(pct)}
-                aspect={aspect}
+                aspect={aspect}        // undefined = free crop, no ratio lock
                 minWidth={20}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}

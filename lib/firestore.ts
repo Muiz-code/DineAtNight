@@ -462,6 +462,16 @@ export async function deleteVendor(id: string): Promise<void> {
   await deleteDoc(doc(db, "vendors", id));
 }
 
+export async function updateVendor(
+  id: string,
+  data: Partial<Omit<DanVendor, "id" | "submittedAt">>,
+): Promise<void> {
+  await updateDoc(doc(db, "vendors", id), {
+    ...data,
+    ...(data.brandName ? { brandNameLower: data.brandName.trim().toLowerCase() } : {}),
+  });
+}
+
 /**
  * Normalises the legacy `category: string` field to the current `categories: string[]` format.
  * Run a one-time Firestore migration to eliminate this shim:
@@ -536,6 +546,7 @@ export const subscribeToTestimonials = createSubscription<DanTestimonial>(
    Gallery Items
 ═══════════════════════════════════════════════ */
 export interface DanGalleryItem {
+  url: string | StaticImport;
   id?: string;
   eventId: string;
   eventTitle: string;
