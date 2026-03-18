@@ -561,6 +561,7 @@ export default function Home() {
   const [vendorsLoading, setVendorsLoading] = useState(true);
   const [vendorsError, setVendorsError] = useState(false);
   const [galleryItems, setGalleryItems] = useState<DanGalleryItem[]>([]);
+  const [showParticles, setShowParticles] = useState(false);
   const { logo } = Images();
   const cursorRef = useRef<HTMLDivElement>(null);
   const vendorsResolvedRef = useRef(false);
@@ -576,7 +577,12 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    setIsMobile(window.innerWidth < 768);
+    const mobile = window.innerWidth < 768;
+    setIsMobile(mobile);
+    // On mobile, wait until after the loader clears before loading Three.js
+    // On desktop, start immediately
+    const t = setTimeout(() => setShowParticles(true), mobile ? 2200 : 0);
+    return () => clearTimeout(t);
   }, []);
 
   // Events — serve cache instantly, subscribe for live updates
@@ -609,38 +615,50 @@ export default function Home() {
     };
   }, []);
 
-  // Vendors — serve cache instantly, subscribe for live updates
+  // Vendors — delayed on mobile to avoid competing with hero paint
   useEffect(() => {
-    vendorsResolvedRef.current = false;
-    const cached = getCache<DanVendor[]>("dan_approved_vendors");
-    if (cached) {
-      setApprovedVendors(
-        [...cached].sort(() => Math.random() - 0.5).slice(0, 3),
-      );
-      setVendorsLoading(false);
-      vendorsResolvedRef.current = true;
-    }
-    return subscribeApprovedVendors((vendors) => {
-      setCache("dan_approved_vendors", vendors);
-      setApprovedVendors(
-        [...vendors].sort(() => Math.random() - 0.5).slice(0, 3),
-      );
-      setVendorsError(false);
-      if (!vendorsResolvedRef.current) {
+    let unsub: (() => void) | null = null;
+    const start = () => {
+      vendorsResolvedRef.current = false;
+      const cached = getCache<DanVendor[]>("dan_approved_vendors");
+      if (cached) {
+        setApprovedVendors(
+          [...cached].sort(() => Math.random() - 0.5).slice(0, 3),
+        );
         setVendorsLoading(false);
         vendorsResolvedRef.current = true;
       }
-    });
+      unsub = subscribeApprovedVendors((vendors) => {
+        setCache("dan_approved_vendors", vendors);
+        setApprovedVendors(
+          [...vendors].sort(() => Math.random() - 0.5).slice(0, 3),
+        );
+        setVendorsError(false);
+        if (!vendorsResolvedRef.current) {
+          setVendorsLoading(false);
+          vendorsResolvedRef.current = true;
+        }
+      });
+    };
+    const delay = window.innerWidth < 768 ? 1000 : 0;
+    const t = setTimeout(start, delay);
+    return () => { clearTimeout(t); unsub?.(); };
   }, []);
 
-  // Gallery — serve cache instantly, subscribe for live updates
+  // Gallery — delayed on mobile to avoid competing with hero paint
   useEffect(() => {
-    const cached = getCache<DanGalleryItem[]>("dan_gallery");
-    if (cached) setGalleryItems(cached);
-    return subscribeGalleryItems((items) => {
-      setGalleryItems(items);
-      setCache("dan_gallery", items);
-    });
+    let unsub: (() => void) | null = null;
+    const start = () => {
+      const cached = getCache<DanGalleryItem[]>("dan_gallery");
+      if (cached) setGalleryItems(cached);
+      unsub = subscribeGalleryItems((items) => {
+        setGalleryItems(items);
+        setCache("dan_gallery", items);
+      });
+    };
+    const delay = window.innerWidth < 768 ? 1200 : 0;
+    const t = setTimeout(start, delay);
+    return () => { clearTimeout(t); unsub?.(); };
   }, []);
 
   // Cursor spotlight — direct DOM write for zero re-renders
@@ -726,10 +744,12 @@ export default function Home() {
 
   return (
     <div className="relative w-full bg-black overflow-x-hidden overflow-y-hidden">
-      {/* Fixed Particle Background */}
-      <div className="fixed inset-0 z-0 w-full">
-        <Antigravity color="#00FF41" />
-      </div>
+      {/* Fixed Particle Background — deferred on mobile until after loader */}
+      {showParticles && (
+        <div className="fixed inset-0 z-0 w-full">
+          <Antigravity color="#00FF41" count={isMobile ? 60 : 300} />
+        </div>
+      )}
 
       {/* Cursor spotlight glow — follows mouse, no re-renders */}
       <div
