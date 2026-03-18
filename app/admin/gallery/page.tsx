@@ -354,7 +354,9 @@ export default function AdminGalleryPage() {
               </button>
               <button
                 onClick={() => {
-                  const allIds = filtered.map((i) => i.id!);
+                  const allIds = filtered
+                    .map((i) => i.id)
+                    .filter((id): id is string => !!id);
                   const allSelected = allIds.every((id) => selectedIds.has(id));
                   setSelectedIds(allSelected ? new Set() : new Set(allIds));
                 }}
@@ -364,7 +366,8 @@ export default function AdminGalleryPage() {
                   color: "rgba(255,255,255,0.6)",
                 }}
               >
-                {filtered.every((i) => selectedIds.has(i.id!))
+                {filtered.length > 0 &&
+                filtered.every((i) => !!i.id && selectedIds.has(i.id))
                   ? "Deselect All"
                   : "Select All"}
               </button>
@@ -482,7 +485,7 @@ export default function AdminGalleryPage() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {visible.map((item) => {
-            const isSelected = selectedIds.has(item.id!);
+            const isSelected = !!item.id && selectedIds.has(item.id);
             return (
               <div
                 key={item.id}
@@ -493,7 +496,7 @@ export default function AdminGalleryPage() {
                     : "rgba(255,255,255,0.07)",
                   boxShadow: isSelected ? "0 0 0 2px #FF3333" : "none",
                 }}
-                onClick={() => selectMode && toggleSelect(item.id!)}
+                onClick={() => selectMode && item.id && toggleSelect(item.id)}
               >
                 <div
                   className="aspect-video relative"
@@ -551,7 +554,7 @@ export default function AdminGalleryPage() {
                     </div>
                   ) : (
                     <button
-                      onClick={() => setDeleteId(item.id!)}
+                      onClick={() => item.id && setDeleteId(item.id)}
                       className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
                       style={{ background: "rgba(255,51,51,0.85)" }}
                     >
