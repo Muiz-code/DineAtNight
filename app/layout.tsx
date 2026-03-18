@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
+import { Poppins, Anton, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import Navbar from "./_components/Navbar";
 import ScrollProgressBar from "./_components/ScrollProgressBar";
@@ -9,6 +9,21 @@ const poppins = Poppins({
   variable: "--font-poppins",
   subsets: ["latin"],
   weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  display: "swap",
+});
+
+const anton = Anton({
+  variable: "--font-anton",
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
 });
 
 const APP_URL =
@@ -89,7 +104,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${poppins.variable} antialiased`}>
+      <head>
+        <link rel="preconnect" href="https://firebasestorage.googleapis.com" />
+        <link rel="dns-prefetch" href="https://firebasestorage.googleapis.com" />
+      </head>
+      <body className={`${poppins.variable} ${anton.variable} ${spaceGrotesk.variable} antialiased`}>
         <ScrollProgressBar />
         <Navbar />
         {children}

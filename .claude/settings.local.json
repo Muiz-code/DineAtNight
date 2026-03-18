@@ -14,7 +14,10 @@
       "Bash(find /Users/user/Documents/Development/DineAtNight -maxdepth 2 -name .env* -type f)",
       "Bash(npm install:*)",
       "Bash(npm list:*)",
-      "Bash(npm ls:*)"
+      "Bash(npm ls:*)",
+      "Bash(find /Users/user/Documents/Development/DineAtNight/public -name *og* -o -name *image*)",
+      "Bash(ls \"/Users/user/Documents/Development/DineAtNight/app/\\(home\\)/\")",
+      "Bash(ls \"/Users/user/Documents/Development/DineAtNight/app/\\(home\\)/home/\")"
     ]
   }
 }

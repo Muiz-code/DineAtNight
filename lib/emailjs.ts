@@ -21,7 +21,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 const APP_URL = (
-  process.env.NEXT_PUBLIC_APP_URL ?? "https://dine-at-night.vercel.app"
+  process.env.NEXT_PUBLIC_APP_URL ?? "https://www.dineatnight.com"
 ).replace(/\/$/, "");
 const SEP = "──────────────────────────────";
 

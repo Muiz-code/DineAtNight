@@ -66,6 +66,11 @@ export default function AdminGalleryPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  /* bulk select */
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   /* ── Load (with cache) ────────────────────────────── */
   const load = async (force = false) => {
     setLoading(true);
@@ -238,6 +243,38 @@ export default function AdminGalleryPage() {
     }
   };
 
+  /* ── Bulk delete ───────────────────────────────────── */
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      await Promise.all(Array.from(selectedIds).map((id) => deleteGalleryItem(id)));
+      await logAdminAction(
+        "DELETE_GALLERY",
+        `Bulk deleted ${selectedIds.size} gallery item${selectedIds.size !== 1 ? "s" : ""}`,
+        { type: "gallery", id: "bulk", name: `${selectedIds.size} items` },
+      );
+      clearCache(CACHE_KEY);
+      exitSelectMode();
+      await load(true);
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* ── Header ── */}
@@ -246,14 +283,61 @@ export default function AdminGalleryPage() {
           <h1 className="text-2xl font-bold uppercase tracking-widest" style={{ color: ACCENT, textShadow: `0 0 20px ${ACCENT}60` }}>Gallery</h1>
           <p className="text-gray-600 text-xs mt-0.5">{items.length} media items across all events</p>
         </div>
-        <button
-          onClick={openModal}
-          className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all border"
-          style={{ borderColor: ACCENT, color: ACCENT, boxShadow: `0 0 14px ${ACCENT}30`, background: `${ACCENT}10` }}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Add Media
-        </button>
+        <div className="flex items-center gap-2">
+          {selectMode ? (
+            <>
+              <button
+                onClick={exitSelectMode}
+                className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all border"
+                style={{ borderColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.5)" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const allIds = filtered.map((i) => i.id!);
+                  const allSelected = allIds.every((id) => selectedIds.has(id));
+                  setSelectedIds(allSelected ? new Set() : new Set(allIds));
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all border"
+                style={{ borderColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.6)" }}
+              >
+                {filtered.every((i) => selectedIds.has(i.id!)) ? "Deselect All" : "Select All"}
+              </button>
+              {selectedIds.size > 0 && (
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50"
+                  style={{ background: "#FF3333", color: "#fff" }}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {bulkDeleting ? "Deleting…" : `Delete ${selectedIds.size}`}
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              {filtered.length > 0 && (
+                <button
+                  onClick={() => setSelectMode(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all border"
+                  style={{ borderColor: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.4)" }}
+                >
+                  Select
+                </button>
+              )}
+              <button
+                onClick={openModal}
+                className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all border"
+                style={{ borderColor: ACCENT, color: ACCENT, boxShadow: `0 0 14px ${ACCENT}30`, background: `${ACCENT}10` }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Media
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* ── Tabs ── */}
@@ -290,51 +374,70 @@ export default function AdminGalleryPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {visible.map((item) => (
-            <div
-              key={item.id}
-              className="relative group rounded-xl overflow-hidden border"
-              style={{ borderColor: "rgba(255,255,255,0.07)" }}
-            >
-              <div className="aspect-video relative" style={{ background: "#1a1a1a" }}>
-                {item.type === "video" ? (
-                  <video
-                    src={item.src}
-                    className="w-full h-full object-cover"
-                    muted
-                    playsInline
-                    preload="none"
-                  />
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={item.src}
-                    alt={item.caption}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover"
-                    style={{ opacity: 0, transition: "opacity 0.25s ease" }}
-                    onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "1"; }}
-                  />
-                )}
-                <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase" style={{ background: "rgba(0,0,0,0.75)", color: ACCENT }}>
-                  {item.type === "video" ? <Film className="w-3 h-3" /> : <Camera className="w-3 h-3" />}
-                  {item.type}
+          {visible.map((item) => {
+            const isSelected = selectedIds.has(item.id!);
+            return (
+              <div
+                key={item.id}
+                className="relative group rounded-xl overflow-hidden border cursor-pointer transition-all"
+                style={{
+                  borderColor: isSelected ? "#FF3333" : "rgba(255,255,255,0.07)",
+                  boxShadow: isSelected ? "0 0 0 2px #FF3333" : "none",
+                }}
+                onClick={() => selectMode && toggleSelect(item.id!)}
+              >
+                <div className="aspect-video relative" style={{ background: "#1a1a1a" }}>
+                  {item.type === "video" ? (
+                    <video
+                      src={item.src}
+                      className="w-full h-full object-cover"
+                      muted
+                      playsInline
+                      preload="none"
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.src}
+                      alt={item.caption}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover"
+                      style={{ opacity: 0, transition: "opacity 0.25s ease" }}
+                      onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "1"; }}
+                    />
+                  )}
+                  <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase" style={{ background: "rgba(0,0,0,0.75)", color: ACCENT }}>
+                    {item.type === "video" ? <Film className="w-3 h-3" /> : <Camera className="w-3 h-3" />}
+                    {item.type}
+                  </div>
+                  {selectMode ? (
+                    <div
+                      className="absolute top-2 right-2 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
+                      style={{
+                        borderColor: isSelected ? "#FF3333" : "rgba(255,255,255,0.5)",
+                        background: isSelected ? "#FF3333" : "rgba(0,0,0,0.6)",
+                      }}
+                    >
+                      {isSelected && <span className="text-white text-[10px] font-bold leading-none">✓</span>}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setDeleteId(item.id!)}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                      style={{ background: "rgba(255,51,51,0.85)" }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-white" />
+                    </button>
+                  )}
                 </div>
-                <button
-                  onClick={() => setDeleteId(item.id!)}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-                  style={{ background: "rgba(255,51,51,0.85)" }}
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-white" />
-                </button>
+                <div className="p-3" style={{ background: "#0a0a0a" }}>
+                  <p className="text-white text-xs font-medium line-clamp-1">{item.caption}</p>
+                  <p className="text-gray-600 text-[10px] mt-0.5 uppercase tracking-widest">{item.eventTitle}</p>
+                </div>
               </div>
-              <div className="p-3" style={{ background: "#0a0a0a" }}>
-                <p className="text-white text-xs font-medium line-clamp-1">{item.caption}</p>
-                <p className="text-gray-600 text-[10px] mt-0.5 uppercase tracking-widest">{item.eventTitle}</p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

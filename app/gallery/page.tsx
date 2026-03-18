@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useRef, useEffect, useMemo, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import SectionFadeIn from "../_components/SectionFadeIn";
@@ -100,10 +101,9 @@ function GalleryContent() {
     };
   });
 
-  // Up to 4 random photos for the witty highlights cards
+  // Up to 4 photos for the witty highlights cards (stable: take first 4)
   const highlightPhotos = useMemo(() => {
-    const photos = items.filter((i) => i.type === "photo");
-    return [...photos].sort(() => Math.random() - 0.5).slice(0, 4);
+    return items.filter((i) => i.type === "photo").slice(0, 4);
   }, [items]);
 
   // Random cross-event carousel picks (round-robin for variety, max 8)
@@ -155,15 +155,16 @@ function GalleryContent() {
   };
 
   // Items for the open event overlay (with media type filter applied)
-  const overlayItems = selectedEventId
-    ? items.filter((i) => {
-        const typeMatch =
-          mediaFilter === "all" ||
-          (mediaFilter === "photos" && i.type === "photo") ||
-          (mediaFilter === "videos" && i.type === "video");
-        return i.eventId === selectedEventId && typeMatch;
-      })
-    : [];
+  const overlayItems = useMemo(() => {
+    if (!selectedEventId) return [];
+    return items.filter((i) => {
+      const typeMatch =
+        mediaFilter === "all" ||
+        (mediaFilter === "photos" && i.type === "photo") ||
+        (mediaFilter === "videos" && i.type === "video");
+      return i.eventId === selectedEventId && typeMatch;
+    });
+  }, [selectedEventId, items, mediaFilter]);
 
   // Distribute visible items into columns (round-robin → no blank gaps)
   const overlayCols = useMemo(() => {
@@ -222,11 +223,13 @@ function GalleryContent() {
                   autoPlay
                 />
               ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={carouselPicks[heroIdx]?.src}
                   alt=""
-                  className="w-full h-full object-cover object-center"
+                  fill
+                  sizes="100vw"
+                  className="object-cover object-center"
+                  priority
                 />
               )}
             </motion.div>
@@ -373,11 +376,12 @@ function GalleryContent() {
                       {/* Thumbnail — full card */}
                       <div className="aspect-[4/3] relative overflow-hidden">
                         {card.thumbnail ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                          <Image
                             src={card.thumbnail}
                             alt={card.title}
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                            fill
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                            className="object-cover transition-transform duration-700 group-hover:scale-110"
                           />
                         ) : (
                           <div
@@ -596,12 +600,13 @@ function GalleryContent() {
                                   }}
                                 />
                               ) : (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
+                                <Image
                                   src={item.src}
                                   alt={item.caption}
+                                  width={800}
+                                  height={1066}
+                                  sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                                   loading="lazy"
-                                  decoding="async"
                                   className="w-full h-auto block"
                                   style={{ opacity: 0, transition: "opacity 0.3s ease" }}
                                   onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "1"; }}
@@ -759,11 +764,12 @@ function GalleryContent() {
                       style={{ height: "340px" }}
                     >
                       {highlightPhotos[0] && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <Image
                           src={highlightPhotos[0].src}
                           alt=""
-                          className="absolute inset-0 w-full h-full object-cover scale-105"
+                          fill
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                          className="object-cover scale-105"
                         />
                       )}
                       <div
@@ -801,11 +807,12 @@ function GalleryContent() {
                       style={{ height: "340px" }}
                     >
                       {highlightPhotos[1] && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <Image
                           src={highlightPhotos[1].src}
                           alt=""
-                          className="absolute inset-0 w-full h-full object-cover scale-105"
+                          fill
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                          className="object-cover scale-105"
                         />
                       )}
                       <div
@@ -843,11 +850,12 @@ function GalleryContent() {
                       style={{ height: "340px" }}
                     >
                       {highlightPhotos[2] && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <Image
                           src={highlightPhotos[2].src}
                           alt=""
-                          className="absolute inset-0 w-full h-full object-cover scale-105"
+                          fill
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                          className="object-cover scale-105"
                         />
                       )}
                       <div
@@ -885,11 +893,12 @@ function GalleryContent() {
                       style={{ height: "340px" }}
                     >
                       {highlightPhotos[3] && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <Image
                           src={highlightPhotos[3].src}
                           alt=""
-                          className="absolute inset-0 w-full h-full object-cover scale-105"
+                          fill
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                          className="object-cover scale-105"
                         />
                       )}
                       <div

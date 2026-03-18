@@ -444,11 +444,12 @@ function StackedGalleryMobile({ items }: { items: DanGalleryItem[] }) {
             }}
             transition={{ type: "spring", stiffness: 280, damping: 28 }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={item.src}
               alt={item.caption}
-              className="w-full h-full object-cover"
+              fill
+              sizes="88vw"
+              className="object-cover"
             />
           </motion.div>
         );
@@ -482,11 +483,12 @@ function StackedGalleryMobile({ items }: { items: DanGalleryItem[] }) {
           dragElastic={0.75}
           onDragEnd={handleDragEnd}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={currentItem.src}
             alt={currentItem.caption}
-            className="w-full h-full object-cover"
+            fill
+            sizes="88vw"
+            className="object-cover"
           />
           <div
             className="absolute inset-0"
@@ -566,8 +568,7 @@ export default function Home() {
   const tagY = useTransform(scrollY, [0, 500], [0, -35]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1500);
-    return () => clearTimeout(timer);
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -1608,11 +1609,12 @@ export default function Home() {
                             autoPlay
                           />
                         ) : (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                          <Image
                             src={item.src}
                             alt={item.caption}
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                            fill
+                            sizes="(max-width: 640px) 100vw, 33vw"
+                            className="object-cover transition-transform duration-700 group-hover:scale-110"
                           />
                         )}
                         {/* gradient */}
@@ -1859,11 +1861,12 @@ export default function Home() {
                   >
                     {photo ? (
                       <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                        <Image
                           src={photo.src}
                           alt=""
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          fill
+                          sizes="(max-width: 768px) 33vw, 16vw"
+                          className="object-cover transition-transform duration-500 group-hover:scale-110"
                         />
                         <div className="absolute inset-0 bg-black/25 group-hover:bg-black/0 transition-colors duration-300" />
                       </>
