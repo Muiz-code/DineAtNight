@@ -7,6 +7,7 @@ import {
   type DanAdminLog,
 } from "@/lib/firestore";
 import { ADMIN_NAME_MAP } from "@/lib/adminLog";
+import { Timestamp } from "firebase/firestore";
 import { Search } from "lucide-react";
 
 /* ── Helpers ─────────────────────────────────────────────────── */
