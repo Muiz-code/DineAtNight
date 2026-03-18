@@ -254,7 +254,6 @@ export default function AdminGalleryPage() {
             type: item.type,
             url: item.src,
             caption: item.caption || "",
-            src: ""
           }),
         ),
       );
@@ -502,7 +501,7 @@ export default function AdminGalleryPage() {
                 >
                   {item.type === "video" ? (
                     <video
-                      src={item.src}
+                      src={item.url}
                       className="w-full h-full object-cover"
                       muted
                       playsInline
@@ -511,7 +510,7 @@ export default function AdminGalleryPage() {
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={item.src}
+                      src={item.url}
                       alt={item.caption}
                       loading="lazy"
                       decoding="async"

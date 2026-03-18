@@ -66,9 +66,9 @@ export interface DanSponsor {
 }
 
 export interface DanTicketType {
-  name: string;    // e.g. "VIP", "VVIP", "General Admission"
-  price: number;   // in Naira
-  limit?: number;  // max tickets available for this tier (undefined = no separate cap)
+  name: string; // e.g. "VIP", "VVIP", "General Admission"
+  price: number; // in Naira
+  limit?: number; // max tickets available for this tier (undefined = no separate cap)
 }
 
 export interface DanEvent {
@@ -79,7 +79,7 @@ export interface DanEvent {
   venue: string;
   description: string;
   isPast: boolean;
-  ticketPrice: number;        // base / lowest price in Naira (kept for backward compat)
+  ticketPrice: number; // base / lowest price in Naira (kept for backward compat)
   ticketTypes?: DanTicketType[]; // optional multiple tiers — when present, overrides ticketPrice
   totalTickets: number;
   soldTickets: number;
@@ -98,9 +98,9 @@ export interface DanTicket {
   email: string;
   phone: string;
   quantity: number;
-  ticketType?: string;  // e.g. "VIP", "VVIP", "General Admission" — undefined = legacy single-price
-  amount: number;       // in kobo (Paystack)
-  reference: string;   // Paystack reference = Firestore document ID
+  ticketType?: string; // e.g. "VIP", "VVIP", "General Admission" — undefined = legacy single-price
+  amount: number; // in kobo (Paystack)
+  reference: string; // Paystack reference = Firestore document ID
   status: "pending" | "paid" | "confirmed";
   purchasedAt?: Timestamp;
   confirmedAt?: Timestamp | null;
@@ -111,23 +111,23 @@ export interface DanTicket {
 ═══════════════════════════════════════════════ */
 export async function getAllEvents(): Promise<DanEvent[]> {
   const snap = await getDocs(collection(db, "events"));
-  const evs = snap.docs.map((d) => (toDoc<DanEvent>(d)));
+  const evs = snap.docs.map((d) => toDoc<DanEvent>(d));
   return evs.sort((a, b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0));
 }
 
 export async function getActiveEvents(): Promise<DanEvent[]> {
   const snap = await getDocs(
-    query(collection(db, "events"), where("status", "==", "active"))
+    query(collection(db, "events"), where("status", "==", "active")),
   );
-  const evs = snap.docs.map((d) => (toDoc<DanEvent>(d)));
+  const evs = snap.docs.map((d) => toDoc<DanEvent>(d));
   return evs.sort((a, b) => (a.date?.seconds ?? 0) - (b.date?.seconds ?? 0));
 }
 
 export async function getPastEvents(): Promise<DanEvent[]> {
   const snap = await getDocs(
-    query(collection(db, "events"), where("isPast", "==", true))
+    query(collection(db, "events"), where("isPast", "==", true)),
   );
-  const evs = snap.docs.map((d) => (toDoc<DanEvent>(d)));
+  const evs = snap.docs.map((d) => toDoc<DanEvent>(d));
   return evs.sort((a, b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0));
 }
 
@@ -151,7 +151,9 @@ export async function getEventById(id: string): Promise<DanEvent | null> {
   return toDoc<DanEvent>(snap);
 }
 
-export async function createEvent(data: Omit<DanEvent, "id" | "createdAt" | "soldTickets">): Promise<string> {
+export async function createEvent(
+  data: Omit<DanEvent, "id" | "createdAt" | "soldTickets">,
+): Promise<string> {
   const ref = await addDoc(collection(db, "events"), {
     ...data,
     soldTickets: 0,
@@ -160,7 +162,10 @@ export async function createEvent(data: Omit<DanEvent, "id" | "createdAt" | "sol
   return ref.id;
 }
 
-export async function updateEvent(id: string, data: Partial<DanEvent>): Promise<void> {
+export async function updateEvent(
+  id: string,
+  data: Partial<DanEvent>,
+): Promise<void> {
   await updateDoc(doc(db, "events", id), data);
   clearCache("dan_active_events");
   clearCache("dan_past_events");
@@ -168,7 +173,9 @@ export async function updateEvent(id: string, data: Partial<DanEvent>): Promise<
 
 export async function deleteEvent(id: string): Promise<void> {
   // Delete all tickets for this event
-  const ticketSnap = await getDocs(query(collection(db, "tickets"), where("eventId", "==", id)));
+  const ticketSnap = await getDocs(
+    query(collection(db, "tickets"), where("eventId", "==", id)),
+  );
   if (!ticketSnap.empty) {
     const batch = writeBatch(db);
     ticketSnap.docs.forEach((d) => batch.delete(d.ref));
@@ -187,7 +194,7 @@ export async function deleteEvent(id: string): Promise<void> {
    for the payment flow, so no auth required.
 ═══════════════════════════════════════════════ */
 export async function createPendingTicket(
-  data: Omit<DanTicket, "id" | "purchasedAt" | "confirmedAt">
+  data: Omit<DanTicket, "id" | "purchasedAt" | "confirmedAt">,
 ): Promise<string> {
   // Use Paystack reference as the Firestore doc ID
   await setDoc(doc(db, "tickets", data.reference), {
@@ -199,7 +206,9 @@ export async function createPendingTicket(
   return data.reference;
 }
 
-export async function getTicketByReference(reference: string): Promise<DanTicket | null> {
+export async function getTicketByReference(
+  reference: string,
+): Promise<DanTicket | null> {
   const snap = await getDoc(doc(db, "tickets", reference));
   if (!snap.exists()) return null;
   return toDoc<DanTicket>(snap);
@@ -208,7 +217,7 @@ export async function getTicketByReference(reference: string): Promise<DanTicket
 export async function markTicketPaid(
   reference: string,
   eventId: string,
-  quantity: number
+  quantity: number,
 ): Promise<void> {
   const ticketRef = doc(db, "tickets", reference);
   const eventRef = doc(db, "events", eventId);
@@ -226,12 +235,18 @@ export async function markTicketPaid(
 }
 
 export async function confirmTicket(
-  reference: string
-): Promise<{ ok: boolean; already: boolean; reason?: "not_found" | "unpaid"; ticket: DanTicket | null }> {
+  reference: string,
+): Promise<{
+  ok: boolean;
+  already: boolean;
+  reason?: "not_found" | "unpaid";
+  ticket: DanTicket | null;
+}> {
   const ticketRef = doc(db, "tickets", reference);
   const snap = await getDoc(ticketRef);
 
-  if (!snap.exists()) return { ok: false, already: false, reason: "not_found", ticket: null };
+  if (!snap.exists())
+    return { ok: false, already: false, reason: "not_found", ticket: null };
 
   const ticket = toDoc<DanTicket>(snap);
 
@@ -249,24 +264,34 @@ export async function confirmTicket(
     confirmedAt: serverTimestamp(),
   });
 
-  return { ok: true, already: false, ticket: { ...ticket, status: "confirmed" } };
+  return {
+    ok: true,
+    already: false,
+    ticket: { ...ticket, status: "confirmed" },
+  };
 }
 
 export async function getTicketsByEvent(eventId: string): Promise<DanTicket[]> {
   const snap = await getDocs(
-    query(collection(db, "tickets"), where("eventId", "==", eventId))
+    query(collection(db, "tickets"), where("eventId", "==", eventId)),
   );
-  const txs = snap.docs.map((d) => (toDoc<DanTicket>(d)));
+  const txs = snap.docs.map((d) => toDoc<DanTicket>(d));
   return txs
     .filter((t) => t.status === "paid" || t.status === "confirmed")
-    .sort((a, b) => (b.purchasedAt?.seconds ?? 0) - (a.purchasedAt?.seconds ?? 0));
+    .sort(
+      (a, b) => (b.purchasedAt?.seconds ?? 0) - (a.purchasedAt?.seconds ?? 0),
+    );
 }
 
 export async function getAllTickets(): Promise<DanTicket[]> {
   // limit(100) prevents a full-collection scan as ticket volume grows.
   // Admin pages that need deeper history should implement cursor-based pagination.
   const snap = await getDocs(
-    query(collection(db, "tickets"), orderBy("purchasedAt", "desc"), limit(100))
+    query(
+      collection(db, "tickets"),
+      orderBy("purchasedAt", "desc"),
+      limit(100),
+    ),
   );
   return snap.docs.map((d) => toDoc<DanTicket>(d));
 }
@@ -287,25 +312,26 @@ export interface VendorMenuCategory {
 export interface DanVendor {
   id?: string;
   brandName: string;
-  brandNameLower?: string;  // lowercase copy of brandName — used for case-insensitive dedup
+  brandNameLower?: string; // lowercase copy of brandName — used for case-insensitive dedup
   ownerName: string;
   email: string;
   phone: string;
   instagram?: string;
   /** @deprecated Use categories[] instead. Will be removed after a one-time Firestore migration. */
   category?: string;
-  categories?: string[];   // up to 3 food categories
-  events?: string[];       // event titles vendor has applied for / served at
+  categories?: string[]; // up to 3 food categories
+  events?: string[]; // event titles vendor has applied for / served at
   description: string;
   products?: string;
-  logoUrl?: string;        // brand logo (square/circular, separate from food photos)
+  logoUrl?: string; // brand logo (square/circular, separate from food photos)
   imageUrl: string;
-  imageUrls?: string[];    // all images accumulated from re-applications (slideshow)
+  imageUrls?: string[]; // all images accumulated from re-applications (slideshow)
   status: "pending" | "approved" | "declined";
   declineReason?: string;
-  menu?: VendorMenuCategory[];  // structured menu (optional)
-  reapplyCount?: number;   // how many times this vendor has re-applied
-  previousSnapshot?: {     // state captured right before the last merge
+  menu?: VendorMenuCategory[]; // structured menu (optional)
+  reapplyCount?: number; // how many times this vendor has re-applied
+  previousSnapshot?: {
+    // state captured right before the last merge
     description: string;
     products?: string;
     imageUrl?: string;
@@ -317,7 +343,7 @@ export interface DanVendor {
 }
 
 export async function createVendorApplication(
-  data: Omit<DanVendor, "id" | "status" | "submittedAt" | "reviewedAt">
+  data: Omit<DanVendor, "id" | "status" | "submittedAt" | "reviewedAt">,
 ): Promise<string> {
   const ref = await addDoc(collection(db, "vendors"), {
     ...data,
@@ -329,9 +355,11 @@ export async function createVendorApplication(
   return ref.id;
 }
 
-export async function getVendorByName(brandName: string): Promise<DanVendor | null> {
+export async function getVendorByName(
+  brandName: string,
+): Promise<DanVendor | null> {
   const snap = await getDocs(
-    query(collection(db, "vendors"), where("brandName", "==", brandName))
+    query(collection(db, "vendors"), where("brandName", "==", brandName)),
   );
   if (snap.empty) return null;
   const d = snap.docs[0];
@@ -339,14 +367,17 @@ export async function getVendorByName(brandName: string): Promise<DanVendor | nu
 }
 
 export async function upsertVendorApplication(
-  data: Omit<DanVendor, "id" | "status" | "submittedAt" | "reviewedAt">
+  data: Omit<DanVendor, "id" | "status" | "submittedAt" | "reviewedAt">,
 ): Promise<{ id: string; isUpdate: boolean }> {
   const brandNameLower = data.brandName.trim().toLowerCase();
 
   // Case-insensitive dedup: query by brandNameLower (populated since the fix),
   // then fall back to exact-match for legacy docs that predate this field.
   const lowerSnap = await getDocs(
-    query(collection(db, "vendors"), where("brandNameLower", "==", brandNameLower))
+    query(
+      collection(db, "vendors"),
+      where("brandNameLower", "==", brandNameLower),
+    ),
   );
   const existing: DanVendor | null = lowerSnap.empty
     ? await getVendorByName(data.brandName)
@@ -355,20 +386,26 @@ export async function upsertVendorApplication(
   if (existing?.id) {
     // Merge events (deduplicate) and categories (deduplicate, max 3)
     const mergedEvents = Array.from(
-      new Set([...(existing.events ?? []), ...(data.events ?? [])])
+      new Set([...(existing.events ?? []), ...(data.events ?? [])]),
     );
-    const existingCats = existing.categories ?? (existing.category ? [existing.category] : []);
+    const existingCats =
+      existing.categories ?? (existing.category ? [existing.category] : []);
     const mergedCats = Array.from(
-      new Set([...existingCats, ...(data.categories ?? [])])
+      new Set([...existingCats, ...(data.categories ?? [])]),
     ).slice(0, 3);
 
     // Accumulate images — keep all unique photos from every application
     const existingImages = existing.imageUrls?.length
       ? existing.imageUrls
-      : existing.imageUrl ? [existing.imageUrl] : [];
-    const mergedImages = data.imageUrl && !existingImages.includes(data.imageUrl)
-      ? [...existingImages, data.imageUrl]
-      : existingImages.length ? existingImages : [data.imageUrl];
+      : existing.imageUrl
+        ? [existing.imageUrl]
+        : [];
+    const mergedImages =
+      data.imageUrl && !existingImages.includes(data.imageUrl)
+        ? [...existingImages, data.imageUrl]
+        : existingImages.length
+          ? existingImages
+          : [data.imageUrl];
 
     // Capture current state as snapshot BEFORE overwriting
     const previousSnapshot = {
@@ -383,18 +420,18 @@ export async function upsertVendorApplication(
       brandName: data.brandName,
       brandNameLower,
       ownerName: data.ownerName,
-      email: data.email,             // update email in case it changed on re-apply
+      email: data.email, // update email in case it changed on re-apply
       phone: data.phone,
       instagram: data.instagram ?? "",
       description: data.description,
       products: data.products,
-      imageUrl: data.imageUrl,       // latest image as primary
-      imageUrls: mergedImages,       // full slideshow array
+      imageUrl: data.imageUrl, // latest image as primary
+      imageUrls: mergedImages, // full slideshow array
       logoUrl: data.logoUrl ?? existing.logoUrl ?? null,
       categories: mergedCats,
       events: mergedEvents,
       menu: data.menu ?? null,
-      status: "pending",             // reset so admin re-reviews
+      status: "pending", // reset so admin re-reviews
       declineReason: null,
       reapplyCount: (existing.reapplyCount ?? 0) + 1,
       previousSnapshot,
@@ -420,21 +457,23 @@ export async function upsertVendorApplication(
 
 export async function getApprovedVendors(): Promise<DanVendor[]> {
   const snap = await getDocs(
-    query(collection(db, "vendors"), where("status", "==", "approved"))
+    query(collection(db, "vendors"), where("status", "==", "approved")),
   );
-  return snap.docs.map((d) => (toDoc<DanVendor>(d)));
+  return snap.docs.map((d) => toDoc<DanVendor>(d));
 }
 
 export async function getAllVendors(): Promise<DanVendor[]> {
   const snap = await getDocs(collection(db, "vendors"));
-  const vendors = snap.docs.map((d) => (toDoc<DanVendor>(d)));
-  return vendors.sort((a, b) => (b.submittedAt?.seconds ?? 0) - (a.submittedAt?.seconds ?? 0));
+  const vendors = snap.docs.map((d) => toDoc<DanVendor>(d));
+  return vendors.sort(
+    (a, b) => (b.submittedAt?.seconds ?? 0) - (a.submittedAt?.seconds ?? 0),
+  );
 }
 
 export async function updateVendorStatus(
   id: string,
   status: DanVendor["status"],
-  declineReason?: string
+  declineReason?: string,
 ): Promise<void> {
   await updateDoc(doc(db, "vendors", id), {
     status,
@@ -446,14 +485,18 @@ export async function updateVendorStatus(
 }
 
 export async function createVendorDirect(
-  data: Omit<DanVendor, "id" | "submittedAt" | "reviewedAt">
+  data: Omit<DanVendor, "id" | "submittedAt" | "reviewedAt">,
 ): Promise<string> {
   const ref = await addDoc(collection(db, "vendors"), {
     ...data,
     brandNameLower: data.brandName.trim().toLowerCase(),
-    imageUrls: data.imageUrls?.length ? data.imageUrls : data.imageUrl ? [data.imageUrl] : [],
+    imageUrls: data.imageUrls?.length
+      ? data.imageUrls
+      : data.imageUrl
+        ? [data.imageUrl]
+        : [],
     submittedAt: serverTimestamp(),
-    reviewedAt: null,  // not yet reviewed — admin created directly but still needs review
+    reviewedAt: null, // not yet reviewed — admin created directly but still needs review
   });
   return ref.id;
 }
@@ -468,7 +511,9 @@ export async function updateVendor(
 ): Promise<void> {
   await updateDoc(doc(db, "vendors", id), {
     ...data,
-    ...(data.brandName ? { brandNameLower: data.brandName.trim().toLowerCase() } : {}),
+    ...(data.brandName
+      ? { brandNameLower: data.brandName.trim().toLowerCase() }
+      : {}),
   });
 }
 
@@ -492,18 +537,18 @@ export const subscribeApprovedVendors = createSubscription<DanVendor>(
 ═══════════════════════════════════════════════ */
 export interface DanTestimonial {
   id?: string;
-  name: string;           // Display name or brand name
-  type: "vendor" | "user" | "admin";  // Badge label
-  role: string;           // "Vendor", "Event Attendee", or custom admin role
-  quote: string;          // Testimonial text
-  eventTitle?: string;    // Which event (optional)
+  name: string; // Display name or brand name
+  type: "vendor" | "user" | "admin"; // Badge label
+  role: string; // "Vendor", "Event Attendee", or custom admin role
+  quote: string; // Testimonial text
+  eventTitle?: string; // Which event (optional)
   createdBy: "user" | "admin"; // Only admin-created ones can be edited
-  approved?: boolean;     // false = pending review; true = visible publicly. Older docs without the field are treated as approved.
+  approved?: boolean; // false = pending review; true = visible publicly. Older docs without the field are treated as approved.
   submittedAt?: Timestamp;
 }
 
 export async function createTestimonial(
-  data: Omit<DanTestimonial, "id" | "submittedAt" | "approved">
+  data: Omit<DanTestimonial, "id" | "submittedAt" | "approved">,
 ): Promise<string> {
   const ref = await addDoc(collection(db, "testimonials"), {
     ...data,
@@ -520,7 +565,9 @@ export async function approveTestimonial(id: string): Promise<void> {
 
 export async function updateTestimonial(
   id: string,
-  data: Partial<Pick<DanTestimonial, "name" | "role" | "quote" | "eventTitle" | "type">>
+  data: Partial<
+    Pick<DanTestimonial, "name" | "role" | "quote" | "eventTitle" | "type">
+  >,
 ): Promise<void> {
   await updateDoc(doc(db, "testimonials", id), data);
 }
@@ -531,9 +578,9 @@ export async function deleteTestimonial(id: string): Promise<void> {
 
 export async function getAllTestimonials(): Promise<DanTestimonial[]> {
   const snap = await getDocs(
-    query(collection(db, "testimonials"), orderBy("submittedAt", "desc"))
+    query(collection(db, "testimonials"), orderBy("submittedAt", "desc")),
   );
-  return snap.docs.map((d) => (toDoc<DanTestimonial>(d)));
+  return snap.docs.map((d) => toDoc<DanTestimonial>(d));
 }
 
 /** Real-time listener — returns an unsubscribe function. */
@@ -546,32 +593,37 @@ export const subscribeToTestimonials = createSubscription<DanTestimonial>(
    Gallery Items
 ═══════════════════════════════════════════════ */
 export interface DanGalleryItem {
-  url: string | StaticImport;
+  url: string;
   id?: string;
   eventId: string;
   eventTitle: string;
   type: "photo" | "video";
-  src: string;
   caption: string;
   createdAt?: Timestamp;
 }
 
 export async function getAllGalleryItems(): Promise<DanGalleryItem[]> {
   const snap = await getDocs(
-    query(collection(db, "gallery"), orderBy("createdAt", "desc"))
+    query(collection(db, "gallery"), orderBy("createdAt", "desc")),
   );
-  return snap.docs.map((d) => (toDoc<DanGalleryItem>(d)));
+  return snap.docs.map((d) => toDoc<DanGalleryItem>(d));
 }
 
-export async function getGalleryItemsByEvent(eventId: string): Promise<DanGalleryItem[]> {
+export async function getGalleryItemsByEvent(
+  eventId: string,
+): Promise<DanGalleryItem[]> {
   const snap = await getDocs(
-    query(collection(db, "gallery"), where("eventId", "==", eventId), orderBy("createdAt", "desc"))
+    query(
+      collection(db, "gallery"),
+      where("eventId", "==", eventId),
+      orderBy("createdAt", "desc"),
+    ),
   );
-  return snap.docs.map((d) => (toDoc<DanGalleryItem>(d)));
+  return snap.docs.map((d) => toDoc<DanGalleryItem>(d));
 }
 
 export async function createGalleryItem(
-  data: Omit<DanGalleryItem, "id" | "createdAt">
+  data: Omit<DanGalleryItem, "id" | "createdAt">,
 ): Promise<string> {
   const ref = await addDoc(collection(db, "gallery"), {
     ...data,
@@ -598,27 +650,27 @@ export const subscribeGalleryItems = createSubscription<DanGalleryItem>(
 export interface DanProduct {
   id?: string;
   name: string;
-  price: number;       // Naira
-  category: string;   // tshirts | hoodies | caps | bags | stickers | limited
+  price: number; // Naira
+  category: string; // tshirts | hoodies | caps | bags | stickers | limited
   description: string;
   imageUrl: string;
-  accent: string;      // hex color e.g. "#FFFF00"
+  accent: string; // hex color e.g. "#FFFF00"
   limited: boolean;
-  soldCount: number;   // Hot Pick = highest soldCount > 0
-  stock: number;       // -1 = unlimited
-  active?: boolean;    // undefined/true = on shelf; false = hidden from public shop
+  soldCount: number; // Hot Pick = highest soldCount > 0
+  stock: number; // -1 = unlimited
+  active?: boolean; // undefined/true = on shelf; false = hidden from public shop
   createdAt?: Timestamp;
 }
 
 export async function getAllProducts(): Promise<DanProduct[]> {
   const snap = await getDocs(
-    query(collection(db, "products"), orderBy("createdAt", "desc"))
+    query(collection(db, "products"), orderBy("createdAt", "desc")),
   );
-  return snap.docs.map((d) => (toDoc<DanProduct>(d)));
+  return snap.docs.map((d) => toDoc<DanProduct>(d));
 }
 
 export async function createProduct(
-  data: Omit<DanProduct, "id" | "createdAt">
+  data: Omit<DanProduct, "id" | "createdAt">,
 ): Promise<string> {
   const ref = await addDoc(collection(db, "products"), {
     ...data,
@@ -628,7 +680,10 @@ export async function createProduct(
   return ref.id;
 }
 
-export async function updateProduct(id: string, data: Partial<DanProduct>): Promise<void> {
+export async function updateProduct(
+  id: string,
+  data: Partial<DanProduct>,
+): Promise<void> {
   await updateDoc(doc(db, "products", id), data);
 }
 
@@ -678,7 +733,9 @@ export async function deleteProduct(id: string): Promise<void> {
   // Delete all merch orders that contain this product
   const orderSnap = await getDocs(collection(db, "merch_orders"));
   const affected = orderSnap.docs.filter((d) =>
-    (d.data().items as { productId: string }[] ?? []).some((item) => item.productId === id)
+    ((d.data().items as { productId: string }[]) ?? []).some(
+      (item) => item.productId === id,
+    ),
   );
   if (affected.length > 0) {
     const batch = writeBatch(db);
@@ -689,14 +746,21 @@ export async function deleteProduct(id: string): Promise<void> {
   clearCache("dan_products");
 }
 
-export async function incrementProductSold(id: string, qty: number): Promise<void> {
+export async function incrementProductSold(
+  id: string,
+  qty: number,
+): Promise<void> {
   await updateDoc(doc(db, "products", id), { soldCount: increment(qty) });
 }
 
 /* ═══════════════════════════════════════════════
    Merch Orders
 ═══════════════════════════════════════════════ */
-export type DanDeliveryStatus = "pending" | "dispatched" | "delivered" | "returned";
+export type DanDeliveryStatus =
+  | "pending"
+  | "dispatched"
+  | "delivered"
+  | "returned";
 
 export interface DanMerchOrder {
   id?: string;
@@ -709,17 +773,26 @@ export interface DanMerchOrder {
     city: string;
     state: string;
   };
-  items: { productId: string; productName: string; price: number; qty: number }[];
-  total: number;          // in Naira
+  items: {
+    productId: string;
+    productName: string;
+    price: number;
+    qty: number;
+  }[];
+  total: number; // in Naira
   status: "pending" | "paid";
   deliveryStatus: DanDeliveryStatus;
-  statusNote?: string;   // latest note (kept for quick display)
-  statusHistory?: { status: DanDeliveryStatus; note: string; changedAt: number }[];
+  statusNote?: string; // latest note (kept for quick display)
+  statusHistory?: {
+    status: DanDeliveryStatus;
+    note: string;
+    changedAt: number;
+  }[];
   createdAt?: Timestamp;
 }
 
 export async function createMerchOrder(
-  data: Omit<DanMerchOrder, "id" | "createdAt">
+  data: Omit<DanMerchOrder, "id" | "createdAt">,
 ): Promise<void> {
   await setDoc(doc(db, "merch_orders", data.reference), {
     ...data,
@@ -727,7 +800,9 @@ export async function createMerchOrder(
   });
 }
 
-export async function getMerchOrder(reference: string): Promise<DanMerchOrder | null> {
+export async function getMerchOrder(
+  reference: string,
+): Promise<DanMerchOrder | null> {
   const snap = await getDoc(doc(db, "merch_orders", reference));
   if (!snap.exists()) return null;
   return toDoc<DanMerchOrder>(snap);
@@ -735,9 +810,9 @@ export async function getMerchOrder(reference: string): Promise<DanMerchOrder | 
 
 export async function getAllMerchOrders(): Promise<DanMerchOrder[]> {
   const snap = await getDocs(
-    query(collection(db, "merch_orders"), orderBy("createdAt", "desc"))
+    query(collection(db, "merch_orders"), orderBy("createdAt", "desc")),
   );
-  return snap.docs.map((d) => (toDoc<DanMerchOrder>(d)));
+  return snap.docs.map((d) => toDoc<DanMerchOrder>(d));
 }
 
 export async function updateMerchOrderDelivery(
@@ -768,10 +843,9 @@ export const subscribeMerchOrders = createSubscription<DanMerchOrder>(
 );
 
 /** Real-time: all products (public shop page). */
-export const subscribeAllProducts = createSubscription<DanProduct>(
-  "products",
-  [orderBy("createdAt", "desc")],
-);
+export const subscribeAllProducts = createSubscription<DanProduct>("products", [
+  orderBy("createdAt", "desc"),
+]);
 
 /* ═══════════════════════════════════════════════
    Admin Activity Logs
@@ -781,9 +855,9 @@ export interface DanAdminLog {
   id?: string;
   adminEmail: string;
   adminName: string;
-  action: string;       // e.g. "LOGIN", "CREATE_EVENT", "APPROVE_VENDOR"
-  details: string;      // human-readable description
-  entityType?: string;  // "event" | "vendor" | "product" | "order" | "gallery" | "testimonial" | "ticket"
+  action: string; // e.g. "LOGIN", "CREATE_EVENT", "APPROVE_VENDOR"
+  details: string; // human-readable description
+  entityType?: string; // "event" | "vendor" | "product" | "order" | "gallery" | "testimonial" | "ticket"
   entityId?: string;
   entityName?: string;
   timestamp: Timestamp;
@@ -833,7 +907,7 @@ export async function deleteOldAdminLogs(): Promise<void> {
 
 export interface DanDeletedEvent extends DanEvent {
   deletedAt: Timestamp;
-  deletedBy: string;       // admin email
+  deletedBy: string; // admin email
   deletedByName: string;
   snapshotTicketsSold: number;
   snapshotRevenue: number; // in Naira at time of deletion
@@ -861,7 +935,9 @@ export async function archiveAndDeleteEvent(
   clearCache("dan_past_events");
 }
 
-export async function permanentlyDeleteArchivedEvent(id: string): Promise<void> {
+export async function permanentlyDeleteArchivedEvent(
+  id: string,
+): Promise<void> {
   await deleteDoc(doc(db, "deleted_events", id));
 }
 
@@ -896,7 +972,9 @@ export async function archiveAndDeleteProduct(
   clearCache("dan_products");
 }
 
-export async function permanentlyDeleteArchivedProduct(id: string): Promise<void> {
+export async function permanentlyDeleteArchivedProduct(
+  id: string,
+): Promise<void> {
   await deleteDoc(doc(db, "deleted_products", id));
 }
 
