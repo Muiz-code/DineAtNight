@@ -28,7 +28,7 @@ function pickImages(items: DanGalleryItem[]): string[] {
   let i = 0;
   while (result.length < 8 && groups.some((g) => g.length > 0)) {
     const group = groups[i % groups.length];
-    if (group.length > 0) result.push(group.shift()!.src);
+    if (group.length > 0) result.push(group.shift()!.src as string);
     i++;
   }
   return result;
@@ -58,7 +58,10 @@ export default function HeroCarousel({
 
   useEffect(() => {
     if (images.length <= 1) return;
-    const id = setInterval(() => setIdx((i) => (i + 1) % images.length), interval);
+    const id = setInterval(
+      () => setIdx((i) => (i + 1) % images.length),
+      interval,
+    );
     return () => clearInterval(id);
   }, [images.length, interval]);
 
