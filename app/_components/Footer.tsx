@@ -116,7 +116,7 @@ export default function Footer() {
               },
               {
                 label: "TikTok",
-                href: "https://tiktok.com/@dineatnight.ng",
+                href: "https://www.linkedin.com/company/dine-at-night/",
                 color: "#FFFF00",
                 glow: "rgba(255,255,0,0.5)",
                 icon: (
@@ -131,7 +131,7 @@ export default function Footer() {
               },
               {
                 label: "LinkedIn",
-                href: "https://www.linkedin.com/company/dineatnight/",
+                href: "https://www.linkedin.com/company/dine-at-night/",
                 color: "#0077B5",
                 glow: "rgba(0,119,181,0.5)",
                 icon: <Linkedin className="w-4 h-4" />,
