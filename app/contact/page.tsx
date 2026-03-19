@@ -416,14 +416,14 @@ export default function ContactPage() {
             >
               {/* Corner accents */}
               <span
-                className="absolute top-0 left-0 w-8 h-8"
+                className="absolute top-0 left-0 w-8 h-8 pointer-events-none"
                 style={{
                   borderTop: "2px solid #00FF41",
                   borderLeft: "2px solid #00FF41",
                 }}
               />
               <span
-                className="absolute bottom-0 right-0 w-8 h-8"
+                className="absolute bottom-0 right-0 w-8 h-8 pointer-events-none"
                 style={{
                   borderBottom: "2px solid #00FF41",
                   borderRight: "2px solid #00FF41",
@@ -521,7 +521,7 @@ export default function ContactPage() {
                   {/* Honeypot — hidden from real users, bots fill it */}
                   <input
                     type="text"
-                    name="website"
+                    name="_gotcha"
                     value={honeypot}
                     onChange={(e) => setHoneypot(e.target.value)}
                     tabIndex={-1}
