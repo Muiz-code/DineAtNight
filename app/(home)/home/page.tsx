@@ -346,19 +346,22 @@ function TiltCard({ children }: { children: React.ReactNode }) {
 const videos = [
   {
     src: "https://res.cloudinary.com/dhhvxjczm/video/upload/v1771177374/dine_at_nightV_z3tk7p.mp4",
-    poster: "https://res.cloudinary.com/dhhvxjczm/video/upload/v1771177374/dine_at_nightV_z3tk7p.jpg",
+    poster:
+      "https://res.cloudinary.com/dhhvxjczm/video/upload/so_0.2/v1771177374/dine_at_nightV_z3tk7p.jpg",
     color: "#FFFF00",
     glow: "rgba(255,255,0,0.5)",
   },
   {
     src: "https://res.cloudinary.com/dhhvxjczm/video/upload/v1771179581/dine_at_nightV2_kfirxq.mp4",
-    poster: "https://res.cloudinary.com/dhhvxjczm/video/upload/v1771179581/dine_at_nightV2_kfirxq.jpg",
+    poster:
+      "https://res.cloudinary.com/dhhvxjczm/video/upload/so_0.2/v1771179581/dine_at_nightV2_kfirxq.jpg",
     color: "#FF3333",
     glow: "rgba(255,51,51,0.5)",
   },
   {
-    src: "https://res.cloudinary.com/dhhvxjczm/video/upload/v1771177374/dine_at_nightV_z3tk7p.mp4",
-    poster: "https://res.cloudinary.com/dhhvxjczm/video/upload/v1771177374/dine_at_nightV_z3tk7p.jpg",
+    src: "https://res.cloudinary.com/dhhvxjczm/video/upload/v1773935129/WhatsApp_Video_2026-03-18_at_11.22.40_AM_bkaqhe.mp4",
+    poster:
+      "https://res.cloudinary.com/dhhvxjczm/video/upload/so_0.2/WhatsApp_Video_2026-03-18_at_11.22.40_AM_bkaqhe.jpg",
     color: "#00FF41",
     glow: "rgba(0,255,65,0.5)",
   },
@@ -1668,7 +1671,9 @@ export default function Home() {
                           // eslint-disable-next-line jsx-a11y/media-has-caption
                           <video
                             src={item.src as string}
-                            poster={(item.src as string).replace(".mp4", ".jpg")}
+                            poster={(item.src as string)
+                              .replace("/upload/", "/upload/so_0.2/")
+                              .replace(".mp4", ".jpg")}
                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                             muted
                             loop

@@ -181,7 +181,7 @@ function GalleryContent() {
       <NeonMarquee />
 
       {/* ── TABS ── */}
-      <div className="sticky top-0 z-50 bg-black/90 backdrop-blur-md border-b border-white/6">
+      <div className="sticky top-0 z-10 bg-black/90 backdrop-blur-md border-b border-white/6">
         <div
           ref={tabsRef}
           className="overflow-x-auto px-4 sm:px-6 py-3 scrollbar-none"
@@ -295,6 +295,13 @@ function GalleryContent() {
                 <div key={ci} className="flex-1 flex flex-col gap-3 min-w-0">
                   {col.map((item) => {
                     const accent = accentFor(item.eventId, eventIds);
+                    const videoUrl =
+                      (item.url && typeof item.url === "string"
+                        ? item.url
+                        : typeof item.src === "string"
+                          ? item.src
+                          : "") || "";
+
                     return (
                       <div
                         key={item.id}
@@ -307,16 +314,11 @@ function GalleryContent() {
                             ref={(el) => {
                               videoRefs.current[item.id!] = el;
                             }}
-                            src={item.src as string}
+                            src={videoUrl}
                             className="w-full h-auto block"
                             muted
                             loop
                             playsInline
-                            preload="metadata"
-                            poster={(item.src as string).replace(
-                              ".mp4",
-                              ".jpg",
-                            )}
                             onMouseEnter={(e) =>
                               (e.currentTarget as HTMLVideoElement)
                                 .play()
@@ -492,14 +494,17 @@ function GalleryContent() {
                   >
                     {lightbox.item.type === "video" ? (
                       <video
-                        src={lightbox.item.src as string}
+                        src={
+                          (lightbox.item.url &&
+                          typeof lightbox.item.url === "string"
+                            ? lightbox.item.url
+                            : typeof lightbox.item.src === "string"
+                              ? lightbox.item.src
+                              : "") || ""
+                        }
                         className="w-full max-h-[80svh] sm:max-h-[82vh] object-contain"
                         controls
                         autoPlay
-                        poster={(lightbox.item.src as string).replace(
-                          ".mp4",
-                          ".jpg",
-                        )}
                       />
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element
