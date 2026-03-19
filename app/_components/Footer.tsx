@@ -183,7 +183,7 @@ export default function Footer() {
             <p className="text-gray-600 text-sm">
               <span className="text-gray-700">Sponsorship: </span>
               <a
-                href="mailto:sponsors@dineatnight.com"
+                href="mailto:contact@dineatnight.com"
                 className="hover:text-[#FFFF00] transition-colors duration-300"
               >
                 sponsors@dineatnight.com
