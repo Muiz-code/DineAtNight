@@ -254,6 +254,7 @@ export default function AdminGalleryPage() {
             type: item.type,
             url: item.src,
             caption: item.caption || "",
+            src: ""
           }),
         ),
       );

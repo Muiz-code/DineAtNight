@@ -145,7 +145,9 @@ function GalleryContent() {
       {/* ── HERO CAROUSEL ── */}
       <section className="relative flex flex-col items-center justify-center px-6 text-center pt-24 pb-16 overflow-hidden">
         <HeroCarousel
-          images={carouselPicks.filter((p) => p.type !== "video").map((p) => p.src)}
+          images={carouselPicks
+            .filter((p) => p.type !== "video")
+            .map((p) => p.src)}
           accent="#00FF41"
         />
 
@@ -171,7 +173,6 @@ function GalleryContent() {
         >
           Relive the night. Every edition through photos and video.
         </motion.p>
-
       </section>
 
       <NeonMarquee />
@@ -189,10 +190,14 @@ function GalleryContent() {
               onClick={() => changeTab("all")}
               className="px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-widest border transition-all whitespace-nowrap"
               style={{
-                borderColor: activeTab === "all" ? "#00FF41" : "rgba(255,255,255,0.1)",
-                color: activeTab === "all" ? "#00FF41" : "rgba(255,255,255,0.4)",
-                background: activeTab === "all" ? "rgba(0,255,65,0.08)" : "transparent",
-                boxShadow: activeTab === "all" ? "0 0 12px rgba(0,255,65,0.2)" : "none",
+                borderColor:
+                  activeTab === "all" ? "#00FF41" : "rgba(255,255,255,0.1)",
+                color:
+                  activeTab === "all" ? "#00FF41" : "rgba(255,255,255,0.4)",
+                background:
+                  activeTab === "all" ? "rgba(0,255,65,0.08)" : "transparent",
+                boxShadow:
+                  activeTab === "all" ? "0 0 12px rgba(0,255,65,0.2)" : "none",
               }}
             >
               All
@@ -232,25 +237,27 @@ function GalleryContent() {
             )}
 
             {/* Per-event tabs — exclude latestEventId (already shown above) */}
-            {eventIds.filter((eid) => eid !== latestEventId).map((eid) => {
-              const active = activeTab === eid;
-              const accent = accentFor(eid, eventIds);
-              return (
-                <button
-                  key={eid}
-                  onClick={() => changeTab(eid)}
-                  className="px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-widest border transition-all whitespace-nowrap"
-                  style={{
-                    borderColor: active ? accent : "rgba(255,255,255,0.1)",
-                    color: active ? accent : "rgba(255,255,255,0.4)",
-                    background: active ? `${accent}10` : "transparent",
-                    boxShadow: active ? `0 0 12px ${accent}30` : "none",
-                  }}
-                >
-                  {eventTitleMap[eid] ?? eid}
-                </button>
-              );
-            })}
+            {eventIds
+              .filter((eid) => eid !== latestEventId)
+              .map((eid) => {
+                const active = activeTab === eid;
+                const accent = accentFor(eid, eventIds);
+                return (
+                  <button
+                    key={eid}
+                    onClick={() => changeTab(eid)}
+                    className="px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-widest border transition-all whitespace-nowrap"
+                    style={{
+                      borderColor: active ? accent : "rgba(255,255,255,0.1)",
+                      color: active ? accent : "rgba(255,255,255,0.4)",
+                      background: active ? `${accent}10` : "transparent",
+                      boxShadow: active ? `0 0 12px ${accent}30` : "none",
+                    }}
+                  >
+                    {eventTitleMap[eid] ?? eid}
+                  </button>
+                );
+              })}
           </div>
         </div>
       </div>
@@ -302,7 +309,7 @@ function GalleryContent() {
                             ref={(el) => {
                               videoRefs.current[item.id!] = el;
                             }}
-                            src={item.src}
+                            src={item.src as string}
                             className="w-full h-auto block"
                             muted
                             loop
@@ -483,7 +490,7 @@ function GalleryContent() {
                   >
                     {lightbox.item.type === "video" ? (
                       <video
-                        src={lightbox.item.src}
+                        src={lightbox.item.src as string}
                         className="w-full max-h-[80svh] sm:max-h-[82vh] object-contain"
                         controls
                         autoPlay
@@ -491,7 +498,7 @@ function GalleryContent() {
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={lightbox.item.src}
+                        src={lightbox.item.src as string}
                         alt={lightbox.item.caption}
                         className="w-full max-h-[80svh] sm:max-h-[82vh] object-contain"
                         draggable={false}
