@@ -313,6 +313,10 @@ function GalleryContent() {
                             loop
                             playsInline
                             preload="metadata"
+                            poster={(item.src as string).replace(
+                              ".mp4",
+                              ".jpg",
+                            )}
                             onMouseEnter={(e) =>
                               (e.currentTarget as HTMLVideoElement)
                                 .play()
@@ -492,6 +496,10 @@ function GalleryContent() {
                         className="w-full max-h-[80svh] sm:max-h-[82vh] object-contain"
                         controls
                         autoPlay
+                        poster={(lightbox.item.src as string).replace(
+                          ".mp4",
+                          ".jpg",
+                        )}
                       />
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element

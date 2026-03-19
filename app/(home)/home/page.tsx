@@ -32,6 +32,7 @@ import { getCache, setCache } from "@/lib/cache";
 import { Camera, MapPin, ChevronDown } from "lucide-react";
 import Footer from "@/app/_components/Footer";
 import SectionFadeIn from "@/app/_components/SectionFadeIn";
+// import { video } from "framer-motion/client";
 
 // Heavy / below-fold components — loaded after initial render
 const Loader = dynamic(() => import("../../_components/loader"), {
@@ -125,12 +126,14 @@ const VideoCard = ({
   glowColor,
   isPlaying,
   onPlay,
+  poster,
 }: {
   src: string;
   color: string;
   glowColor: string;
   isPlaying: boolean;
   onPlay: () => void;
+  poster?: string;
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -159,6 +162,7 @@ const VideoCard = ({
         className="w-full h-full object-cover"
         loop
         playsInline
+        poster={poster}
       >
         <source src={src} type="video/mp4" />
       </video>
@@ -342,16 +346,19 @@ function TiltCard({ children }: { children: React.ReactNode }) {
 const videos = [
   {
     src: "https://res.cloudinary.com/dhhvxjczm/video/upload/v1771177374/dine_at_nightV_z3tk7p.mp4",
+    poster: "https://res.cloudinary.com/dhhvxjczm/video/upload/v1771177374/dine_at_nightV_z3tk7p.jpg",
     color: "#FFFF00",
     glow: "rgba(255,255,0,0.5)",
   },
   {
     src: "https://res.cloudinary.com/dhhvxjczm/video/upload/v1771179581/dine_at_nightV2_kfirxq.mp4",
+    poster: "https://res.cloudinary.com/dhhvxjczm/video/upload/v1771179581/dine_at_nightV2_kfirxq.jpg",
     color: "#FF3333",
     glow: "rgba(255,51,51,0.5)",
   },
   {
     src: "https://res.cloudinary.com/dhhvxjczm/video/upload/v1771177374/dine_at_nightV_z3tk7p.mp4",
+    poster: "https://res.cloudinary.com/dhhvxjczm/video/upload/v1771177374/dine_at_nightV_z3tk7p.jpg",
     color: "#00FF41",
     glow: "rgba(0,255,65,0.5)",
   },
@@ -803,7 +810,7 @@ export default function Home() {
           className="relative z-10 mt-6 sm:mt-8 space-y-3 sm:space-y-4 px-2"
         >
           <h1
-            className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold tracking-wide uppercase leading-tight"
+            className="text-[26px] sm:text-3xl md:text-5xl lg:text-6xl font-bold tracking-wide uppercase leading-tight"
             style={{ color: "#1ea664" }}
           >
             Lagos&apos; First Night Food Market
@@ -918,6 +925,7 @@ export default function Home() {
                   color={video.color}
                   glowColor={video.glow}
                   isPlaying={playingIndex === i}
+                  poster={video.poster}
                   onPlay={() => setPlayingIndex(playingIndex === i ? null : i)}
                 />
               ))}
@@ -1660,6 +1668,7 @@ export default function Home() {
                           // eslint-disable-next-line jsx-a11y/media-has-caption
                           <video
                             src={item.src as string}
+                            poster={(item.src as string).replace(".mp4", ".jpg")}
                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                             muted
                             loop
