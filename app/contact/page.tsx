@@ -232,7 +232,7 @@ export default function ContactPage() {
                   {
                     icon: <Mail className="w-4 h-4" />,
                     label: "Sponsorship",
-                    value: "contact@dineatnight.com",
+                    value: "Email",
                     href: "mailto:contact@dineatnight.com",
                     color: "#FF3333",
                   },

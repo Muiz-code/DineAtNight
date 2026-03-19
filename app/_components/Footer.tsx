@@ -116,7 +116,7 @@ export default function Footer() {
               },
               {
                 label: "TikTok",
-                href: "https://www.linkedin.com/company/dine-at-night/",
+                href: "",
                 color: "#FFFF00",
                 glow: "rgba(255,255,0,0.5)",
                 icon: (
