@@ -147,7 +147,7 @@ function GalleryContent() {
         <HeroCarousel
           images={carouselPicks
             .filter((p) => p.type !== "video")
-            .map((p) => p.src)}
+            .map((p) => p.src as string)}
           accent="#00FF41"
         />
 
