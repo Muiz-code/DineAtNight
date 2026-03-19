@@ -804,7 +804,7 @@ export default function Home() {
         >
           <h1
             className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold tracking-wide uppercase leading-tight"
-            style={{ color: "#00FF41" }}
+            style={{ color: "#1ea664" }}
           >
             Lagos&apos; First Night Food Market
           </h1>
