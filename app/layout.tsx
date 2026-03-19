@@ -33,9 +33,10 @@ const APP_URL =
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
 
+  applicationName: "Dine At Night", // ✅ correct placement
+
   title: {
-    default:
-      "Dine at Night - Nigeria’s first night food market | Dine At Night",
+    default: "Dine at Night - Nigeria’s first night food market",
     template: "%s | Dine At Night",
   },
 
@@ -112,6 +113,17 @@ export default function RootLayout({
         <link
           rel="dns-prefetch"
           href="https://firebasestorage.googleapis.com"
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Dine At Night",
+              url: "https://dineatnight.com",
+            }),
+          }}
         />
       </head>
       <body
