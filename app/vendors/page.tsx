@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import SectionFadeIn from "../_components/SectionFadeIn";
 import VendorModal from "../_components/VendorModal";
 import Footer from "../_components/Footer";
-import HeroCarousel from "../_components/HeroCarousel";
+// import HeroCarousel from "../_components/HeroCarousel";
+import Image from "next/image";
 import NeonMarquee from "../_components/NeonMarquee";
 import {
   subscribeApprovedVendors,
@@ -26,6 +27,7 @@ import {
   Mail,
   BookOpen,
 } from "lucide-react";
+import { Images, vendorCarouselImages } from "@/assets/images";
 
 // Map a single Firestore category string to filter key
 const categoryToFilter = (cat: string): string => {
@@ -564,6 +566,7 @@ export default function VendorsPage() {
     v: DanVendor;
     palette: { color: string; glow: string };
   } | null>(null);
+  const [vendorCarouselIdx, setVendorCarouselIdx] = useState(0);
 
   useEffect(() => {
     // Real-time subscription: vendor list stays live while the tab is open.
@@ -590,11 +593,41 @@ export default function VendorsPage() {
     );
   });
 
+  useEffect(() => {
+    const t = setInterval(
+      () => setVendorCarouselIdx((i) => (i + 1) % vendorCarouselImages.length),
+      3000,
+    );
+    return () => clearInterval(t);
+  }, []);
+
   return (
     <div className="relative w-full min-h-screen bg-black overflow-x-hidden">
       {/* ── HERO ── */}
       <section className="relative flex flex-col items-center justify-center h-[50vh] pt-28 pb-16 px-6 text-center overflow-hidden">
-        <HeroCarousel accent="#FF3333" />
+        <div className="absolute inset-0 z-0">
+          <AnimatePresence mode="sync">
+            <motion.div
+              key={vendorCarouselIdx}
+              className="absolute inset-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.2, ease: "easeInOut" }}
+            >
+              <Image
+                src={vendorCarouselImages[vendorCarouselIdx]}
+                alt="DAN event photo"
+                fill
+                sizes="100vw"
+                className="object-cover"
+                priority
+              />
+            </motion.div>
+          </AnimatePresence>
+          {/* Dark overlay so text stays legible */}
+          <div className="absolute inset-0 bg-black/65" />
+        </div>
 
         {/* Red neon tint */}
         <div
