@@ -869,8 +869,8 @@ export default function VendorsPage() {
               {activeEventTitle
                 ? `${activeEventTitle} vendor applications are now open.`
                 : "Applications are now open."}{" "}
-              Join Lagos&apos; most exciting food market and get your brand in
-              front of thousands of hungry night owls.
+              Join one of Lagos&apos; most exciting food experiences and connect
+              with a community that shows up for great food..
             </p>
             <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500">
               {[

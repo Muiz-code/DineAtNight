@@ -767,7 +767,7 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                             </p>
                           </Field>
 
-                          <Field label="Brand Logo">
+                          <Field label="Brand / Food Photo">
                             <ImageUpload
                               value={form.logoUrl}
                               onChange={(url) =>
@@ -779,7 +779,7 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                             />
                           </Field>
 
-                          <Field label="Brand / Food Photo" required>
+                          <Field label="Brand Logo">
                             <ImageUpload
                               value={form.imageUrl}
                               onChange={(url) =>
