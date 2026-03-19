@@ -234,9 +234,7 @@ export async function markTicketPaid(
   });
 }
 
-export async function confirmTicket(
-  reference: string,
-): Promise<{
+export async function confirmTicket(reference: string): Promise<{
   ok: boolean;
   already: boolean;
   reason?: "not_found" | "unpaid";
