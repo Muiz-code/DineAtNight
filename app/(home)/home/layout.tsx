@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "Dine At Night — Lagos's Premier Nighttime Food Market",
+  title: "Dine at Night - Nigeria’s first night food market | Dine At Night",
   description:
-    "Dine At Night is Lagos's premier nighttime food market — an outdoor experience combining the best local food vendors, music, and neon-lit vibes. Get your tickets now.",
+    "Dine at Night is a curated night food market in Lagos, Nigeria, bringing together top food vendors, chefs, and culture for a unique food and nightlife experience.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "Dine At Night — Lagos's Premier Nighttime Food Market",
+    title: "Dine at Night - Nigeria’s first night food market | Dine At Night",
     description:
-      "Lagos's premier nighttime food market. Local vendors, music, neon-lit vibes. Get your tickets now.",
+      "Dine at Night is a curated night food market in Lagos, Nigeria, bringing together top food vendors, chefs, and culture for a unique food and nightlife experience.",
     url: "/",
   },
 };

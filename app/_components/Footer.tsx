@@ -186,7 +186,7 @@ export default function Footer() {
                 href="mailto:contact@dineatnight.com"
                 className="hover:text-[#FFFF00] transition-colors duration-300"
               >
-                sponsors@dineatnight.com
+                contact@dineatnight.com
               </a>
             </p>
             <p className="text-gray-600 text-sm">
