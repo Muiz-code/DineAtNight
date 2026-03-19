@@ -42,7 +42,7 @@ export default function Footer() {
             className="object-contain"
           />
           <p className="text-gray-600 text-sm leading-relaxed max-w-xs">
-            Lagos&apos; first nighttime food market. For those who dine after
+            Lagos&apos; first night food market. For those who dine after
             dark.
           </p>
           <p className="text-gray-700 text-xs">
