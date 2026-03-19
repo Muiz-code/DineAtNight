@@ -577,7 +577,7 @@ export default function AboutPage() {
                   }}
                   whileTap={{ scale: 0.97 }}
                 >
-                  get tickets
+                  Buy Tickets
                 </motion.button>
               </Link>
             </div>
