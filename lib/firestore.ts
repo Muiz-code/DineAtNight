@@ -24,6 +24,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { clearCache } from "./cache";
+import { StaticImport } from "next/dist/shared/lib/get-img-props";
 
 /**
  * Cast a Firestore document snapshot to a typed model, injecting `id`.
@@ -591,6 +592,7 @@ export const subscribeToTestimonials = createSubscription<DanTestimonial>(
    Gallery Items
 ═══════════════════════════════════════════════ */
 export interface DanGalleryItem {
+  src: string | StaticImport;
   url: string;
   id?: string;
   eventId: string;
