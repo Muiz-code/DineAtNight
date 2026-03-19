@@ -397,7 +397,6 @@ const stats = [
   // },
 ];
 
-
 /* ═══════════════════════════════════════════════
    Stacked Gallery (mobile swipe)
 ═══════════════════════════════════════════════ */
@@ -1710,7 +1709,7 @@ export default function Home() {
                         {item.type === "video" ? (
                           // eslint-disable-next-line jsx-a11y/media-has-caption
                           <video
-                            src={item.src}
+                            src={item.src as string}
                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                             muted
                             loop
