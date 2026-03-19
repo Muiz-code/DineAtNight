@@ -15,6 +15,7 @@ import {
   Users,
   Moon,
   MessageCircle,
+  Linkedin,
 } from "lucide-react";
 import Footer from "../_components/Footer";
 import Carousel from "../_components/Carousel";
@@ -85,6 +86,7 @@ const SUBMIT_COOLDOWN_MS = 60_000;
 const COOLDOWN_KEY = "dan_contact_last_submit";
 
 export default function ContactPage() {
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -128,21 +130,56 @@ export default function ContactPage() {
     }
   };
 
+  const faqs = [
+    {
+      q: "What can I expect at Dine at Night?",
+      a: "Expect a curated lineup of food vendors, great music, and a vibrant atmosphere. Come ready to eat, explore, and experience the energy of Lagos at night.",
+    },
+    {
+      q: "When is the next event?",
+      a: "Our main event takes place annually in December, with special editions throughout the year. Follow us on Instagram or join our mailing list to be the first to know when tickets drop.",
+    },
+    {
+      q: "How do I get tickets?",
+      a: "Tickets are released online ahead of each event and are available until sold out. We recommend purchasing early as tickets are limited and previous editions have sold out.",
+    },
+    {
+      q: "Is there an age limit?",
+      a: "Yes, Dine at Night is strictly a 16+ event.",
+    },
+    {
+      q: "How do I become a vendor?",
+      a: "Vendors are selected through a curation process. You can apply through our vendor form, and our team reviews each application based on quality, originality, and fit. We’ll reach out if selected.",
+    },
+    {
+      q: "What do you look for in vendors?",
+      a: "We prioritise quality, originality, and strong food concepts. We’re looking for vendors who understand the experience and can deliver consistently within a high-energy environment.",
+    },
+    {
+      q: "Is there a fee to vend?",
+      a: "Yes. Selected vendors are required to pay a participation fee. Full details are shared with vendors upon acceptance.",
+    },
+    {
+      q: "How do I become a sponsor? ",
+      a: "For sponsorship enquiries, please email contact@dineatnight.com with your brand details and the type of partnership you have in mind. Our team will be in touch if there’s a fit.",
+    },
+  ];
+
   return (
     <div className="relative w-full min-h-screen bg-black overflow-x-hidden">
       {/* ── HERO ── */}
-      <section className="relative flex flex-col items-center justify-center pt-28 pb-16 px-6 text-center overflow-hidden">
+      <section className="relative flex flex-col items-center justify-center h-[50vh] pt-28 pb-16 px-6 text-center overflow-hidden">
         <HeroCarousel accent="#00FF41" />
 
         <div
           className="absolute inset-0 pointer-events-none z-1"
           style={{
             background:
-              "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,255,65,0.06) 0%, transparent 70%)",
+              "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,255,0,0.06) 0%, transparent 70%)",
           }}
         />
         <motion.h1
-          className="text-5xl sm:text-7xl uppercase tracking-tight"
+          className="relative z-10 text-5xl sm:text-7xl md:text-8xl uppercase tracking-tight leading-none"
           style={{
             color: "transparent",
             WebkitTextStroke: "2px #00FF41",
@@ -155,10 +192,10 @@ export default function ContactPage() {
           Contact Us
         </motion.h1>
         <motion.p
-          className="mt-4 text-gray-400 text-base sm:text-lg max-w-md"
-          initial={{ opacity: 0, y: 15 }}
+          className="relative z-10 mt-6 text-gray-300 text-lg sm:text-xl max-w-2xl leading-relaxed"
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.25 }}
+          transition={{ duration: 0.8, delay: 0.3 }}
         >
           Questions, partnerships, or just want to say hi — we&apos;re here for
           it.
@@ -266,30 +303,6 @@ export default function ContactPage() {
               </div>
             </div>
 
-            {/* Topic Cards */}
-            <div>
-              <h3 className="text-xs text-gray-600 uppercase tracking-widest mb-4">
-                What Can We Help With?
-              </h3>
-              <div className="grid grid-cols-2 gap-2">
-                {contactTopics.map((topic) => (
-                  <div
-                    key={topic.label}
-                    className="rounded-lg border p-3 text-center cursor-default"
-                    style={{
-                      borderColor: `${topic.color}15`,
-                      background: "rgba(10,10,10,0.8)",
-                    }}
-                  >
-                    <div className="text-lg mb-1">{topic.icon}</div>
-                    <p className="text-[10px] text-gray-600 leading-snug">
-                      {topic.label}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Response time note */}
             <div
               className="rounded-xl border p-4"
@@ -346,19 +359,11 @@ export default function ContactPage() {
                     ),
                   },
                   {
-                    label: "Twitter / X",
-                    href: "https://twitter.com/dineatnight",
-                    color: "#FFFF00",
-                    glow: "rgba(255,255,0,0.3)",
-                    icon: (
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        className="w-5 h-5"
-                      >
-                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.91-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                      </svg>
-                    ),
+                    label: "LinkedIn",
+                    href: "https://www.linkedin.com/company/dineatnight/",
+                    color: "#0077B5",
+                    glow: "rgba(0,119,181,0.3)",
+                    icon: <Linkedin className="w-5 h-5" />,
                   },
                 ].map((s) => (
                   <a
@@ -641,122 +646,64 @@ export default function ContactPage() {
 
       {/* ── FAQ CAROUSEL ── */}
       <SectionFadeIn>
-        <section className="py-16 px-6 max-w-5xl mx-auto">
-          <Carousel
-            title="Frequently Asked Questions"
-            accentColor="#FFFF00"
-            glowColor="rgba(255,255,0,0.35)"
-            autoPlay={false}
-            showDots
-            showArrows
-            items={[
-              {
-                id: "faq1",
-                content: (
-                  <div className="text-center px-6 py-8 max-w-2xl mx-auto">
-                    <Ticket
-                      className="w-10 h-10 mx-auto mb-4"
+        <section className="relative z-10 pt-10 pb-5 px-6 md:px-16 bg-black/75">
+          <div className="max-w-3xl mx-auto">
+            <h2
+              className="text-4xl md:text-5xl uppercase tracking-wider text-center mb-14"
+              style={{
+                color: "transparent",
+                WebkitTextStroke: "2px #FFFF00",
+                textShadow: "0 0 20px rgba(255,255,0,0.4)",
+              }}
+            >
+              FAQ
+            </h2>
+            <div className="space-y-3">
+              {faqs.map((faq, i) => (
+                <motion.div
+                  key={i}
+                  className="rounded-xl border overflow-hidden"
+                  style={{
+                    borderColor:
+                      openFaq === i ? "#FFFF00" : "rgba(255,255,255,0.07)",
+                    boxShadow:
+                      openFaq === i ? "0 0 20px rgba(255,255,0,0.15)" : "none",
+                  }}
+                >
+                  <button
+                    className="w-full flex items-center justify-between px-5 py-4 text-left"
+                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  >
+                    <span className="text-gray-200 text-sm sm:text-base font-medium pr-4">
+                      {faq.q}
+                    </span>
+                    <span
+                      className="text-xl flex-shrink-0 transition-transform duration-300"
                       style={{
                         color: "#FFFF00",
-                        filter: "drop-shadow(0 0 8px rgba(255,255,0,0.5))",
+                        transform:
+                          openFaq === i ? "rotate(45deg)" : "rotate(0deg)",
                       }}
-                    />
-                    <h3
-                      className="text-lg font-bold uppercase tracking-wide mb-3"
-                      style={{ color: "#FFFF00" }}
                     >
-                      How do I get tickets?
-                    </h3>
-                    <p className="text-gray-400 text-sm leading-relaxed">
-                      Head to our Events page, select an upcoming edition, and
-                      click &quot;Get Tickets&quot;. You&apos;ll be redirected
-                      to our secure Paystack checkout. Your e-ticket with QR
-                      code is sent instantly after payment.
-                    </p>
-                  </div>
-                ),
-              },
-              {
-                id: "faq2",
-                content: (
-                  <div className="text-center px-6 py-8 max-w-2xl mx-auto">
-                    <Utensils
-                      className="w-10 h-10 mx-auto mb-4"
-                      style={{
-                        color: "#FF3333",
-                        filter: "drop-shadow(0 0 8px rgba(255,51,51,0.5))",
-                      }}
-                    />
-                    <h3
-                      className="text-lg font-bold uppercase tracking-wide mb-3"
-                      style={{ color: "#FF3333" }}
+                      +
+                    </span>
+                  </button>
+                  {openFaq === i && (
+                    <motion.div
+                      className="px-5 pb-5"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      transition={{ duration: 0.3 }}
                     >
-                      How do I Apply?
-                    </h3>
-                    <p className="text-gray-400 text-sm leading-relaxed">
-                      Visit our Vendors page and click &quot;Apply to
-                      Vend&quot;. Fill in your details — food category, business
-                      name, Instagram, and a description of what you&apos;ll be
-                      serving. We review all applications and get back within 5
-                      business days.
-                    </p>
-                  </div>
-                ),
-              },
-              {
-                id: "faq3",
-                content: (
-                  <div className="text-center px-6 py-8 max-w-2xl mx-auto">
-                    <Users
-                      className="w-10 h-10 mx-auto mb-4"
-                      style={{
-                        color: "#00FF41",
-                        filter: "drop-shadow(0 0 8px rgba(0,255,65,0.5))",
-                      }}
-                    />
-                    <h3
-                      className="text-lg font-bold uppercase tracking-wide mb-3"
-                      style={{ color: "#00FF41" }}
-                    >
-                      How do I become a sponsor?
-                    </h3>
-                    <p className="text-gray-400 text-sm leading-relaxed">
-                      Email us at sponsors@dineatnight.com with your brand name
-                      and what kind of partnership you have in mind. We offer
-                      booth activations, brand mentions, social media features,
-                      and custom integrations within the event experience.
-                    </p>
-                  </div>
-                ),
-              },
-              {
-                id: "faq4",
-                content: (
-                  <div className="text-center px-6 py-8 max-w-2xl mx-auto">
-                    <Moon
-                      className="w-10 h-10 mx-auto mb-4"
-                      style={{
-                        color: "#FFFF00",
-                        filter: "drop-shadow(0 0 8px rgba(255,255,0,0.5))",
-                      }}
-                    />
-                    <h3
-                      className="text-lg font-bold uppercase tracking-wide mb-3"
-                      style={{ color: "#FFFF00" }}
-                    >
-                      What exactly is Dine At Night?
-                    </h3>
-                    <p className="text-gray-400 text-sm leading-relaxed">
-                      Dine At Night is Lagos&apos;s premier nighttime food
-                      market — an outdoor experience combining the best local
-                      food vendors, music, and neon-lit ambiance. It runs from
-                      dusk till late, with a new edition every few months.
-                    </p>
-                  </div>
-                ),
-              },
-            ]}
-          />
+                      <p className="text-gray-500 text-sm leading-relaxed">
+                        {faq.a}
+                      </p>
+                    </motion.div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          </div>
         </section>
       </SectionFadeIn>
 

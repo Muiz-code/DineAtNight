@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -337,18 +338,18 @@ export default function ShopPage() {
   return (
     <div className="relative w-full min-h-screen bg-black overflow-x-hidden">
       {/* ── HERO ── */}
-      <section className="relative flex flex-col items-center justify-center pt-28 pb-16 px-6 text-center overflow-hidden">
+      <section className="relative flex flex-col items-center justify-center h-[50vh] pt-28 pb-16 px-6 text-center overflow-hidden">
         <HeroCarousel accent="#00FF41" />
 
         <div
           className="absolute inset-0 pointer-events-none z-1"
           style={{
             background:
-              "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,255,65,0.06) 0%, transparent 70%)",
+              "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,255,0,0.06) 0%, transparent 70%)",
           }}
         />
         <motion.h1
-          className="text-5xl sm:text-7xl uppercase tracking-tight"
+          className="relative z-10 text-5xl sm:text-7xl md:text-8xl uppercase tracking-tight leading-none"
           style={{
             color: "transparent",
             WebkitTextStroke: "2px #00FF41",
@@ -361,13 +362,12 @@ export default function ShopPage() {
           The Shop
         </motion.h1>
         <motion.p
-          className="mt-4 text-gray-400 text-base sm:text-lg max-w-md"
-          initial={{ opacity: 0, y: 15 }}
+          className="relative z-10 mt-6 text-gray-300 text-lg sm:text-xl max-w-2xl leading-relaxed"
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.25 }}
+          transition={{ duration: 0.8, delay: 0.3 }}
         >
-          Wear the night. Exclusive Dine At Night pieces for those who dine
-          after dark.
+          Exclusive Dine At Night pieces for those who dine after dark.
         </motion.p>
       </section>
 
@@ -1446,7 +1446,7 @@ export default function ShopPage() {
       </SectionFadeIn>
       <NeonMarquee />
       {/* ── MERCH REVIEWS CAROUSEL ── */}
-      <SectionFadeIn>
+      {/* <SectionFadeIn>
         <section className="py-16 px-6">
           <Carousel
             title="What the Night Crowd Is Saying"
@@ -1535,7 +1535,7 @@ export default function ShopPage() {
           />
         </section>
       </SectionFadeIn>
-      <NeonMarquee />
+      <NeonMarquee /> */}
       <Footer />
     </div>
   );

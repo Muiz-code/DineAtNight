@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Images } from "@/assets/images";
+import { Linkedin } from "lucide-react";
 import { sendNewsletterWelcomeEmail } from "@/lib/emailjs";
 
 export default function Footer() {
@@ -41,10 +42,19 @@ export default function Footer() {
             className="object-contain"
           />
           <p className="text-gray-600 text-sm leading-relaxed max-w-xs">
-            Lagos&apos; first night food market.
+            Lagos&apos; first nighttime food market. For those who dine after
+            dark.
           </p>
           <p className="text-gray-700 text-xs">
-            Powered by <span className="text-gray-500">Those Who Dine</span>
+            Powered by{" "}
+            <a
+              href="https://thosewhodine.co"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-500 hover:text-white transition-colors"
+            >
+              Those Who Dine
+            </a>
           </p>
         </div>
 
@@ -120,19 +130,11 @@ export default function Footer() {
                 ),
               },
               {
-                label: "Twitter / X",
-                href: "https://twitter.com/dineatnight",
-                color: "#00FF41",
-                glow: "rgba(0,255,65,0.5)",
-                icon: (
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    className="w-4 h-4"
-                  >
-                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.91-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                  </svg>
-                ),
+                label: "LinkedIn",
+                href: "https://www.linkedin.com/company/dineatnight/",
+                color: "#0077B5",
+                glow: "rgba(0,119,181,0.5)",
+                icon: <Linkedin className="w-4 h-4" />,
               },
             ].map((social) => (
               <a

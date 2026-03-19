@@ -382,7 +382,7 @@ const stats = [
     glow: "rgba(255,255,0,0.25)",
   },
   {
-    label: "Sold Out",
+    label: "of vendors said they'd come back",
     value: 100,
     suffix: "%",
     color: "#00FF41",
@@ -844,7 +844,7 @@ export default function Home() {
               glowColor="rgba(255,255,0,0.65)"
               delay={0}
             >
-              Get Tickets
+              Buy Tickets
             </NeonButton>
           </Link>
 
@@ -864,31 +864,10 @@ export default function Home() {
               glowColor="rgba(0,255,65,0.65)"
               delay={0.5}
             >
-              Get Merch
+              Buy Merch
             </NeonButton>
           </Link>
         </motion.div>
-
-        {/* Scroll hint */}
-        {/* <motion.div
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.8 }}
-        >
-          <motion.div
-            className="w-px h-8 sm:h-10 rounded-full"
-            style={{
-              background:
-                "linear-gradient(to bottom, rgba(255,255,0,0.8), transparent)",
-            }}
-            animate={{ scaleY: [1, 0.4, 1], opacity: [0.8, 0.3, 0.8] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-          />
-          <span className="text-[9px] sm:text-[10px] tracking-[0.3em] text-gray-600 uppercase">
-            Scroll
-          </span>
-        </motion.div> */}
       </section>
 
       {/* Neon ticker after hero */}
@@ -943,32 +922,6 @@ export default function Home() {
                 />
               ))}
             </div>
-
-            {/* Neon divider */}
-            {/* <div className="flex items-center justify-center gap-3 pt-4">
-              <span
-                className="block h-px flex-1 max-w-25"
-                style={{
-                  background: "linear-gradient(90deg, transparent, #FF3333)",
-                  boxShadow: "0 0 10px rgba(255,51,51,0.6)",
-                }}
-              />
-              <span
-                className="block w-2 h-2 rounded-full"
-                style={{
-                  backgroundColor: "#FFFF00",
-                  boxShadow:
-                    "0 0 12px rgba(255,255,0,0.9), 0 0 24px rgba(255,255,0,0.5)",
-                }}
-              />
-              <span
-                className="block h-px flex-1 max-w-25"
-                style={{
-                  background: "linear-gradient(90deg, #FF3333, transparent)",
-                  boxShadow: "0 0 10px rgba(255,51,51,0.6)",
-                }}
-              />
-            </div> */}
           </div>
         </section>
       </SectionFadeIn>
@@ -1026,10 +979,10 @@ export default function Home() {
                   textShadow: "0 0 20px rgba(255,51,51,0.25)",
                 }}
               >
-                10+
+                90%
               </div>
               <div className="mt-3 text-gray-400 text-[10px] md:text-sm tracking-widest uppercase">
-                Vendors
+                of vendors sold out
               </div>
             </motion.div>
           </div>
@@ -1347,7 +1300,7 @@ export default function Home() {
                             whileHover={!soldOut ? { scale: 1.03 } : {}}
                             whileTap={!soldOut ? { scale: 0.97 } : {}}
                           >
-                            {soldOut ? "Sold Out" : "Get Tickets →"}
+                            {soldOut ? "Sold Out" : "Buy Tickets →"}
                           </motion.button>
                         </Link>
                       </div>
@@ -1378,9 +1331,6 @@ export default function Home() {
               >
                 Past Events
               </motion.h2>
-              <p className="text-gray-500 text-center text-base tracking-widest uppercase mb-12">
-                Relive the nights that made Lagos talk
-              </p>
 
               <div className="space-y-6">
                 {pastEvents.map((ev) => {
@@ -1946,9 +1896,6 @@ export default function Home() {
             >
               Follow The Night
             </motion.h2>
-            <p className="text-gray-500 text-base tracking-widest uppercase mb-12">
-              @dineatnight.ng on Instagram
-            </p>
 
             {/* Gallery photos when available, placeholder otherwise */}
             <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-12">
@@ -1986,14 +1933,23 @@ export default function Home() {
               })}
             </div>
 
-            <div className="pointer-events-auto flex justify-center">
+            <div className="pointer-events-auto flex flex-col sm:flex-row gap-4 justify-center">
               <a
                 href="https://www.instagram.com/dineatnight.ng/"
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 <NeonButton color="#FFFF00" glowColor="rgba(255,255,0,0.55)">
-                  Follow @dineatnight.ng
+                  Instagram
+                </NeonButton>
+              </a>
+              <a
+                href="https://tiktok.com/@dineatnight.ng"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <NeonButton color="#FF3333" glowColor="rgba(255,51,51,0.55)">
+                  TikTok
                 </NeonButton>
               </a>
             </div>

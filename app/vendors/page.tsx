@@ -531,26 +531,13 @@ const COLORS = [
   { color: "#00FF41", glow: "rgba(0,255,65,0.5)" },
 ];
 
-type FilterKey =
-  | "all"
-  | "grilled"
-  | "rice"
-  | "street"
-  | "snacks"
-  | "desserts"
-  | "drinks"
-  | "fusion"
-  | "other";
+type FilterKey = "all" | "food" | "desserts" | "drinks" | "other";
 
 const filterCategories: { key: FilterKey; label: string }[] = [
   { key: "all", label: "All Vendors" },
-  { key: "grilled", label: "Grilled & BBQ" },
-  { key: "rice", label: "Rice & Stews" },
-  { key: "street", label: "Street Food" },
-  { key: "snacks", label: "Snacks" },
+  { key: "food", label: "Food" },
   { key: "desserts", label: "Desserts" },
   { key: "drinks", label: "Drinks" },
-  { key: "fusion", label: "Fusion" },
 ];
 
 const SkeletonCard = () => (
@@ -606,7 +593,7 @@ export default function VendorsPage() {
   return (
     <div className="relative w-full min-h-screen bg-black overflow-x-hidden">
       {/* ── HERO ── */}
-      <section className="relative flex flex-col items-center justify-center pt-28 pb-16 px-6 text-center overflow-hidden">
+      <section className="relative flex flex-col items-center justify-center h-[50vh] pt-28 pb-16 px-6 text-center overflow-hidden">
         <HeroCarousel accent="#FF3333" />
 
         {/* Red neon tint */}
@@ -628,7 +615,7 @@ export default function VendorsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.1 }}
         >
-          Our Vendors
+          Curated Vendors
         </motion.h1>
         <motion.p
           className="relative z-10 mt-4 text-gray-300 text-base sm:text-lg max-w-xl"
@@ -636,8 +623,8 @@ export default function VendorsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.25 }}
         >
-          Every vendor at Dine At Night is handpicked. Quality food, real
-          flavour — no shortcuts.
+          Every vendor at Dine at Night is carefully curated. Each one chosen
+          for quality, originality, and the experience they bring.
         </motion.p>
 
         <motion.div
@@ -659,7 +646,7 @@ export default function VendorsPage() {
             }}
             whileTap={{ scale: 0.97 }}
           >
-            Apply →
+            become a vendor
           </motion.button>
         </motion.div>
       </section>
@@ -678,7 +665,7 @@ export default function VendorsPage() {
 
       {/* ── FILTER PILLS ── */}
       <SectionFadeIn>
-        <section className="px-6 pb-4">
+        <section className="px-6 pb-4 pt-10">
           <div className="max-w-6xl mx-auto">
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
               {filterCategories.map((cat) => (
@@ -877,7 +864,7 @@ export default function VendorsPage() {
               }}
               whileTap={{ scale: 0.97 }}
             >
-              Apply →
+              become a vendor’
             </motion.button>
           </div>
         </section>

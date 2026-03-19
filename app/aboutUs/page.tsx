@@ -63,266 +63,66 @@ interface TeamGroup {
   color: string;
   glow: string;
   icon: React.ReactNode;
-  modalDesc: string;
-  members: TeamPerson[];
+  // modalDesc: string;
+  // members: TeamPerson[];
 }
 
 const teamMembers: TeamGroup[] = [
   {
-    name: "The Organizers",
-    role: "Founders & Creative Direction",
-    desc: "The team behind Dine At Night is a group of passionate Lagos creatives who saw a gap in the city's nightlife — great food with no great setting. They built the night.",
+    name: "Creative & Experience Director ",
+    role: "Tami",
+    desc: "Leads the creative vision, branding, and overall guest experience of Dine at Night, ensuring each event is visually compelling, culturally relevant, and memorable.",
     color: "#FFFF00",
     glow: "rgba(255,255,0,0.5)",
     icon: <Crown className="w-10 h-10" />,
-    modalDesc:
-      "Four women who dared to imagine a Lagos night market that actually hits different. They conceived Dine At Night over late-night conversations, built it from zero, and continue to shape every edition with relentless vision and energy.",
-    members: [
-      {
-        name: "Ajibola",
-        title: "Co-Founder & Creative Lead",
-        bio: "Ajibola is the creative engine behind Dine At Night. From brand identity to event aesthetics, her eye for detail transforms every edition into a fully immersive visual experience.",
-        imageUrl: "",
-      },
-      {
-        name: "Tami",
-        title: "Co-Founder & Operations",
-        bio: "Tami keeps the wheels turning. From vendor logistics to day-of execution, she makes sure every moving part of DAN runs without a hitch — every single time.",
-        imageUrl: "",
-      },
-      {
-        name: "Temi",
-        title: "Co-Founder & Partnerships",
-        bio: "Temi is the connector. She builds the relationships that bring sponsors, collaborators, and the right brands into the DAN ecosystem — and keeps them coming back.",
-        imageUrl: "",
-      },
-      {
-        name: "Zena",
-        title: "Co-Founder & Marketing",
-        bio: "Zena owns the voice of Dine At Night. From social media to community building, she's the reason Lagos can't stop talking about DAN long after the night ends.",
-        imageUrl: "",
-      },
-    ],
   },
   {
-    name: "Vendor Relations",
-    role: "Curation & Partnerships",
-    desc: "Our vendor team hand-picks every stall. Every vendor at DAN meets strict quality standards — because your night deserves only the best.",
+    name: "Partnerships & Revenue Lead",
+    role: "Temi",
+    desc: "Drives revenue through sponsorships, partnerships, and ticketing strategy while managing financial planning and brand relationships.",
     color: "#FF3333",
     glow: "rgba(255,51,51,0.5)",
     icon: <Users className="w-10 h-10" />,
-    modalDesc:
-      "Our vendor relations team is obsessed with quality. They scout, vet, and support every vendor on the DAN floor — ensuring that every bite at our events is genuinely worth talking about.",
-    members: [
-      {
-        name: "Scouting",
-        title: "Vendor Discovery",
-        bio: "Constantly out in Lagos finding hidden food gems, emerging vendors, and cult-favourite spots that belong on the DAN stage.",
-        imageUrl: "",
-      },
-      {
-        name: "Standards",
-        title: "Quality & Compliance",
-        bio: "Every vendor goes through a rigorous quality check. This team ensures DAN's reputation for excellence is earned at every single stall.",
-        imageUrl: "",
-      },
-      {
-        name: "Support",
-        title: "Vendor Success",
-        bio: "From onboarding to event day, this team is in the vendors' corner — briefing, prepping, and making sure every vendor walks away having sold out.",
-        imageUrl: "",
-      },
-    ],
+    // modalDesc:
+    //   "Our vendor relations team is obsessed with quality. They scout, vet, and support every vendor on the DAN floor — ensuring that every bite at our events is genuinely worth talking about.",
+    // members: [
+    //   {
+    //     name: "Scouting",
+    //     title: "Vendor Discovery",
+    //     bio: "Constantly out in Lagos finding hidden food gems, emerging vendors, and cult-favourite spots that belong on the DAN stage.",
+    //     imageUrl: "",
+    //   },
+    //   {
+    //     name: "Standards",
+    //     title: "Quality & Compliance",
+    //     bio: "Every vendor goes through a rigorous quality check. This team ensures DAN's reputation for excellence is earned at every single stall.",
+    //     imageUrl: "",
+    //   },
+    //   {
+    //     name: "Support",
+    //     title: "Vendor Success",
+    //     bio: "From onboarding to event day, this team is in the vendors' corner — briefing, prepping, and making sure every vendor walks away having sold out.",
+    //     imageUrl: "",
+    //   },
+    // ],
   },
   {
-    name: "Production Crew",
-    role: "Logistics & Experience Design",
-    desc: "From the neon lights to the stage setup, our production crew transforms any space into an immersive night market you won't forget.",
+    name: "Guest Experience & Community Lead",
+    role: "Ajibola",
+    desc: "Manages attendee experience from ticket purchase to post-event engagement, ensuring high satisfaction and strong community retention.",
+    color: "#FF3333",
+    glow: "rgba(255,51,51,0.5)",
+    icon: <Users className="w-10 h-10" />,
+  },
+  {
+    name: "Operations & Production Lead",
+    role: "Zena",
+    desc: "Oversees the planning, logistics, and execution of all events, ensuring seamless delivery across vendors, venue, staffing, and production.",
     color: "#00FF41",
     glow: "rgba(0,255,65,0.5)",
     icon: <Clapperboard className="w-10 h-10" />,
-    modalDesc:
-      "Behind every jaw-dropping setup is a crew that started work days before you arrived. They are the unsung architects of the DAN experience — lights, sound, layout, flow, and every atmospheric detail.",
-    members: [
-      {
-        name: "Lighting & AV",
-        title: "Atmosphere Design",
-        bio: "The neon glow you feel before you even see the stalls? That's them. Every fixture, projection, and beam is placed with intention.",
-        imageUrl: "",
-      },
-      {
-        name: "Stage & Sound",
-        title: "Live Experience",
-        bio: "From soundcheck to the final set, the stage team ensures the music and live moments hit exactly as hard as they should.",
-        imageUrl: "",
-      },
-      {
-        name: "Logistics",
-        title: "Build & Flow",
-        bio: "Floor plans, vendor placement, crowd flow, infrastructure — this team builds the world DAN exists in, from the ground up.",
-        imageUrl: "",
-      },
-    ],
   },
 ];
-
-function TeamModal({
-  team,
-  onClose,
-}: {
-  team: TeamGroup;
-  onClose: () => void;
-}) {
-  useScrollLock(true);
-
-  return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-      >
-        {/* Backdrop */}
-        <div
-          className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-          onClick={onClose}
-        />
-
-        {/* Panel */}
-        <motion.div
-          className="relative w-full max-w-2xl max-h-[90vh] rounded-2xl border flex flex-col"
-          style={{
-            background: "linear-gradient(160deg, #0c0c0c, #060606)",
-            borderColor: `${team.color}30`,
-            boxShadow: `0 0 60px ${team.glow}20`,
-          }}
-          initial={{ opacity: 0, y: 40, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 20, scale: 0.96 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-        >
-          {/* Corner accents — outside the scroll container so they stay fixed */}
-          <span
-            className="absolute top-0 left-0 w-8 h-8 pointer-events-none z-10"
-            style={{
-              borderTop: `2px solid ${team.color}`,
-              borderLeft: `2px solid ${team.color}`,
-            }}
-          />
-          <span
-            className="absolute bottom-0 right-0 w-8 h-8 pointer-events-none z-10"
-            style={{
-              borderBottom: `2px solid ${team.color}`,
-              borderRight: `2px solid ${team.color}`,
-            }}
-          />
-
-          {/* Close button — also outside scroll container */}
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center border transition-colors z-20"
-            style={{ borderColor: `${team.color}40`, color: team.color }}
-          >
-            <X className="w-4 h-4" />
-          </button>
-
-          {/* Scrollable content area */}
-          <div className="overflow-y-auto flex-1">
-            <div className="p-7 pt-6">
-              {/* Header */}
-              <div className="flex items-center gap-4 mb-2">
-                <div
-                  style={{
-                    color: team.color,
-                    filter: `drop-shadow(0 0 8px ${team.glow})`,
-                  }}
-                >
-                  {team.icon}
-                </div>
-                <div>
-                  <h3
-                    className="text-2xl font-bold uppercase tracking-wide"
-                    style={{
-                      color: team.color,
-                      textShadow: `0 0 16px ${team.glow}`,
-                    }}
-                  >
-                    {team.name}
-                  </h3>
-                  <p className="text-gray-500 text-xs uppercase tracking-widest">
-                    {team.role}
-                  </p>
-                </div>
-              </div>
-
-              <div
-                className="h-px w-full my-4"
-                style={{
-                  background: `linear-gradient(to right, ${team.color}40, transparent)`,
-                }}
-              />
-
-              <p className="text-gray-300 text-sm leading-relaxed mb-7">
-                {team.modalDesc}
-              </p>
-
-              {/* Member grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {team.members.map((person) => (
-                  <div
-                    key={person.name}
-                    className="flex gap-4 items-start rounded-xl border p-4"
-                    style={{
-                      borderColor: `${team.color}18`,
-                      background: "rgba(255,255,255,0.02)",
-                    }}
-                  >
-                    {/* Avatar */}
-                    <div
-                      className="flex-shrink-0 w-14 h-14 rounded-full overflow-hidden border-2 flex items-center justify-center text-xl font-bold uppercase"
-                      style={{
-                        borderColor: `${team.color}50`,
-                        background: `${team.color}10`,
-                        color: team.color,
-                      }}
-                    >
-                      {person.imageUrl ? (
-                        <img
-                          src={person.imageUrl}
-                          alt={person.name}
-                          className="w-full h-full object-cover object-center"
-                        />
-                      ) : (
-                        person.name[0]
-                      )}
-                    </div>
-
-                    <div className="min-w-0">
-                      <p
-                        className="font-bold text-sm uppercase tracking-wide"
-                        style={{ color: team.color }}
-                      >
-                        {person.name}
-                      </p>
-                      <p className="text-gray-500 text-[10px] uppercase tracking-widest mb-2">
-                        {person.title}
-                      </p>
-                      <p className="text-gray-400 text-xs leading-relaxed">
-                        {person.bio}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          {/* end overflow-y-auto */}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  );
-}
 
 const values = [
   {
@@ -338,8 +138,8 @@ const values = [
     color: "#FF3333",
   },
   {
-    title: "Authentically Lagos",
-    desc: "DAN is rooted in Lagos culture — the energy, the flavours, the people. We celebrate where we're from.",
+    title: "Rooted in Culture",
+    desc: "Dine at Night is shaped by the energy, flavours, and people that inspire it. What starts in Lagos is built to travel.",
     icon: <Landmark className="w-8 h-8" />,
     color: "#00FF41",
   },
@@ -353,22 +153,28 @@ const values = [
 
 const timeline = [
   {
-    year: "2023",
+    year: "2025",
     title: "The Idea",
-    desc: "Dine At Night is conceived over a late-night suya run. A question is asked: why isn't there a proper nighttime food market in Lagos?",
+    desc: "Dine at Night was born from a shared obsession with food and food experiences. From dinners to markets to travelling just to eat, we wanted more from how food was experienced in Lagos. So we asked a simple question. Why isn’t there a proper nighttime food market?",
     color: "#FFFF00",
   },
   {
-    year: "2024",
+    year: "DECEMBER 2025",
     title: "Edition 1",
-    desc: "The first Dine At Night sells 850+ tickets and has a 90% sell-out rate. Edition 2 is immediately demanded.",
+    desc: "The first Dine at Night launches and sells 800+ tickets. Vendors sell out. The energy is undeniable. It is clear Lagos was ready for this.",
     color: "#FF3333",
   },
   {
-    year: "2026",
-    title: "Edition 2",
-    desc: "DAN returns bigger, longer, louder. New vendors, new activations, same relentless energy.",
+    year: "EASTER 2026",
+    title: "POP UP",
+    desc: "A limited, chef-led edition of Dine at Night. A more intimate, curated experience featuring a select lineup of chefs and one-off menus.",
     color: "#00FF41",
+  },
+  {
+    year: "DECEMBER 2026",
+    title: "EDITION 2",
+    desc: "Dine at Night returns bigger, sharper, and more ambitious. New vendors, new experiences, same energy.",
+    color: "#FFFF00",
   },
   {
     year: "Future",
@@ -380,16 +186,15 @@ const timeline = [
 
 export default function AboutPage() {
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState<TeamGroup | null>(null);
 
   return (
     <div className="relative w-full min-h-screen bg-black overflow-x-hidden">
       {/* ── HERO ── */}
-      <section className="relative flex flex-col items-center justify-center pt-28 pb-20 px-6 text-center overflow-hidden">
+      <section className="relative flex flex-col items-center justify-center h-[50vh] pt-28 pb-20 px-6 text-center overflow-hidden">
         <HeroCarousel accent="#FFFF00" />
 
         <div
-          className="absolute inset-0 pointer-events-none z-[1]"
+          className="absolute inset-0 pointer-events-none z-1"
           style={{
             background:
               "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,255,0,0.06) 0%, transparent 70%)",
@@ -414,8 +219,8 @@ export default function AboutPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3 }}
         >
-          Dine At Night was born from a simple obsession: Lagos deserves a
-          world-class nighttime food experience. So we built it.
+          Dine at Night was born from a simple obsession: a love for food,
+          shared experiences and how Lagos comes alive after dark.
         </motion.p>
       </section>
 
@@ -424,25 +229,25 @@ export default function AboutPage() {
       {/* ── STATS ── */}
       <SectionFadeIn>
         <section className="py-14 px-6 md:px-16 bg-black/85 border-y border-white/5">
-          <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-5">
+          <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-5 md:flex md:justify-between md:items-center">
             {[
               {
                 label: "Tickets Sold",
-                value: 850,
+                value: 800,
                 suffix: "+",
                 color: "#FFFF00",
                 glow: "rgba(255,255,0,0.25)",
               },
               {
-                label: "Vendors Sold Out",
-                value: 90,
+                label: "of vendors said they’d come back",
+                value: 100,
                 suffix: "%",
                 color: "#00FF41",
                 glow: "rgba(0,255,65,0.25)",
               },
               {
-                label: "Return Rate",
-                value: 100,
+                label: "of vendors sold out’",
+                value: 90,
                 suffix: "%",
                 color: "#FFFF00",
                 glow: "rgba(255,255,0,0.25)",
@@ -495,15 +300,15 @@ export default function AboutPage() {
             </h2>
             <div className="space-y-6 text-gray-300 text-base text-justify md:text-lg leading-loose">
               <p>
-                Lagos is a city that never truly sleeps — but for years, its
-                nightlife lacked one crucial element: a space where the
-                city&apos;s best food vendors could come alive after dark.
+                Lagos is a city that never truly sleeps, but for years its
+                nightlife lacked one crucial element. A space where the city’s
+                food culture could come alive after dark.
               </p>
               <p>
-                Street food culture is deeply woven into the fabric of Lagos
-                life. But the experience of enjoying it — the atmosphere, the
-                energy, the presentation — had never been elevated into
-                something truly spectacular.
+                Food is deeply woven into the fabric of Lagos life. Yet the
+                experience of enjoying it, the atmosphere, the energy, the
+                presentation, had never been elevated into something
+                intentional, curated, and memorable.
               </p>
               <p>
                 <span
@@ -514,15 +319,15 @@ export default function AboutPage() {
                 >
                   Dine At Night changes that.
                 </span>{" "}
-                We curate the city&apos;s finest food vendors, place them under
-                neon lights, add great music and community, and create an
-                experience that Lagos hasn&apos;t seen before.
+                We bring together the city’s most exciting food brands and
+                vendors and place them in a setting designed for how Lagos eats,
+                gathers, and connects. The result is an experience that feels
+                distinctly Lagos.
               </p>
-              <p>
-                Edition 1 proved the concept. 850+ attendees showed up. 90% of
-                vendors sold out. Every single vendor said they&apos;d come
-                back. And they will.
-              </p>
+              <p>Our first edition proved what was possible.</p>
+              <p>800+ people showed up.</p>
+              <p>90% of vendors sold out.</p>
+              <p>And every vendor said they would return..</p>
             </div>
           </div>
         </section>
@@ -619,7 +424,7 @@ export default function AboutPage() {
                     transition={{ delay: i * 0.12 }}
                   >
                     <div
-                      className="flex-shrink-0 w-10 h-10 rounded-full border-2 flex items-center justify-center text-[10px] font-bold relative z-10"
+                      className="shrink-0 w-10 h-10 rounded-full border-2 flex items-center justify-center text-[10px] font-bold relative z-10"
                       style={{
                         borderColor: item.color,
                         color: item.color,
@@ -665,7 +470,7 @@ export default function AboutPage() {
             >
               The Team
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {teamMembers.map((member, i) => (
                 <motion.div
                   key={member.name}
@@ -682,7 +487,6 @@ export default function AboutPage() {
                     borderColor: member.color,
                     boxShadow: `0 0 30px ${member.glow}30`,
                   }}
-                  onClick={() => setSelectedTeam(member)}
                 >
                   <span
                     className="absolute top-0 left-0 w-6 h-6"
@@ -717,17 +521,11 @@ export default function AboutPage() {
                   >
                     {member.name}
                   </h3>
-                  <p className="text-gray-600 text-xs uppercase tracking-widest mb-4">
+                  <p className="text-gray-600 text-lg uppercase tracking-widest mb-4">
                     {member.role}
                   </p>
                   <p className="text-gray-400 text-sm leading-relaxed">
                     {member.desc}
-                  </p>
-                  <p
-                    className="mt-4 text-[10px] uppercase tracking-[0.3em]"
-                    style={{ color: `${member.color}70` }}
-                  >
-                    Tap to meet the team →
                   </p>
                 </motion.div>
               ))}
@@ -767,9 +565,9 @@ export default function AboutPage() {
                 }}
                 whileTap={{ scale: 0.97 }}
               >
-                Apply
+                Become a Vendor
               </motion.button>
-              <Link href="/contact">
+              <Link href="/event">
                 <motion.button
                   className="px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm border-2 border-[#00FF41] text-[#00FF41]"
                   style={{ boxShadow: "0 0 15px rgba(0,255,65,0.3)" }}
@@ -779,7 +577,7 @@ export default function AboutPage() {
                   }}
                   whileTap={{ scale: 0.97 }}
                 >
-                  Contact Us
+                  get tickets
                 </motion.button>
               </Link>
             </div>
@@ -813,10 +611,10 @@ export default function AboutPage() {
                         textShadow: "0 0 30px rgba(255,255,0,0.6)",
                       }}
                     >
-                      850+
+                      800+
                     </p>
                     <p className="text-gray-400 text-sm uppercase tracking-widest mt-3">
-                      Tickets Sold — Edition 1
+                      Tickets Sold
                     </p>
                   </div>
                 ),
@@ -838,10 +636,10 @@ export default function AboutPage() {
                         textShadow: "0 0 30px rgba(255,51,51,0.6)",
                       }}
                     >
-                      90%
+                      100%
                     </p>
                     <p className="text-gray-400 text-sm uppercase tracking-widest mt-3">
-                      Vendors Sold Out
+                      of vendors said they’d come back
                     </p>
                   </div>
                 ),
@@ -863,35 +661,10 @@ export default function AboutPage() {
                         textShadow: "0 0 30px rgba(0,255,65,0.6)",
                       }}
                     >
-                      100%
+                      90%
                     </p>
                     <p className="text-gray-400 text-sm uppercase tracking-widest mt-3">
-                      Vendor Return Rate
-                    </p>
-                  </div>
-                ),
-              },
-              {
-                id: 4,
-                content: (
-                  <div
-                    className="text-center py-10 px-6 rounded-xl border mx-2"
-                    style={{
-                      borderColor: "rgba(255,255,0,0.2)",
-                      background: "rgba(10,10,10,0.8)",
-                    }}
-                  >
-                    <p
-                      className="text-7xl font-bold"
-                      style={{
-                        color: "#FFFF00",
-                        textShadow: "0 0 30px rgba(255,255,0,0.6)",
-                      }}
-                    >
-                      20K+
-                    </p>
-                    <p className="text-gray-400 text-sm uppercase tracking-widest mt-3">
-                      Instagram Followers
+                      of vendors sold out’
                     </p>
                   </div>
                 ),
@@ -906,9 +679,6 @@ export default function AboutPage() {
         isOpen={vendorModalOpen}
         onClose={() => setVendorModalOpen(false)}
       />
-      {selectedTeam && (
-        <TeamModal team={selectedTeam} onClose={() => setSelectedTeam(null)} />
-      )}
     </div>
   );
 }

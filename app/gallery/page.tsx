@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import Image from "next/image";
@@ -145,7 +146,7 @@ function GalleryContent() {
   return (
     <div className="relative w-full min-h-screen bg-black overflow-x-hidden">
       {/* ── HERO CAROUSEL ── */}
-      <section className="relative flex flex-col items-center justify-center px-6 text-center pt-24 pb-16 overflow-hidden">
+      <section className="relative flex flex-col items-center justify-center h-[50vh] px-6 text-center pt-24 pb-16 overflow-hidden">
         <HeroCarousel
           images={carouselPicks
             .filter((p) => p.type !== "video")
@@ -165,7 +166,7 @@ function GalleryContent() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.1 }}
         >
-          Gallery
+          The Gallery
         </motion.h1>
         <motion.p
           className="relative z-10 mt-4 text-gray-300 text-base sm:text-lg max-w-md"
@@ -173,7 +174,7 @@ function GalleryContent() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.25 }}
         >
-          Relive the night. Every edition through photos and video.
+          Relive the night through photos and videos
         </motion.p>
       </section>
 
@@ -231,11 +232,6 @@ function GalleryContent() {
               >
                 {eventTitleMap[latestEventId]}
               </button>
-            )}
-
-            {/* Divider */}
-            {eventIds.length > 0 && (
-              <div className="w-px h-5 bg-white/10 mx-1 flex-shrink-0" />
             )}
 
             {/* Per-event tabs — exclude latestEventId (already shown above) */}
