@@ -19,12 +19,8 @@ const accentFor = (eventId: string, eventIds: string[]) =>
 
 function GalleryContent() {
   // Lazy-initialize from cache so no synchronous setState in effect
-  const [items, setItems] = useState<DanGalleryItem[]>(
-    () => getCache<DanGalleryItem[]>("dan_gallery") ?? [],
-  );
-  const [loading, setLoading] = useState(
-    () => !getCache<DanGalleryItem[]>("dan_gallery"),
-  );
+  const [items, setItems] = useState<DanGalleryItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [visible, setVisible] = useState(30);
   const [lightbox, setLightbox] = useState<{
@@ -38,6 +34,12 @@ function GalleryContent() {
   const tabsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const cached = getCache<DanGalleryItem[]>("dan_gallery");
+    if (cached) {
+      setItems(cached);
+      setLoading(false);
+    }
+
     return subscribeGalleryItems((data) => {
       setItems(data);
       setCache("dan_gallery", data);

@@ -570,29 +570,36 @@ export default function EventPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
   const [ticketEvent, setTicketEvent] = useState<DanEvent | null>(null);
-  const [activeEvents, setActiveEvents] = useState<DanEvent[]>(
-    () => getCache<DanEvent[]>("dan_active_events") ?? [],
-  );
-  const [pastEvents, setPastEvents] = useState<DanEvent[]>(
-    () => getCache<DanEvent[]>("dan_past_events") ?? [],
-  );
+  const [activeEvents, setActiveEvents] = useState<DanEvent[]>([]);
+  const [pastEvents, setPastEvents] = useState<DanEvent[]>([]);
   const [soldByEvent, setSoldByEvent] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(
-    () => !getCache<DanEvent[]>("dan_past_events"),
-  );
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth < 768 : false,
-  );
+  const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [galleryPhotoUrls, setGalleryPhotoUrls] = useState<string[]>([]);
-  const pastResolvedRef = useRef(!!getCache<DanEvent[]>("dan_past_events"));
+  const pastResolvedRef = useRef(false);
+
+  useEffect(() => {
+    // Client-side initialization to prevent hydration mismatch
+    setIsMobile(window.innerWidth < 768);
+
+    const cachedActive = getCache<DanEvent[]>("dan_active_events");
+    if (cachedActive) setActiveEvents(cachedActive);
+
+    const cachedPast = getCache<DanEvent[]>("dan_past_events");
+    if (cachedPast) {
+      setPastEvents(cachedPast);
+      setLoading(false);
+      pastResolvedRef.current = true;
+    }
+  }, []);
 
   useEffect(() => {
     getAllGalleryItems()
       .then((items) => {
         const photos = items
           .filter((i) => i.type === "photo")
-          .map((i) => i.src);
+          .map((i) => i.src as string);
         // Shuffle and pick up to 6
         const shuffled = [...photos]
           .sort(() => Math.random() - 0.5)
