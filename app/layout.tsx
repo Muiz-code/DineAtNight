@@ -34,12 +34,13 @@ export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
 
   title: {
-    default: "Dine At Night — Lagos's Premier Nighttime Food Market",
+    default:
+      "Dine at Night - Nigeria’s first night food market | Dine At Night",
     template: "%s | Dine At Night",
   },
 
   description:
-    "Dine At Night is Lagos's premier nighttime food market — an outdoor experience combining the best local food vendors, music, and neon-lit vibes. Get your tickets now.",
+    "Dine at Night is a curated night food market in Lagos, Nigeria, bringing together top food vendors, chefs, and culture for a unique food and nightlife experience.",
 
   keywords: [
     "Dine At Night",
@@ -59,9 +60,9 @@ export const metadata: Metadata = {
     locale: "en_NG",
     url: "/",
     siteName: "Dine At Night",
-    title: "Dine At Night — Lagos's Premier Nighttime Food Market",
+    title: "Dine at Night - Nigeria’s first night food market | Dine At Night",
     description:
-      "Lagos's premier nighttime food market. Local vendors, music, neon-lit vibes. Get your tickets now.",
+      "Dine at Night is a curated night food market in Lagos, Nigeria, bringing together top food vendors, chefs, and culture for a unique food and nightlife experience.",
     images: [
       {
         url: "/og-image.png",
@@ -74,7 +75,9 @@ export const metadata: Metadata = {
 
   twitter: {
     card: "summary_large_image",
-    title: "Dine At Night — Lagos's Premier Nighttime Food Market",
+    title:
+      "Dine at Night is a curated night food market in Lagos, Nigeria, bringing together top food vendors, chefs, and culture for a unique food and nightlife experience.",
+    site: "@dineatnight",
     description:
       "Lagos's premier nighttime food market. Local vendors, music, neon-lit vibes. Get your tickets now.",
     images: ["/og-image.png"],
