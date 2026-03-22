@@ -337,7 +337,7 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
         categories: form.categories,
         events: form.eventTitle ? [form.eventTitle] : [],
         description: form.description,
-        logoUrl: form.logoUrl || undefined,
+        logoUrl: form.logoUrl || null,
         imageUrl: form.imageUrl,
         menu: cleanMenu.length > 0 ? cleanMenu : undefined,
       });
