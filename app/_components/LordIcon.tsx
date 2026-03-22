@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+
 interface LordIconProps {
   src?: string;
   trigger?: string;
@@ -13,12 +15,10 @@ export default function LordIcon({
   colors,
   size = 120,
 }: LordIconProps) {
-  return (
-    <lord-icon
-      src={src}
-      trigger={trigger}
-      colors={colors}
-      style={{ width: size, height: size }}
-    />
-  );
+  return React.createElement("lord-icon", {
+    src,
+    trigger,
+    colors,
+    style: { width: size, height: size },
+  });
 }
