@@ -455,14 +455,15 @@ export async function upsertVendorApplication(
   }
 
   // New vendor — create fresh doc
-  // Firestore v12+ throws on `undefined` field values, so explicitly null-coalesce.
+  // Firestore v12+ throws on `undefined` field values — omit logoUrl/menu when absent.
+  const { logoUrl: _logoUrl, menu: _menu, ...restData } = data;
   const ref = await addDoc(collection(db, "vendors"), {
-    ...data,
+    ...restData,
     brandNameLower,
     categories: data.categories ?? [],
     events: data.events ?? [],
     imageUrls: data.imageUrl ? [data.imageUrl] : [],
-    logoUrl: data.logoUrl ?? null,
+    ...(data.logoUrl ? { logoUrl: data.logoUrl } : {}),
     menu: data.menu ?? null,
     status: "pending",
     submittedAt: serverTimestamp(),
