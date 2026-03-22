@@ -23,6 +23,7 @@ const TAB_GROUPS: Record<string, { label: string; href: string }[]> = {
     { label: "Tickets", href: "/admin/tickets" },
     { label: "Vendors", href: "/admin/vendors" },
     { label: "Confirm", href: "/admin/confirm" },
+    { label: "Emails",  href: "/admin/subscribers" },
   ],
   gallery: [
     { label: "Gallery",       href: "/admin/gallery"       },
@@ -35,7 +36,7 @@ const TAB_GROUPS: Record<string, { label: string; href: string }[]> = {
 };
 
 const getGroupKey = (path: string) => {
-  if (["/admin/events", "/admin/tickets", "/admin/vendors", "/admin/confirm"].some((p) => path.startsWith(p))) return "events";
+  if (["/admin/events", "/admin/tickets", "/admin/vendors", "/admin/confirm", "/admin/subscribers"].some((p) => path.startsWith(p))) return "events";
   if (["/admin/gallery", "/admin/testimonials"].some((p) => path.startsWith(p))) return "gallery";
   if (["/admin/shop", "/admin/orders"].some((p) => path.startsWith(p))) return "store";
   return path;
@@ -55,7 +56,7 @@ const NAV = [
     href: "/admin/events",
     icon: Calendar,
     // active for all event-related pages
-    activePrefixes: ["/admin/events", "/admin/tickets", "/admin/vendors", "/admin/confirm"],
+    activePrefixes: ["/admin/events", "/admin/tickets", "/admin/vendors", "/admin/confirm", "/admin/subscribers"],
     exact: false,
   },
   {

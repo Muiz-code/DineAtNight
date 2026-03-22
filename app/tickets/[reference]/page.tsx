@@ -312,8 +312,16 @@ export default function TicketPage() {
           </div>
         </div>
 
-        {/* Print hint */}
-        <p className="text-center text-gray-700 text-xs mt-6 tracking-wide">
+        {/* Email & print hints */}
+        <div className="mt-6 rounded-xl border border-white/8 bg-white/2 px-5 py-4 text-center space-y-1">
+          <p className="text-gray-400 text-xs leading-relaxed">
+            A copy of this ticket has been sent to <span className="text-white font-medium">{ticket.email}</span>.
+          </p>
+          <p className="text-gray-600 text-xs leading-relaxed">
+            Don&apos;t see it? Check your <span className="text-gray-400">Promotions</span> or <span className="text-gray-400">Spam</span> folder.
+          </p>
+        </div>
+        <p className="text-center text-gray-700 text-xs mt-3 tracking-wide">
           Screenshot or print this ticket for the event.
         </p>
 

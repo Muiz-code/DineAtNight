@@ -33,11 +33,12 @@ service cloud.firestore {
     // Writes come from the vendor application form (public) and admin panel (auth).
     match /vendors/{id} {
       allow read: if resource.data.status == "approved";
-      // Allow public create for new vendor applications
-      allow create: if request.resource.data.keys().hasAll(["brandName", "ownerName", "email", "phone", "status"])
+      // Allow public create for new vendor applications (phone is optional)
+      allow create: if request.resource.data.keys().hasAll(["brandName", "ownerName", "email", "status"])
                     && request.resource.data.status == "pending";
-      // Allow updates only for authenticated admins
-      allow update: if request.auth != null;
+      // Allow admins OR public re-applications (setting status back to pending)
+      allow update: if request.auth != null
+                    || request.resource.data.status == "pending";
       allow delete: if request.auth != null;
     }
 
@@ -67,9 +68,9 @@ service cloud.firestore {
 
     // ── Subscribers ──────────────────────────────────────────────────────────
     // Newsletter signups. Written by the server-side /api/subscribe route via
-    // the public Firestore REST API. No client reads (privacy).
+    // the public Firestore REST API. Only authenticated admins can read.
     match /subscribers/{email} {
-      allow read: if false;
+      allow read: if request.auth != null;
       allow write: if request.resource.data.keys().hasOnly(["email", "subscribedAt"])
                    && request.resource.data.email is string
                    && request.resource.data.email.size() > 3

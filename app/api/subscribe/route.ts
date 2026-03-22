@@ -26,11 +26,8 @@ export async function POST(req: NextRequest) {
     const normalized = email.toLowerCase().trim();
     const docUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/subscribers/${encodeURIComponent(normalized)}?key=${apiKey}`;
 
-    // 404 = new subscriber; 403 = exists but no read permission; 200 = exists
-    const checkRes = await fetch(docUrl);
-    const isNew = checkRes.status === 404;
-
-    // PATCH upserts: creates if 404, updates if already exists
+    // PATCH upserts: creates if doc doesn't exist, updates if it does.
+    // Firestore returns createTime === updateTime for newly created docs.
     const patchRes = await fetch(docUrl, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -47,6 +44,10 @@ export async function POST(req: NextRequest) {
       console.error("[subscribe] Firestore error:", patchRes.status, errBody);
       return NextResponse.json({ error: "Subscription failed" }, { status: 500 });
     }
+
+    // Detect new vs existing: Firestore sets createTime == updateTime on creation
+    const patchData = await patchRes.json().catch(() => ({}));
+    const isNew = patchData.createTime === patchData.updateTime;
 
     // Send welcome email server-side for new subscribers only
     if (isNew) {
