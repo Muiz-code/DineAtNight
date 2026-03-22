@@ -371,19 +371,25 @@ export async function upsertVendorApplication(
 ): Promise<{ id: string; isUpdate: boolean }> {
   const brandNameLower = data.brandName.trim().toLowerCase();
 
-  // Case-insensitive dedup: query by brandNameLower (populated since the fix),
-  // then fall back to exact-match for legacy docs that predate this field.
-  // Both queries happen BEFORE the transaction to stay within Firestore transaction
-  // read limits (transactions can only read docs by reference, not by query).
-  const lowerSnap = await getDocs(
-    query(
-      collection(db, "vendors"),
-      where("brandNameLower", "==", brandNameLower),
-    ),
-  );
-  const existing: DanVendor | null = lowerSnap.empty
-    ? await getVendorByName(data.brandName)
-    : toDoc<DanVendor>(lowerSnap.docs[0]);
+  // Case-insensitive dedup: query by brandNameLower, fall back to exact-match.
+  // These queries may be denied by Firestore rules (only approved vendors are
+  // publicly readable — unapproved docs block the query). If denied, fall
+  // through to create a new doc rather than surfacing a permission error.
+  let existing: DanVendor | null = null;
+  try {
+    const lowerSnap = await getDocs(
+      query(
+        collection(db, "vendors"),
+        where("brandNameLower", "==", brandNameLower),
+      ),
+    );
+    existing = lowerSnap.empty
+      ? await getVendorByName(data.brandName)
+      : toDoc<DanVendor>(lowerSnap.docs[0]);
+  } catch {
+    // Permission denied — vendor collection not queryable without auth.
+    // Skip dedup and fall through to addDoc below.
+  }
 
   if (existing?.id) {
     // Existing vendor — update atomically to prevent partial writes

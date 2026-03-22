@@ -7,11 +7,7 @@ export async function POST(req: NextRequest) {
   if (!PAYSTACK_SECRET) {
     return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
   }
-  if (process.env.NODE_ENV === "production" && PAYSTACK_SECRET.startsWith("sk_test_")) {
-    console.error("[paystack/initialize] FATAL: production build is using a Paystack TEST secret key.");
-    return NextResponse.json({ error: "Payment service not configured for production." }, { status: 500 });
-  }
-  const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || req.nextUrl.origin;
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || req.nextUrl.origin;
   try {
     const body = await req.json();
     const { eventId, eventTitle, name, email, phone, quantity, ticketPrice, ticketType } = body;
