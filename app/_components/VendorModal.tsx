@@ -169,7 +169,7 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
       setError("Please select at least one food category.");
       return;
     }
-    if (!form.description.trim() || !form.imageUrl.trim()) {
+    if (!form.description.trim()) {
       setError("Please fill in all required fields.");
       return;
     }
@@ -357,10 +357,9 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
             categories: form.categories,
             description: form.description || undefined,
           }),
-        })
-          .catch((err) =>
-            console.error("[vendor-applied] email notify failed:", err),
-          );
+        }).catch((err) =>
+          console.error("[vendor-applied] email notify failed:", err),
+        );
       }
     } catch (err) {
       console.error("[VendorModal] submit failed:", err);
@@ -760,18 +759,6 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                             </p>
                           </Field>
 
-                          <Field label="Brand / Food Photo">
-                            <ImageUpload
-                              value={form.logoUrl}
-                              onChange={(url) =>
-                                setForm((p) => ({ ...p, logoUrl: url }))
-                              }
-                              folder="vendors/logos"
-                              compact
-                              hint="Square logo shown in the vendor strip. Optional."
-                            />
-                          </Field>
-
                           <Field label="Brand Logo">
                             <ImageUpload
                               value={form.imageUrl}
@@ -780,7 +767,7 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                               }
                               folder="vendors/photos"
                               compact
-                              hint="A clear photo of your food or brand."
+                              hint="A clear photo of your food or brand. Optional."
                             />
                           </Field>
 

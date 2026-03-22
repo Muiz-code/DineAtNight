@@ -61,14 +61,14 @@ export const metadata: Metadata = {
     locale: "en_NG",
     url: "/",
     siteName: "Dine At Night",
-    title: "Dine at Night - Nigeria’s first night food market | Dine At Night",
+    title: "Dine at Night — Nigeria’s first night food market",
     description:
       "Dine at Night is a curated night food market in Lagos, Nigeria, bringing together top food vendors, chefs, and culture for a unique food and nightlife experience.",
     images: [
       {
         url: "/og-image.png",
-        width: 1200,
-        height: 630,
+        width: 1919,
+        height: 1054,
         alt: "Dine At Night — Neon-lit outdoor food market, Lagos",
       },
     ],
@@ -126,6 +126,11 @@ export default function RootLayout({
               "@type": "WebSite",
               name: "Dine At Night",
               url: "https://dineatnight.com",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: "https://dineatnight.com/event",
+                "query-input": "required name=search_term_string",
+              },
             }),
           }}
         />

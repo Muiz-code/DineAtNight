@@ -26,6 +26,7 @@ export default function TicketModal({
   const event = events.find((e) => e.id === selectedId) ?? initialEvent;
   const soldCount = soldCounts[event.id ?? ""] ?? event.soldTickets ?? 0;
   const remaining = event.totalTickets - soldCount;
+  const pct = event.totalTickets > 0 ? Math.round((soldCount / event.totalTickets) * 100) : 0;
   const router = useRouter();
 
   const hasTiers = (event.ticketTypes?.length ?? 0) > 0;
@@ -152,11 +153,13 @@ export default function TicketModal({
                   })}{" "}
                   · {event.venue}
                 </p>
-                <p className="text-gray-600 text-xs mt-0.5">
-                  {hasTiers
-                    ? `${tierRemaining} ${selectedTier?.name ?? ""} tickets remaining`
-                    : `${remaining} tickets remaining`}
-                </p>
+                {pct >= 95 && (
+                  <p className="text-[#FF3333] text-xs mt-0.5 font-semibold">
+                    {hasTiers
+                      ? `${Math.round((tierRemaining / event.totalTickets) * 100)}% ${selectedTier?.name ?? ""} tickets remaining`
+                      : `${Math.round((remaining / event.totalTickets) * 100)}% tickets remaining`}
+                  </p>
+                )}
               </div>
               <button
                 onClick={onClose}
