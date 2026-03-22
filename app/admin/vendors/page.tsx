@@ -1654,91 +1654,15 @@ export default function AdminVendorsPage() {
                     Brand Logo{" "}
                     <span className="text-gray-700 normal-case">(optional)</span>
                   </label>
-                  <ImageUpload
-                    value={form.logoUrl}
-                    onChange={(url) => setForm((p) => ({ ...p, logoUrl: url }))}
-                    folder="vendors/logos"
-                    square
-                    hint="Square logo shown in the vendor strip."
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
-                    Photos{" "}
-                    <span className="text-gray-700 normal-case">
-                      (first photo is primary · shown in drawer carousel)
-                    </span>
-                  </label>
-
-                  {/* Existing photos grid */}
-                  {form.imageUrls.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2 mb-3">
-                      {form.imageUrls.map((url, i) => (
-                        <div
-                          key={url + i}
-                          className="relative aspect-video rounded-lg overflow-hidden border border-white/10 group"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={url}
-                            alt={`Photo ${i + 1}`}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = "none";
-                            }}
-                          />
-                          {i === 0 && (
-                            <span className="absolute top-1 left-1 text-[8px] font-bold bg-[#FFFF00] text-black px-1.5 py-0.5 rounded uppercase tracking-widest leading-none">
-                              Primary
-                            </span>
-                          )}
-                          <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setForm((p) => {
-                                  const next = p.imageUrls.filter((_, j) => j !== i);
-                                  return {
-                                    ...p,
-                                    imageUrls: next,
-                                    imageUrl: next[0] ?? "",
-                                  };
-                                })
-                              }
-                              className="w-7 h-7 rounded-full bg-[#FF3333]/20 border border-[#FF3333]/40 flex items-center justify-center text-[#FF3333] hover:bg-[#FF3333]/40 transition-all"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Add photo uploader — resets after each successful upload */}
-                  <ImageUpload
-                    key={addPhotoKey}
-                    value=""
-                    onChange={(url) => {
-                      setForm((p) => {
-                        const next = [...p.imageUrls, url];
-                        return {
-                          ...p,
-                          imageUrls: next,
-                          imageUrl: next[0],
-                        };
-                      });
-                      setAddPhotoKey((k) => k + 1);
-                    }}
-                    folder="vendors/photos"
-                    free
-                    compact
-                    hint={
-                      form.imageUrls.length === 0
-                        ? "Upload the main brand / food photo."
-                        : "Add another photo to the carousel."
-                    }
-                  />
+                  <div className="w-32">
+                    <ImageUpload
+                      value={form.logoUrl}
+                      onChange={(url) => setForm((p) => ({ ...p, logoUrl: url }))}
+                      folder="vendors/logos"
+                      square
+                      hint="Square logo shown in the vendor strip."
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">

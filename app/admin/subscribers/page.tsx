@@ -55,6 +55,7 @@ export default function SubscribersPage() {
 
   // delete
   const [deleting, setDeleting]         = useState<string | null>(null);
+  const [deletingSent, setDeletingSent] = useState<string | null>(null);
   const [clearConfirm, setClearConfirm] = useState(false);
   const [clearing, setClearing]         = useState(false);
 
@@ -178,6 +179,15 @@ export default function SubscribersPage() {
       setRows((prev) => prev.filter((r) => r.source !== "newsletter"));
       setClearConfirm(false);
     } finally { setClearing(false); }
+  };
+
+  const handleDeleteSent = async (id: string) => {
+    setDeletingSent(id);
+    try {
+      await deleteDoc(doc(db, "newsletters", id));
+      setSent((prev) => prev.filter((n) => n.id !== id));
+      if (expanded === id) setExpanded(null);
+    } finally { setDeletingSent(null); }
   };
 
   const doSend = async (emails: string[], sub: string, msg: string, lUrl: string, lLabel: string) => {
@@ -563,6 +573,16 @@ export default function SubscribersPage() {
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-gray-400 text-xs font-bold uppercase tracking-widest hover:border-[#FFFF00]/40 hover:text-[#FFFF00] transition-all"
                       >
                         <RotateCcw className="w-3 h-3" />Resend
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteSent(item.id); }}
+                        disabled={deletingSent === item.id}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-700 hover:text-[#FF3333] transition-all"
+                        title="Delete"
+                      >
+                        {deletingSent === item.id
+                          ? <span className="w-3 h-3 border border-[#FF3333] border-t-transparent rounded-full animate-spin" />
+                          : <Trash2 className="w-3.5 h-3.5" />}
                       </button>
                       {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-600" /> : <ChevronDown className="w-4 h-4 text-gray-600" />}
                     </div>

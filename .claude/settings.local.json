@@ -29,7 +29,11 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git log:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(ls /Users/user/Documents/Development/DineAtNight/app/favicon* /Users/user/Documents/Development/DineAtNight/public/favicon*)",
+      "Bash(ls /Users/user/Documents/Development/DineAtNight/public/logo*)",
+      "Bash(sips -g pixelWidth -g pixelHeight /Users/user/Documents/Development/DineAtNight/public/logo.png)",
+      "Bash(sips -g pixelWidth -g pixelHeight /Users/user/Documents/Development/DineAtNight/app/favicon.ico)"
     ]
   }
 }
