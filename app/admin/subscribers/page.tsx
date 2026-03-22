@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   collection, getDocs, orderBy, query,
-  doc, deleteDoc, writeBatch, addDoc, serverTimestamp, Timestamp,
+  doc, deleteDoc, writeBatch, addDoc, setDoc, serverTimestamp, Timestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { motion, AnimatePresence } from "framer-motion";
@@ -46,16 +46,17 @@ const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "https://dineatnight.com").r
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function SubscribersPage() {
-  const [rows, setRows]         = useState<EmailRow[]>([]);
-  const [sent, setSent]         = useState<SentNewsletter[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [tab, setTab]           = useState<Tab>("all");
-  const [copied, setCopied]     = useState(false);
+  const [rows, setRows]               = useState<EmailRow[]>([]);
+  const [sent, setSent]               = useState<SentNewsletter[]>([]);
+  const [suppressed, setSuppressed]   = useState<Set<string>>(new Set());
+  const [loading, setLoading]         = useState(true);
+  const [tab, setTab]                 = useState<Tab>("all");
+  const [copied, setCopied]           = useState(false);
 
   // delete
-  const [deleting, setDeleting]       = useState<string | null>(null);
+  const [deleting, setDeleting]         = useState<string | null>(null);
   const [clearConfirm, setClearConfirm] = useState(false);
-  const [clearing, setClearing]       = useState(false);
+  const [clearing, setClearing]         = useState(false);
 
   // compose
   const [compose, setCompose]     = useState(false);
@@ -79,16 +80,23 @@ export default function SubscribersPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [subSnap, ticketSnap, sentSnap] = await Promise.all([
+      const [subSnap, ticketSnap, sentSnap, suppressedSnap] = await Promise.all([
         getDocs(query(collection(db, "subscribers"), orderBy("subscribedAt", "desc"))).catch(() => null),
         getDocs(collection(db, "tickets")),
         getDocs(query(collection(db, "newsletters"), orderBy("sentAt", "desc"))).catch(() => null),
+        getDocs(collection(db, "suppressed_emails")).catch(() => null),
       ]);
+
+      const suppressedSet = new Set<string>();
+      suppressedSnap?.forEach((d) => suppressedSet.add(d.id.toLowerCase()));
+      setSuppressed(suppressedSet);
 
       const subs: SubscriberRow[] = [];
       subSnap?.forEach((d) => {
         const data = d.data();
-        subs.push({ id: d.id, email: data.email ?? d.id, subscribedAt: data.subscribedAt?.toDate?.()?.toLocaleDateString("en-NG") ?? "", source: "newsletter" });
+        const email = (data.email ?? d.id) as string;
+        if (suppressedSet.has(email.toLowerCase())) return;
+        subs.push({ id: d.id, email, subscribedAt: data.subscribedAt?.toDate?.()?.toLocaleDateString("en-NG") ?? "", source: "newsletter" });
       });
 
       const ticketEmails: TicketEmailRow[] = [];
@@ -97,6 +105,7 @@ export default function SubscribersPage() {
         const data = d.data();
         if (data.status !== "paid" && data.status !== "confirmed") return;
         if (!data.email || seen.has(data.email.toLowerCase())) return;
+        if (suppressedSet.has(data.email.toLowerCase())) return;
         seen.add(data.email.toLowerCase());
         ticketEmails.push({ email: data.email, name: data.name ?? "", eventTitle: data.eventTitle ?? "", source: "ticket" });
       });
@@ -148,6 +157,15 @@ export default function SubscribersPage() {
     try {
       await deleteDoc(doc(db, "subscribers", row.id));
       setRows((prev) => prev.filter((r) => !(r.source === "newsletter" && (r as SubscriberRow).id === row.id)));
+    } finally { setDeleting(null); }
+  };
+
+  const handleSuppress = async (email: string) => {
+    setDeleting(email);
+    try {
+      await setDoc(doc(db, "suppressed_emails", email.toLowerCase()), { suppressedAt: serverTimestamp() });
+      setSuppressed((prev) => new Set([...prev, email.toLowerCase()]));
+      setRows((prev) => prev.filter((r) => r.email.toLowerCase() !== email.toLowerCase()));
     } finally { setDeleting(null); }
   };
 
@@ -582,17 +600,20 @@ export default function SubscribersPage() {
                 <span className="text-[9px] uppercase tracking-widest font-bold shrink-0" style={{ color: row.source === "newsletter" ? "rgba(255,255,0,0.5)" : "rgba(0,255,65,0.5)" }}>
                   {row.source === "newsletter" ? "Newsletter" : "Ticket"}
                 </span>
-                {row.source === "newsletter" && (
-                  <button
-                    onClick={() => handleDelete(row as SubscriberRow)}
-                    disabled={deleting === (row as SubscriberRow).id}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-700 hover:text-[#FF3333] transition-all opacity-0 group-hover:opacity-100"
-                  >
-                    {deleting === (row as SubscriberRow).id
-                      ? <span className="w-3 h-3 border border-[#FF3333] border-t-transparent rounded-full animate-spin" />
-                      : <Trash2 className="w-3.5 h-3.5" />}
-                  </button>
-                )}
+                <button
+                  onClick={() =>
+                    row.source === "newsletter"
+                      ? handleDelete(row as SubscriberRow)
+                      : handleSuppress(row.email)
+                  }
+                  disabled={deleting === (row.source === "newsletter" ? (row as SubscriberRow).id : row.email)}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-700 hover:text-[#FF3333] transition-all opacity-0 group-hover:opacity-100"
+                  title={row.source === "ticket" ? "Remove from email list" : "Delete subscriber"}
+                >
+                  {deleting === (row.source === "newsletter" ? (row as SubscriberRow).id : row.email)
+                    ? <span className="w-3 h-3 border border-[#FF3333] border-t-transparent rounded-full animate-spin" />
+                    : <Trash2 className="w-3.5 h-3.5" />}
+                </button>
               </div>
             ))}
           </div>
