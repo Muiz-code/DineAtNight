@@ -24,7 +24,11 @@
       "Bash(ls /Users/user/Documents/Development/DineAtNight/app/\\\\\\(home\\\\\\)/home/error.tsx)",
       "Bash(echo \"NODE_ENV=$NODE_ENV\")",
       "Bash(npm uninstall:*)",
-      "Bash(sips -g pixelWidth -g pixelHeight /Users/user/Documents/Development/DineAtNight/public/og-image.png /Users/user/Documents/Development/DineAtNight/public/logo.png)"
+      "Bash(sips -g pixelWidth -g pixelHeight /Users/user/Documents/Development/DineAtNight/public/og-image.png /Users/user/Documents/Development/DineAtNight/public/logo.png)",
+      "Bash(git status:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git log:*)"
     ]
   }
 }
