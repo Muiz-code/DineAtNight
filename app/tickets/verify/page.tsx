@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { Suspense } from "react";
+import LordIcon from "@/app/_components/LordIcon";
 
 interface TicketData {
   id?: string;
@@ -94,7 +95,7 @@ function VerifyContent() {
   // Success — redirect happens automatically, show brief success screen
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-black gap-6">
-      <div className="text-6xl">✅</div>
+      <LordIcon size={150} colors="primary:#00FF41,secondary:#00FF41" trigger="in" />
       <p className="text-[#00FF41] text-sm tracking-widest uppercase" style={{ textShadow: "0 0 15px rgba(0,255,65,0.6)" }}>
         Payment confirmed! Loading your ticket…
       </p>

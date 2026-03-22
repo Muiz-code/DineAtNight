@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import LordIcon from "@/app/_components/LordIcon";
 import {
   X,
   Check,
-  CheckCircle2,
   Plus,
   Trash2,
   Upload,
@@ -495,19 +495,9 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ type: "spring", damping: 20 }}
                   >
-                    <motion.div
-                      className="flex justify-center mb-5"
-                      animate={{ scale: [0.8, 1.2, 1] }}
-                      transition={{ duration: 0.6 }}
-                    >
-                      <CheckCircle2
-                        className="w-16 h-16"
-                        style={{
-                          color: "#00FF41",
-                          filter: "drop-shadow(0 0 12px rgba(0,255,65,0.6))",
-                        }}
-                      />
-                    </motion.div>
+                    <div className="flex justify-center mb-5">
+                      <LordIcon size={120} colors="primary:#00FF41,secondary:#00FF41" trigger="in" />
+                    </div>
                     <h3
                       className="text-2xl font-bold uppercase tracking-wide mb-3"
                       style={{

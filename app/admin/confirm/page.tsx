@@ -10,6 +10,7 @@ import { QrCode, Search, Camera } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import dynamicImport from "next/dynamic";
+import LordIcon from "@/app/_components/LordIcon";
 
 const CameraScanner = dynamicImport(() => import("@/app/_components/CameraScanner"), { ssr: false });
 
@@ -22,7 +23,7 @@ function TicketResult({ ticket, state }: { ticket: DanTicket | null; state: Conf
     idle: "#888", loading: "#888", success: "#00FF41", already: "#FFFF00", error: "#FF3333",
   };
   const labels: Record<ConfirmState, string> = {
-    idle: "", loading: "", success: "✅ Confirmed!", already: "⚠️ Already Confirmed", error: "❌ Error",
+    idle: "", loading: "", success: "Confirmed!", already: "⚠️ Already Confirmed", error: "❌ Error",
   };
 
   const color = colors[state];
@@ -34,6 +35,11 @@ function TicketResult({ ticket, state }: { ticket: DanTicket | null; state: Conf
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
     >
+      {state === "success" && (
+        <div className="flex justify-center">
+          <LordIcon size={80} colors="primary:#00FF41,secondary:#00FF41" trigger="in" />
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <p
           className="text-sm font-bold uppercase tracking-widest"

@@ -110,7 +110,7 @@ Your e-ticket shows:
 - You'll see "Confirmed ✓" and you're in
 
 ### If You Can't Find Your E-Ticket
-- Check your email inbox and spam/junk folder for the confirmation email
+- Check your email inbox and **spam/junk/Promotions folder** for the confirmation email
 - The subject line is: **"Your Ticket — [Event Name] | Dine At Night"**
 - Contact us via the **Contact** page with your order reference
 
@@ -294,7 +294,7 @@ For faster responses on specific topics:
 - **Sponsorship:** sponsors@dineatnight.com
 
 ### Social Media
-- **Instagram:** @dineatnight
+- **Instagram:** @dineatnight.ng
 - **TikTok:** @dineatnight
 - **X (Twitter):** @dineatnight
 
@@ -307,7 +307,7 @@ The contact form has a **60-second cooldown** between submissions. If you see an
 
 ## 10. Staying Updated (Newsletter)
 
-Subscribe to the Dine At Night newsletter via the **footer** on any page.
+Subscribe to the Dine At Night newsletter via the **footer** on any page, or via the pop-up that appears when you first visit.
 
 ### What You Get
 - **Early bird ticket drops** before public sale
@@ -316,22 +316,29 @@ Subscribe to the Dine At Night newsletter via the **footer** on any page.
 - **Behind-the-scenes content**
 
 ### How to Subscribe
-1. Scroll to the footer (bottom of any page)
-2. Enter your email in the **Email** field under "Connect"
-3. Click **Join**
+1. Scroll to the footer (bottom of any page) — or wait for the pop-up
+2. Enter your email in the **Email** field
+3. Click **Join** (footer) or **Subscribe** (pop-up)
 4. You'll receive a welcome email immediately
 5. The button turns green with a checkmark (✓) to confirm success
 
+### Already Subscribed?
+If you enter an email that's already in our list, you'll see a "We know you love us!" message — no duplicate is created and no new email is sent.
+
+### Unsubscribing
+Every newsletter email includes an **unsubscribe link** at the bottom. Clicking it will remove you from the list instantly — no login needed. You can also unsubscribe directly at `dineatnight.com/unsubscribe`.
+
 ### Notes
 - We do not sell or share your email address with third parties
-- To unsubscribe, contact us at hello@dineatnight.com
+- Newsletters are sent from hello@dineatnight.com — add it to your contacts to avoid spam filtering
+- If a newsletter lands in your Promotions or Spam folder, mark it as "Not Spam" to improve future delivery
 
 ---
 
 ## 11. Frequently Asked Questions
 
 **Q: I paid for tickets but didn't receive a confirmation email.**
-A: Check your spam/junk folder. The subject line is "Your Ticket — [Event Name] | Dine At Night". If it's not there, contact us with your payment reference number (visible on your bank statement or Paystack receipt).
+A: Check your spam/junk/Promotions folder. The subject line is "Your Ticket — [Event Name] | Dine At Night". If it's not there, contact us with your payment reference number (visible on your bank statement or Paystack receipt).
 
 **Q: Can I get a refund on my ticket?**
 A: Tickets are non-refundable. If the event is cancelled by Dine At Night, you will be contacted with information about refunds or transfers.
@@ -349,13 +356,16 @@ A: We review all applications within 3–5 business days. Check the email you us
 A: Your payment may still have gone through. Check your bank or Paystack for a deduction, then contact us with the reference number shown on your Paystack receipt.
 
 **Q: I submitted a contact form but didn't get a confirmation email.**
-A: The confirmation email comes from the EmailJS system. Check spam. If it's not there, your message was likely still received — we'll respond regardless.
+A: Check your spam/junk folder. If it's not there, your message was likely still received — we'll respond regardless.
 
 **Q: The website is slow or not loading.**
 A: Try refreshing the page. If the issue persists, clear your browser cache (`Ctrl+Shift+R` or `Cmd+Shift+R`) or try a different browser.
 
 **Q: The gallery videos won't play.**
 A: Make sure you're not on a very slow connection. Videos are streamed from external URLs. Try refreshing or switching to a stronger network.
+
+**Q: How do I unsubscribe from the newsletter?**
+A: Click the unsubscribe link at the bottom of any newsletter email, or visit `dineatnight.com/unsubscribe` directly. You'll be removed immediately.
 
 ---
 
@@ -387,10 +397,15 @@ A: Make sure you're not on a very slow connection. Videos are streamed from exte
 - Wait 60 seconds (the form has a cooldown to prevent spam)
 - Check your internet connection
 - Try a different browser
-- If persistent, email us directly at thecodehive.tch@gmail.com
+- If persistent, email us directly at hello@dineatnight.com
+
+### Newsletter Emails Landing in Spam
+- Add hello@dineatnight.com to your contacts
+- Open the email and click "Not Spam" or "Move to Inbox"
+- For Gmail: drag the email from Promotions to Primary inbox
 
 ---
 
-*For anything not covered here, reach out via the **Contact** page or Instagram DMs @dineatnight.*
+*For anything not covered here, reach out via the **Contact** page or Instagram DMs @dineatnight.ng.*
 
 *Last updated: March 2026*

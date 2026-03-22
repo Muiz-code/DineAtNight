@@ -17,11 +17,12 @@
 8. [Managing Testimonials](#8-managing-testimonials)
 9. [Managing the Shop (Products)](#9-managing-the-shop-products)
 10. [Managing Orders](#10-managing-orders)
-11. [Admin Maintenance](#11-admin-maintenance)
-12. [What to Avoid](#12-what-to-avoid)
-13. [Security Practices](#13-security-practices)
-14. [Adding / Removing Admins](#14-adding--removing-admins)
-15. [Troubleshooting](#15-troubleshooting)
+11. [Managing the Email List](#11-managing-the-email-list)
+12. [Admin Maintenance](#12-admin-maintenance)
+13. [What to Avoid](#13-what-to-avoid)
+14. [Security Practices](#14-security-practices)
+15. [Adding / Removing Admins](#15-adding--removing-admins)
+16. [Troubleshooting](#16-troubleshooting)
 
 ---
 
@@ -42,9 +43,9 @@ Your login session lasts **24 hours**. After that, you'll be redirected to the l
 Click **Sign Out** in the sidebar (desktop) or top header (mobile). Always sign out on shared devices.
 
 ### Navigation
-**Desktop:** Left sidebar with 4 main sections — Dashboard, Events, Gallery, Store.
+**Desktop:** Left sidebar with 5 main sections — Dashboard, Events, Gallery, Store, Emails.
 
-**Mobile:** Bottom tab bar with the same 4 sections + top header with sign out.
+**Mobile:** Bottom tab bar with the same sections + top header with sign out.
 
 Within **Events** and **Store**, a tab bar appears at the top of the content area:
 - Events section: **Events / Tickets / Vendors / Confirm**
@@ -223,14 +224,14 @@ All vendor applications appear in a list, sorted newest first. Each card shows:
 - Food categories
 - Status badge (Pending / Approved / Declined)
 - Description
-- Image slideshow (if multiple images were submitted)
+- Logo (if uploaded)
 - Menu (expandable)
 
 ### Approving a Vendor
 
 1. Click **"Approve"** on the vendor card
 2. The status changes to **Approved** immediately
-3. The vendor is automatically **emailed** (via EmailJS) with their approval and next steps
+3. The vendor is automatically **emailed** with their approval and next steps
 4. They appear in the **public vendor directory**
 
 ### Declining a Vendor
@@ -258,8 +259,15 @@ If an approved vendor needs to be removed:
 
 Admins can add vendors who bypass the normal application form (e.g. returning partners):
 1. Click **"+ Add Vendor"**
-2. Fill in the vendor details
+2. Fill in the vendor details (including optional brand logo upload)
 3. Set the initial status as needed
+
+### Editing a Vendor
+
+Click the vendor card to open the detail drawer, then click **Edit**. Fields include:
+- All contact and brand details
+- **Brand Logo** — upload a square logo (shown in the vendor strip and directory)
+- Menu categories and items
 
 ### Deleting a Vendor
 
@@ -288,7 +296,7 @@ Use the status tabs at the top (**All / Pending / Approved / Declined**) to narr
 4. Click **"Save All"** — all items are saved together
 
 ### Supported URLs
-- **Photos:** Direct image URLs ending in `.jpg`, `.jpeg`, `.png`, `.webp`, or CDN links (e.g. Cloudinary, Imgur, Google Drive public links)
+- **Photos:** Direct image URLs ending in `.jpg`, `.jpeg`, `.png`, `.webp`, or CDN links
 - **Videos:** Direct video URLs (`.mp4`, `.webm`) or CDN video links
 
 > Test your URL in a new browser tab before adding it. Broken links result in empty/broken media in the gallery.
@@ -301,7 +309,7 @@ Gallery items are organised by event. Use the event tabs at the top to browse it
 Click the **trash icon** on any gallery item → confirm. The item is removed from the public gallery immediately.
 
 ### Best Practices
-- Upload photos and videos to a CDN (Cloudinary, Imgur) first, then paste the URL here
+- Upload photos and videos to a CDN (Cloudinary, Firebase Storage) first, then paste the URL here
 - Use consistent captions — they appear on hover in the gallery
 - Add media shortly after each event while it's still fresh
 
@@ -309,7 +317,7 @@ Click the **trash icon** on any gallery item → confirm. The item is removed fr
 
 ## 8. Managing Testimonials
 
-**Navigate to:** Gallery → Testimonials tab (or via sidebar for some layouts)
+**Navigate to:** Gallery → Testimonials tab
 
 ### What Admin-Created Testimonials Are
 
@@ -390,10 +398,10 @@ The product with the **highest number of units sold** (from live order data) aut
 ### Stock Management
 
 - Set `stock` to the total number of units you have
-- The system **automatically tracks sales** using a `soldCount` field — it increments on every successful purchase and decrements when an order is returned
-- Available units = `stock − soldCount`. When this reaches 0, the item shows "Sold Out" on the public shop and cannot be added to cart
+- The system **automatically tracks sales** using a `soldCount` field
+- Available units = `stock − soldCount`. When this reaches 0, the item shows "Sold Out"
 - `-1` = unlimited stock (never shows "Sold Out")
-- You should **not manually edit `soldCount`** — it is managed by the purchase and return flows automatically
+- Do **not manually edit `soldCount`** — it is managed by the purchase and return flows automatically
 
 ---
 
@@ -432,40 +440,84 @@ Expand an order, then use the action buttons:
 | **Mark Returned** | Package came back (requires a note explaining why) |
 | **Undo to Pending** | Reverse an action (requires a note explaining why) |
 
-> The **"Returned"** and **"Undo to Pending"** actions open a note modal. Always enter a reason — it's recorded in the status trail and visible to you later.
-
 ### Stock Impact of Status Changes
 
 | Action | Stock Effect |
 |---|---|
 | Mark Dispatched | No change |
 | Mark Delivered | No change |
-| Mark Returned | Stock availability **restored** — items can be purchased again |
-| Undo to Pending (from Returned) | Stock availability **reduced again** — items return to sold state |
-
-This happens automatically. You do not need to manually adjust stock numbers when processing returns or undos.
-
-### Status Trail (Audit Log)
-
-Every status change is logged in `statusHistory[]` with:
-- Status value
-- Timestamp
-- Your note
-
-This is your delivery audit trail — treat it as a paper trail for disputes.
+| Mark Returned | Stock availability **restored** |
+| Undo to Pending (from Returned) | Stock availability **reduced again** |
 
 ### Deleting an Order
 
-Click the **trash icon** on the order row → confirm. Only delete orders that were:
-- Duplicate entries
-- Test transactions
-- Refunded and resolved
-
-> Never delete a legitimate order without first recording the reason and outcome elsewhere.
+Click the **trash icon** on the order row → confirm. Only delete orders that were duplicate entries, test transactions, or fully refunded and resolved.
 
 ---
 
-## 11. Admin Maintenance
+## 11. Managing the Email List
+
+**Navigate to:** Emails (sidebar/nav) → `dineatnight.com/admin/subscribers`
+
+This section manages all contacts — newsletter subscribers and ticket buyers — and lets you send newsletters directly from the admin panel.
+
+### Tabs
+
+| Tab | What It Shows |
+|---|---|
+| **All Emails** | Combined list of newsletter subscribers + ticket buyers |
+| **Newsletter** | Only newsletter sign-ups |
+| **Ticket Buyers** | Only emails from paid ticket purchases |
+| **Sent** | History of newsletters you've sent |
+
+### Email Counts
+
+The header shows two counts:
+- `X newsletter` — active newsletter subscribers
+- `X ticket buyers` — unique emails from paid tickets (deduplicated)
+
+Suppressed emails (manually removed ticket buyers) are filtered out from all views.
+
+### Copying and Exporting
+
+- **Copy** — copies all visible emails as a comma-separated list to clipboard
+- **Export** — downloads the current tab as an Excel (.xlsx) file with email, source, name, and event columns
+
+### Deleting Individual Emails
+
+Each row has a **trash icon** (always visible on mobile, hover-only on desktop):
+- **Newsletter row** — deletes the subscriber document from Firestore. The user can re-subscribe after deletion.
+- **Ticket row** — adds the email to a `suppressed_emails` list. The ticket record is not deleted (payment history preserved). The email is excluded from all future email lists and newsletters.
+
+### Clear All Newsletter Subscribers
+
+Click **Clear All** (appears when on the Newsletter or All tab) → confirm in the modal. This permanently deletes all newsletter subscriber documents at once. Cannot be undone.
+
+### Sending a Newsletter
+
+1. Click **Send Newsletter** (top right, always visible regardless of tab)
+2. Fill in the compose form:
+   - **Subject** — email subject line
+   - **Message** — plain text body (automatically styled with Dine At Night branding)
+   - **Page Link (optional)** — choose a site page to add a CTA button (Events, Vendors, Gallery, Shop, About, Contact, or a custom URL)
+3. Click **Send to X recipients →**
+4. The email is sent in batches of 50 via Resend
+5. On success, the newsletter is saved to **Sent history**
+
+Each recipient gets a **personalised unsubscribe link** at the bottom of the email. The email also includes a `List-Unsubscribe` header so Gmail shows a one-click unsubscribe button.
+
+### Sent History
+
+The **Sent** tab shows all newsletters you've sent:
+- Subject, date, recipient count
+- "+X new" badge if new contacts have joined since it was sent
+- **Expand** a sent item to see the full message, link, and recipient list
+- **Resend to New Users** — sends the same newsletter only to contacts who weren't in the original send
+- **Delete** — removes the sent record (does not unsend the email)
+
+---
+
+## 12. Admin Maintenance
 
 ### Regular Tasks
 
@@ -474,7 +526,7 @@ Click the **trash icon** on the order row → confirm. Only delete orders that w
 - [ ] Set accurate ticket types, prices, and total capacity
 - [ ] Add event image (wide banner, high quality)
 - [ ] Review all pending vendor applications and approve/decline
-- [ ] Test the ticket purchase flow with a test card (Paystack test mode)
+- [ ] Send a newsletter announcing the event to your email list
 
 **On event day:**
 - [ ] Open the Confirm tab on a tablet/phone
@@ -487,6 +539,7 @@ Click the **trash icon** on the order row → confirm. Only delete orders that w
 - [ ] Upload gallery photos and videos
 - [ ] Process any pending/disputed orders
 - [ ] Review and moderate new testimonials
+- [ ] Send a post-event newsletter with gallery highlights
 
 **Ongoing:**
 - [ ] Check Orders tab regularly and update delivery statuses
@@ -496,138 +549,124 @@ Click the **trash icon** on the order row → confirm. Only delete orders that w
 
 ### Keeping Data Clean
 
-- **Do not leave events in "Active" status after they've ended** — this confuses the countdown timers and buy buttons
-- **Do not leave vendors in "Pending" for weeks** — they will follow up; process applications promptly
-- **Do not add placeholder/test data in production** — it shows on the public site
+- **Do not leave events in "Active" status after they've ended**
+- **Do not leave vendors in "Pending" for weeks**
+- **Do not add placeholder/test data in production**
 
 ---
 
-## 12. What to Avoid
+## 13. What to Avoid
 
 ### Events
 | Action | Why to Avoid |
 |---|---|
-| Deleting events with ticket sales | Tickets reference the event ID; deleting breaks ticket records |
-| Changing total ticket capacity below current sold count | The progress bar goes > 100%, confusing the public UI |
-| Publishing an event without an image | The event card appears broken on the public site |
-| Using a non-working image URL | Broken card image on public site |
+| Deleting events with ticket sales | Tickets reference the event; deleting breaks ticket records |
+| Changing total ticket capacity below current sold count | Progress bar goes > 100% |
+| Publishing an event without an image | Event card appears broken on public site |
 
 ### Vendors
 | Action | Why to Avoid |
 |---|---|
-| Approving a vendor and then immediately revoking | Triggers two automated emails in quick succession |
-| Declining a vendor without a reason | Vendor has no feedback to improve their application |
-| Creating duplicate vendor entries | The system deduplicates by email — two entries with the same email will conflict |
+| Approving then immediately revoking | Triggers two automated emails in quick succession |
+| Declining without a reason | Vendor has no feedback to improve their application |
+| Creating duplicate vendor entries | System deduplicates by email — conflicts arise |
 
-### Gallery
+### Email List
 | Action | Why to Avoid |
 |---|---|
-| Adding hundreds of items at once | The gallery page loads all items; very large galleries will slow it down |
-| Using broken or private image URLs | Results in broken images in the public gallery |
-| Adding items without assigning them to an event | They won't appear in event-filtered views |
+| Sending newsletters without a subject or body | Will be rejected by the API |
+| Using "Clear All" carelessly | Permanently deletes all subscribers — irreversible |
+| Sending to suppressed emails | The system filters these out automatically; no action needed |
 
 ### Shop
 | Action | Why to Avoid |
 |---|---|
-| Deleting a product that has existing orders | Orders will still show the product name (stored in order), but the product card is gone. Reconciliation becomes harder |
-| Setting stock to 0 while orders are in progress | Doesn't cancel in-flight orders, just prevents new ones |
-| Changing a product's price mid-event | Doesn't affect completed orders, but can confuse customers who saw the old price |
+| Deleting a product with existing orders | Orders remain but product card is gone |
+| Setting stock to 0 during active sales | Doesn't cancel in-flight orders |
 
 ### Orders
 | Action | Why to Avoid |
 |---|---|
-| Deleting legitimate paid orders | Permanent. Loss of delivery and revenue records |
-| Skipping the status update flow | Customers have no visibility into their delivery; they'll contact support |
-| Not entering reasons on Returned / Undo actions | Status trail becomes useless for dispute resolution |
+| Deleting legitimate paid orders | Permanent loss of delivery and revenue records |
+| Skipping status updates | Customers have no delivery visibility |
 
 ### General
 | Action | Why to Avoid |
 |---|---|
-| Sharing admin credentials | Each admin should have their own Firebase Auth account |
-| Staying logged in on shared devices | Session lasts 24 hours — anyone on the device can access the admin |
-| Making changes without checking the public site | Some changes are immediate — preview after every publish |
+| Sharing admin credentials | Each admin should have their own account |
+| Staying logged in on shared devices | Session lasts 24 hours — anyone on the device has access |
 
 ---
 
-## 13. Security Practices
+## 14. Security Practices
 
 ### Credentials
 - Use a **strong, unique password** for your admin Firebase account
-- Do not reuse your admin password anywhere else
 - Never share your password via WhatsApp, email, or any messaging app
 
 ### Session Management
 - Always **Sign Out** when done, especially on shared or borrowed devices
-- If you suspect your account was compromised, contact the technical team immediately to revoke your session
+- If you suspect your account was compromised, contact the technical team to revoke your session
 
 ### Environment Variables
 - Never share `.env.local` or Vercel environment variables with unauthorised people
-- The `PAYSTACK_SECRET_KEY` and `ADMIN_EMAILS` variables are especially sensitive
-- If any key is exposed, rotate it immediately (Paystack dashboard + Vercel env)
+- `PAYSTACK_SECRET_KEY`, `SESSION_SECRET`, `RESEND_API_KEY`, and `ADMIN_EMAILS` are especially sensitive
+- If any key is exposed, rotate it immediately
 
 ### Email Notifications
-The system automatically emails vendors when you:
-- Approve their application
-- Decline their application (with your reason)
-- Revoke their approval (with your reason)
-
-These emails go directly to the vendor's inbox. **Be professional — they are on record.**
+The system automatically emails vendors when you approve, decline, or revoke their application. **Be professional — these emails are on record.**
 
 ---
 
-## 14. Adding / Removing Admins
+## 15. Adding / Removing Admins
 
-Only the technical team can add or remove admins. Here's what's needed:
+Only the technical team can add or remove admins.
 
 ### To Add an Admin
 1. Create a Firebase Auth account for them (Firebase Console → Authentication → Add User)
 2. Add their email to `ADMIN_EMAILS` in Vercel environment variables
-3. Redeploy or wait for the next deployment (env vars take effect on next request)
-4. Share their login credentials securely
+3. Redeploy or wait for the next deployment
 
 ### To Remove an Admin
-1. Remove their email from `ADMIN_EMAILS` in Vercel (they can no longer log in)
+1. Remove their email from `ADMIN_EMAILS` in Vercel → redeploy
 2. Disable or delete their Firebase Auth account (Firebase Console)
-3. If they're currently logged in, their session cookie will expire within 24 hours
+3. Their session cookie expires within 24 hours
 
-> There is no instant session revocation — removing from `ADMIN_EMAILS` prevents new logins but doesn't kill active sessions immediately. Plan around the 24-hour window.
+> There is no instant session revocation. Plan around the 24-hour window.
 
 ---
 
-## 15. Troubleshooting
+## 16. Troubleshooting
 
 ### "Firebase Not Configured" error on admin pages
-The Firebase environment variables (`NEXT_PUBLIC_FIREBASE_*`) are missing from Vercel. Go to Vercel → Project Settings → Environment Variables and add all 6-7 Firebase keys. Redeploy.
+The Firebase environment variables are missing from Vercel. Add all `NEXT_PUBLIC_FIREBASE_*` keys and redeploy.
 
 ### Login fails with "Invalid email or password"
-- Check you're using the correct email (same one registered in Firebase Auth)
-- Check your email is in the `ADMIN_EMAILS` Vercel variable
-- Try resetting your Firebase Auth password from the Firebase Console
+- Check the email is registered in Firebase Auth
+- Check the email is in the `ADMIN_EMAILS` Vercel variable
+- Reset the Firebase Auth password from the Firebase Console
 
-### Admin panel shows a blank screen or spinning loader after login
-Wait 5–10 seconds — the auth check is in progress. If it persists, sign out and back in.
+### Newsletter send returns "Unauthorised"
+The `SESSION_SECRET` env var may be missing in Vercel. Add it and redeploy.
+
+### Newsletter emails going to spam
+- Ensure the sending domain is verified in the Resend dashboard
+- The `List-Unsubscribe` header is added automatically — this helps over time
+- New domains take 2–4 weeks to build inbox reputation
 
 ### Vendor email not received after status change
-- The vendor should check their spam/junk folder
-- EmailJS env vars may be missing — check `NEXT_PUBLIC_EMAILJS_*` in Vercel
-- If EmailJS dashboard shows the email was sent, the issue is on the vendor's mail server side
+- Vendor should check spam/junk folder
+- Check `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are set in Vercel
 
 ### Gallery images not loading
-The image URLs may be broken or from a source that blocks external embedding (hotlink protection). Test the URL in a new private browsing tab. If it fails, re-upload the image to a CDN (e.g. Cloudinary) and use the new URL.
-
-### Orders not appearing in real-time
-The orders page uses a live Firestore subscription. If orders aren't appearing:
-1. Refresh the page
-2. Check your internet connection
-3. Check the Firebase Console — if Firestore is down (rare), wait and retry
+Image URLs may be broken or hotlink-protected. Test the URL in a private browsing tab, then re-upload to Firebase Storage and use the new URL.
 
 ### Ticket confirm shows "Not Found" for a valid ticket
-- Check the reference code — it must be exact (case-sensitive)
-- The ticket may be under the wrong event (check in the Tickets tab)
-- If payment was made but the ticket doesn't exist, check the Paystack webhook logs in the Paystack dashboard
+- Reference must be exact (case-sensitive)
+- If payment was made but ticket is missing, check Paystack webhook logs
 
 ### The Paystack webhook stopped firing
-Log in to the Paystack dashboard → Settings → API Keys & Webhooks → verify the webhook URL is `https://dineatnight.com/api/paystack/webhook` and the secret key matches `PAYSTACK_SECRET_KEY` in Vercel.
+Verify the webhook URL in Paystack dashboard is `https://dineatnight.com/api/paystack/webhook` and the secret matches `PAYSTACK_SECRET_KEY` in Vercel.
 
 ---
 

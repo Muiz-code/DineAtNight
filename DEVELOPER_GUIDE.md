@@ -14,7 +14,7 @@
    - [Firebase & Firestore](#51-firebase--firestore)
    - [Stock Management Model](#52-stock-management-model)
    - [Payment Flow (Paystack)](#53-payment-flow-paystack)
-   - [Email System (EmailJS)](#54-email-system-emailjs)
+   - [Email System (Resend)](#54-email-system-resend)
    - [Authentication](#55-authentication)
    - [Real-time Subscriptions](#56-real-time-subscriptions)
 6. [Firestore Schema](#6-firestore-schema)
@@ -34,7 +34,7 @@
 - **npm** 10+
 - A Firebase project with Firestore + Auth enabled
 - A Paystack account (test keys for local dev)
-- An EmailJS account with templates configured
+- A Resend account with a verified domain
 
 ### Setup
 
@@ -75,7 +75,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | **UI / Animation** | Framer Motion, Lucide React, Shadcn/ui | Shadcn used for dialogs, buttons |
 | **Backend / DB** | Firebase Firestore + Auth | Real-time document DB; no custom backend |
 | **Payments** | Paystack | Webhook-driven; server-side verification |
-| **Email** | EmailJS | Client-side; no server needed |
+| **Email** | Resend | Server-side via API routes; verified domain required |
 | **QR Codes** | `qrcode` (generate) + `html5-qrcode` (scan) | |
 | **Excel Export** | XLSX | Admin ticket export |
 | **Deployment** | Vercel | Automatic on push to `main` |
@@ -97,6 +97,7 @@ app/
 ├── tickets/[ref]/       # E-ticket page with QR code
 ├── vendors/             # Vendor directory + application modal
 ├── contact/             # Contact form
+├── unsubscribe/         # Newsletter unsubscribe landing page
 ├── admin/               # Admin dashboard (protected)
 │   ├── page.tsx         # Dashboard overview stats
 │   ├── login/           # Admin login
@@ -106,22 +107,27 @@ app/
 │   ├── shop/            # Product management
 │   ├── orders/          # Order delivery management
 │   ├── tickets/         # Ticket viewer + XLSX export
+│   ├── subscribers/     # Newsletter email list + broadcast tool
 │   ├── testimonials/    # Testimonial moderation
 │   └── confirm/         # Gate QR scanner
 ├── _components/         # Shared components (Navbar, Footer, etc.)
 └── api/                 # Next.js API routes
-    └── paystack/
-        ├── initialize/  # Ticket payment init
-        ├── verify/      # Ticket payment verify
-        ├── merch/
-        │   ├── initialize/  # Merch payment init + server-side stock check
-        │   └── verify/      # Merch payment verify + Firestore order creation
-        └── webhook/     # Paystack webhook receiver
+    ├── paystack/
+    │   ├── initialize/  # Ticket payment init
+    │   ├── verify/      # Ticket payment verify
+    │   ├── merch/
+    │   │   ├── initialize/  # Merch payment init + server-side stock check
+    │   │   └── verify/      # Merch payment verify + Firestore order creation
+    │   └── webhook/     # Paystack webhook receiver
+    ├── subscribe/       # Newsletter signup (POST)
+    ├── unsubscribe/     # Newsletter unsubscribe via HMAC token (GET)
+    └── admin/
+        └── newsletter/  # Send broadcast email to subscriber list (POST)
 
 lib/
 ├── firebase.ts          # Firebase app init (singleton)
 ├── firestore.ts         # All Firestore read/write helpers
-├── emailjs.ts           # EmailJS send helpers
+├── resend.ts            # Resend email helpers + unsubscribe URL generator
 ├── cache.ts             # In-memory TTL cache (reduces Firestore reads)
 ├── rateLimit.ts         # Client-side rate limiter (contact form)
 └── useScrollLock.ts     # Body scroll-lock hook (modals)
@@ -153,14 +159,16 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000/
 # Admin
 NEXT_PUBLIC_ADMIN_EMAILS=admin@dineatnight.com  # Comma-separated for multiple admins
 
-# EmailJS (client-safe — all NEXT_PUBLIC)
-NEXT_PUBLIC_EMAILJS_SERVICE_ID=
-NEXT_PUBLIC_EMAILJS_PUBLIC_KEY=
-NEXT_PUBLIC_EMAILJS_NOTIFICATION_TEMPLATE=   # Vendor status notifications
-NEXT_PUBLIC_EMAILJS_CONFIRMATION_TEMPLATE=   # Ticket/order confirmations
+# Resend (server-only — no NEXT_PUBLIC prefix)
+RESEND_API_KEY=                    # Resend API key
+RESEND_FROM_EMAIL=                 # Verified sender address (e.g. hello@dineatnight.com)
+RESEND_ADMIN_EMAIL=                # Address to receive contact form notifications
+
+# Session / Security (server-only)
+SESSION_SECRET=                    # Random 32+ char string — used for HMAC cookie + unsubscribe tokens
 ```
 
-> `PAYSTACK_SECRET_KEY` is **server-only**. Never prefix it with `NEXT_PUBLIC_`. It is used in API routes only.
+> `PAYSTACK_SECRET_KEY`, `RESEND_API_KEY`, and `SESSION_SECRET` are **server-only**. Never prefix them with `NEXT_PUBLIC_`.
 
 ---
 
@@ -173,6 +181,8 @@ Firebase is initialised once in `lib/firebase.ts` and exported as `db` (Firestor
 All Firestore operations are centralised in `lib/firestore.ts`. Do not make Firestore calls directly from page components — use or add a helper there.
 
 The `lib/cache.ts` module wraps common read operations with a short TTL (5 minutes by default). Writes always call `clearCache(key)` to invalidate stale data.
+
+> **Firestore rules are not committed to the repo** — they are managed directly in the Firebase Console. See the Deployment section for checklist reminders. Never commit `firestore.rules` or `firebase.json` — they are in `.gitignore`.
 
 ### 5.2 Stock Management Model
 
@@ -222,23 +232,60 @@ User → /api/paystack/merch/initialize
 
 > The merch initialize route does a **pre-flight stock check** before Paystack is opened. This prevents users from paying for items that are already sold out. The verify route does a **second atomic check** (idempotent) using `runTransaction`.
 
-### 5.4 Email System (EmailJS)
+### 5.4 Email System (Resend)
 
-All emails are sent **client-side** using `lib/emailjs.ts`. No server or backend email service is required.
+All transactional emails are sent **server-side** via `lib/resend.ts` using the [Resend](https://resend.com) API. No client-side email library is used.
 
-EmailJS templates used:
-- **Notification template** (`NEXT_PUBLIC_EMAILJS_NOTIFICATION_TEMPLATE`) — vendor status updates (approve / decline / revoke)
-- **Confirmation template** (`NEXT_PUBLIC_EMAILJS_CONFIRMATION_TEMPLATE`) — ticket and order confirmations, newsletter welcome
+#### Functions in `lib/resend.ts`
 
-> EmailJS has a free-tier send limit. Monitor usage in the EmailJS dashboard. For high-volume needs, consider migrating to a server-side solution (Resend, SendGrid).
+| Function | Purpose |
+|---|---|
+| `send(options)` | Low-level wrapper around `resend.emails.send()`. Accepts optional `headers`. |
+| `sendNewsletterWelcomeEmail(email)` | Sends welcome email to new subscriber, includes unsubscribe link + signature |
+| `generateUnsubscribeUrl(email)` | Generates HMAC-SHA256 signed unsubscribe URL for a given email |
+
+#### Newsletter Broadcasts (`/api/admin/newsletter`)
+
+- Admin composes subject, message body, optional CTA link+label
+- Route fetches all subscribers from Firestore
+- Optionally includes ticket buyer emails (from `tickets` collection) — buyers that have opted out are stored in `suppressed_emails` and excluded
+- Each email gets a unique unsubscribe URL (HMAC token per recipient)
+- Sent via `resend.batch.send()` with per-recipient HTML
+- `List-Unsubscribe` and `List-Unsubscribe-Post` headers added per email (Gmail one-click unsubscribe)
+- Sent newsletter stored in `newsletters` Firestore collection for history
+
+#### Unsubscribe Flow
+
+```
+Email footer link → /api/unsubscribe?email=...&token=...
+                  → verifies HMAC token with SESSION_SECRET
+                  → deletes subscriber doc via Firestore REST API
+                  → redirects to /unsubscribe?status=success|invalid|error
+```
+
+Token verification uses HMAC-SHA256 (same algorithm as the admin session cookie). The Firestore REST API is used in the unsubscribe route instead of the Admin SDK — no server-side Firebase credentials needed.
+
+#### Required Environment Variables
+
+```env
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=       # Must be a verified sender in Resend dashboard
+RESEND_ADMIN_EMAIL=
+SESSION_SECRET=          # Also used for admin session HMAC
+```
+
+> Emails sent from `localhost` or unverified domains go to spam. Always test newsletter sends from the production domain. Domain verification is managed in the Resend dashboard.
 
 ### 5.5 Authentication
 
-Admin authentication uses **Firebase Auth** (email/password).
+Admin authentication uses **Firebase Auth** (email/password) plus a **server-side session cookie**.
 
-After login, the user's email is checked against `NEXT_PUBLIC_ADMIN_EMAILS` (a comma-separated env var). If their email is not in the list, they are redirected to `/admin/login` even if Firebase Auth succeeds.
+After login:
+1. The user's email is checked against `NEXT_PUBLIC_ADMIN_EMAILS`
+2. A session cookie is set — signed with HMAC-SHA256 using `SESSION_SECRET`
+3. Admin API routes verify this cookie server-side
 
-Admin route protection is handled in each admin page's `useEffect` — there is no middleware-level protection. This means the check happens client-side after page load.
+Admin route protection is also handled client-side in each admin page's `useEffect` as a secondary guard.
 
 ### 5.6 Real-time Subscriptions
 
@@ -377,10 +424,33 @@ useEffect(() => {
 ### `subscribers` collection
 ```
 {
-  email: string
+  email: string                // Document ID is the email address
   subscribedAt: Timestamp
 }
 ```
+
+### `newsletters` collection
+```
+{
+  subject: string
+  message: string
+  linkUrl?: string
+  linkLabel?: string
+  sentAt: Timestamp
+  recipientCount: number
+}
+```
+
+### `suppressed_emails` collection
+```
+{
+  email: string                // Document ID is the email address
+  suppressedAt: Timestamp
+  reason: string               // e.g. "admin_removed"
+}
+```
+
+> `suppressed_emails` holds ticket buyer emails that have been removed from newsletter sends. Non-destructive — the original ticket record is untouched.
 
 ---
 
@@ -395,8 +465,20 @@ All routes are under `app/api/`.
 | `/api/paystack/merch/initialize` | POST | Server-side stock check + create Paystack transaction for merch |
 | `/api/paystack/merch/verify` | GET | Verify merch payment, create order doc, increment soldCount |
 | `/api/paystack/webhook` | POST | Paystack webhook receiver (validates HMAC signature) |
+| `/api/subscribe` | POST | Add email to `subscribers` collection; returns `{ isNew: boolean }` |
+| `/api/unsubscribe` | GET | Verify HMAC token, delete subscriber doc, redirect to `/unsubscribe` page |
+| `/api/admin/newsletter` | POST | Send broadcast email via Resend batch; requires admin session cookie |
 
 > All Paystack API calls use `PAYSTACK_SECRET_KEY` from the server environment. The secret key is never sent to the client.
+
+### `/api/subscribe` Response
+
+```json
+{ "ok": true, "isNew": true }   // new subscriber
+{ "ok": true, "isNew": false }  // already subscribed (no duplicate created)
+```
+
+The client reads `isNew` to show either a "subscribed!" or "We know you love us!" message.
 
 ---
 
@@ -406,6 +488,7 @@ Admin access requires two conditions to both be true:
 
 1. **Firebase Auth** — user is logged in with a valid account
 2. **Email whitelist** — `process.env.NEXT_PUBLIC_ADMIN_EMAILS` contains their email (comma-separated)
+3. **Session cookie** — HMAC-signed cookie set at login, verified by admin API routes
 
 To add an admin:
 1. Create a Firebase Auth account (Firebase Console → Authentication → Add User)
@@ -477,9 +560,11 @@ The project is deployed on **Vercel**. Pushing to `main` triggers an automatic p
 
 - [ ] All environment variables set in Vercel → Settings → Environment Variables
 - [ ] `PAYSTACK_SECRET_KEY` is server-only (no `NEXT_PUBLIC_` prefix)
+- [ ] `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `SESSION_SECRET` set in Vercel
+- [ ] Resend domain verified in Resend dashboard (required for non-spam delivery)
 - [ ] Paystack webhook URL points to `https://dineatnight.com/api/paystack/webhook`
 - [ ] Paystack webhook secret matches `PAYSTACK_SECRET_KEY`
-- [ ] Firebase rules are set to protect sensitive collections
+- [ ] Firestore rules are set to protect sensitive collections (managed in Firebase Console — **not committed to repo**)
 - [ ] Run `npm run build` locally before pushing to catch type errors
 
 ### Vercel Project Settings
@@ -490,6 +575,17 @@ The project is deployed on **Vercel**. Pushing to `main` triggers an automatic p
 | Build Command | `npm run build` |
 | Output Directory | `.next` (auto-detected) |
 | Node.js Version | 20.x |
+
+### Files Not in Git
+
+The following are intentionally excluded from the repository (`.gitignore`):
+
+| File | Reason |
+|---|---|
+| `firestore.rules` | Contains security rules — managed in Firebase Console |
+| `firebase.json` | Contains project config — not needed in repo |
+| `.firebaserc` | Contains project alias — not needed in repo |
+| `.env*` | Contains secrets — never commit |
 
 ---
 
@@ -535,6 +631,21 @@ Both `restockReturnedOrder` and `reapplyOrderSoldCount` use `runTransaction` for
 ### Admin Env Var Changes Require Redeploy
 
 `NEXT_PUBLIC_ADMIN_EMAILS` is baked into the client bundle at build time. Adding or removing an admin email requires a new Vercel deployment to take effect.
+
+### Firestore `allow write` vs. `allow delete`
+
+`allow write` with `request.resource.data` field constraints will **fail for DELETE operations** because there is no `request.resource` on a delete. Always split into:
+
+```
+allow create: if request.resource.data.keys().hasOnly([...]);
+allow delete: if <your condition>;
+```
+
+### Newsletter Emails Going to Spam
+
+- Emails sent from `localhost` always land in spam — test sends from production only
+- New sending domains take 2–4 weeks to build reputation with Gmail/Outlook
+- All broadcast emails include `List-Unsubscribe` headers and a visible unsubscribe link — this is required for bulk sending compliance
 
 ---
 

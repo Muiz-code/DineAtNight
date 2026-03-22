@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CheckCircle2 } from "lucide-react";
+import { X } from "lucide-react";
+import LordIcon from "./LordIcon";
 
 const STORAGE_KEY = "dan_newsletter_seen";
 
@@ -104,13 +105,7 @@ export default function NewsletterModal() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: "spring", damping: 18 }}
               >
-                <CheckCircle2
-                  className="w-12 h-12 mx-auto"
-                  style={{
-                    color: "#00FF41",
-                    filter: "drop-shadow(0 0 12px rgba(0,255,65,0.7))",
-                  }}
-                />
+                <LordIcon size={100} colors="primary:#00FF41,secondary:#00FF41" trigger="in" />
                 <p
                   className="text-lg font-bold uppercase tracking-widest"
                   style={{
@@ -131,13 +126,7 @@ export default function NewsletterModal() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: "spring", damping: 18 }}
               >
-                <CheckCircle2
-                  className="w-12 h-12 mx-auto"
-                  style={{
-                    color: "#FFFF00",
-                    filter: "drop-shadow(0 0 12px rgba(255,255,0,0.7))",
-                  }}
-                />
+                <LordIcon size={100} colors="primary:#FFFF00,secondary:#FFFF00" trigger="in" />
                 <p
                   className="text-lg font-bold uppercase tracking-widest"
                   style={{

@@ -11,7 +11,7 @@ import {
   type DanTicket,
   type DanSponsor,
 } from "@/lib/firestore";
-import { CheckCircle2 } from "lucide-react";
+import LordIcon from "@/app/_components/LordIcon";
 
 const fmt = (kobo: number) => "₦" + (kobo / 100).toLocaleString("en-NG");
 
@@ -162,19 +162,9 @@ export default function TicketPage() {
           {/* Header */}
           <div className="px-7 pt-8 pb-4 text-center">
             {ticket.status === "confirmed" && (
-              <motion.div
-                className="flex justify-center mb-2"
-                animate={{ scale: [0.9, 1.1, 1] }}
-                transition={{ duration: 0.5 }}
-              >
-                <CheckCircle2
-                  className="w-10 h-10"
-                  style={{
-                    color: "#00FF41",
-                    filter: "drop-shadow(0 0 10px rgba(0,255,65,0.7))",
-                  }}
-                />
-              </motion.div>
+              <div className="flex justify-center mb-2">
+                <LordIcon size={90} colors="primary:#00FF41,secondary:#00FF41" trigger="in" />
+              </div>
             )}
             <p
               className="text-xs tracking-[0.4em] uppercase mb-1"

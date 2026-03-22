@@ -9,7 +9,6 @@ import {
   MapPin,
   Send,
   Check,
-  CheckCircle2,
   Ticket,
   Utensils,
   Users,
@@ -18,6 +17,7 @@ import {
   Linkedin,
 } from "lucide-react";
 import Footer from "../_components/Footer";
+import LordIcon from "../_components/LordIcon";
 import Carousel from "../_components/Carousel";
 import HeroCarousel from "../_components/HeroCarousel";
 import NeonMarquee from "../_components/NeonMarquee";
@@ -485,19 +485,9 @@ export default function ContactPage() {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ type: "spring", damping: 20 }}
                 >
-                  <motion.div
-                    className="flex justify-center mb-5"
-                    animate={{ scale: [0.8, 1.2, 1] }}
-                    transition={{ duration: 0.6 }}
-                  >
-                    <CheckCircle2
-                      className="w-16 h-16"
-                      style={{
-                        color: "#00FF41",
-                        filter: "drop-shadow(0 0 12px rgba(0,255,65,0.6))",
-                      }}
-                    />
-                  </motion.div>
+                  <div className="flex justify-center mb-5">
+                    <LordIcon size={120} colors="primary:#00FF41,secondary:#00FF41" trigger="in" />
+                  </div>
                   <h3
                     className="text-2xl font-bold uppercase tracking-wide mb-3"
                     style={{

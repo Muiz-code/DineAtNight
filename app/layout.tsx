@@ -112,6 +112,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script src="https://cdn.lordicon.com/lordicon.js" async />
         <link rel="preconnect" href="https://firebasestorage.googleapis.com" />
         <link
           rel="dns-prefetch"

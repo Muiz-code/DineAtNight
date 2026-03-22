@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2 } from "lucide-react";
+import LordIcon from "./LordIcon";
 import Carousel from "./Carousel";
 import {
   createTestimonial,
@@ -249,18 +249,9 @@ export default function TestimonialSection({
                 exit={{ opacity: 0 }}
                 transition={{ type: "spring", damping: 20 }}
               >
-                <motion.div
-                  animate={{ scale: [0.8, 1.2, 1] }}
-                  transition={{ duration: 0.6 }}
-                >
-                  <CheckCircle2
-                    className="w-14 h-14 mx-auto mb-4"
-                    style={{
-                      color: "#00FF41",
-                      filter: "drop-shadow(0 0 12px rgba(0,255,65,0.6))",
-                    }}
-                  />
-                </motion.div>
+                <div className="flex justify-center mb-4">
+                  <LordIcon size={100} colors="primary:#00FF41,secondary:#00FF41" trigger="in" />
+                </div>
                 <p
                   className="text-xl font-bold uppercase tracking-widest"
                   style={{

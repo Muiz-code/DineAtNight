@@ -5,7 +5,6 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  CheckCircle,
   XCircle,
   Loader2,
   Clock,
@@ -14,6 +13,7 @@ import {
   PackageX,
   type LucideIcon,
 } from "lucide-react";
+import LordIcon from "@/app/_components/LordIcon";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -141,7 +141,7 @@ export default function ShopVerifyPage() {
               {isReturned ? (
                 <PackageX className="w-14 h-14 mx-auto" style={{ color: "#FF8C00" }} />
               ) : (
-                <CheckCircle className="w-14 h-14 mx-auto" style={{ color: "#00FF41" }} />
+                <LordIcon size={120} colors="primary:#00FF41,secondary:#00FF41" trigger="in" />
               )}
               <h1
                 className="text-2xl font-bold uppercase tracking-widest"

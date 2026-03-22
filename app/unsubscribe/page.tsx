@@ -1,4 +1,5 @@
 import Link from "next/link";
+import LordIcon from "@/app/_components/LordIcon";
 
 export default async function UnsubscribePage({
   searchParams,
@@ -32,10 +33,7 @@ export default async function UnsubscribePage({
           {/* Icon */}
           <div className="flex justify-center">
             {isSuccess ? (
-              <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
-                style={{ background: "rgba(255,255,0,0.08)", border: "1px solid rgba(255,255,0,0.2)" }}>
-                ✓
-              </div>
+              <LordIcon size={100} colors="primary:#FFFF00,secondary:#FFFF00" trigger="in" />
             ) : (
               <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
                 style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
