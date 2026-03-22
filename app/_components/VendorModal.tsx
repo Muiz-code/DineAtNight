@@ -345,28 +345,21 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
       setSubmitted(true);
 
       if (!result.isUpdate) {
-        import("@/lib/emailjs")
-          .then(({ sendVendorAppliedEmail, notifyAdminVendorApplied }) =>
-            Promise.all([
-              sendVendorAppliedEmail({
-                ownerName: form.ownerName,
-                brandName: form.brandName,
-                email: form.email,
-                categories: form.categories,
-              }),
-              notifyAdminVendorApplied({
-                ownerName: form.ownerName,
-                brandName: form.brandName,
-                email: form.email,
-                phone: form.phone || undefined,
-                instagram: form.instagram || undefined,
-                categories: form.categories,
-                description: form.description || undefined,
-              }),
-            ]),
-          )
+        fetch("/api/emails/vendor-applied", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ownerName: form.ownerName,
+            brandName: form.brandName,
+            email: form.email,
+            phone: form.phone || undefined,
+            instagram: form.instagram || undefined,
+            categories: form.categories,
+            description: form.description || undefined,
+          }),
+        })
           .catch((err) =>
-            console.error("[EmailJS] VendorModal sends failed:", err),
+            console.error("[vendor-applied] email notify failed:", err),
           );
       }
     } catch (err) {

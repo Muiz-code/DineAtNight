@@ -34,13 +34,7 @@ export default function NewsletterModal() {
         body: JSON.stringify({ email }),
       });
       const data = await res.json();
-      if (data.isNew) {
-        import("@/lib/emailjs")
-          .then(({ sendNewsletterWelcomeEmail }) =>
-            sendNewsletterWelcomeEmail(email),
-          )
-          .catch(() => {});
-      }
+      // Welcome email is sent server-side in /api/subscribe for new subscribers
     } finally {
       setStatus("done");
       localStorage.setItem(STORAGE_KEY, "1");

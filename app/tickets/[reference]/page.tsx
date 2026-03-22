@@ -18,20 +18,34 @@ const fmt = (kobo: number) => "₦" + (kobo / 100).toLocaleString("en-NG");
 function QRCode({ value, size = 200 }: { value: string; size?: number }) {
   // Black on white — the only colour scheme all phone QR scanners read reliably.
   // Coloured / inverted QR codes (e.g. green on black) fail on iOS Camera and many Android scanners.
-  const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(value)}&bgcolor=ffffff&color=000000&qzone=2`;
+  // Generated locally via the `qrcode` package — no external service dependency.
+  const [dataUrl, setDataUrl] = useState<string>("");
+
+  useEffect(() => {
+    import("qrcode").then(({ toDataURL }) =>
+      toDataURL(value, {
+        width: size,
+        margin: 2,
+        color: { dark: "#000000", light: "#ffffff" },
+      })
+    ).then(setDataUrl).catch(() => {});
+  }, [value, size]);
+
+  if (!dataUrl) return <div style={{ width: size, height: size }} className="rounded-xl bg-white" />;
+
   return (
     // White padding border so the QR quiet-zone is clearly visible on the dark ticket card
     <div
       className="rounded-xl p-3 bg-white"
       style={{ display: "inline-block" }}
     >
-      <Image
-        src={url}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={dataUrl}
         alt="Ticket QR Code"
         width={size}
         height={size}
         className="rounded-md block"
-        unoptimized
       />
     </div>
   );

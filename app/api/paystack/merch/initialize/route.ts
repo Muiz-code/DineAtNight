@@ -15,6 +15,13 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+  if (process.env.NODE_ENV === "production" && PAYSTACK_SECRET.startsWith("sk_test_")) {
+    console.error("[merch/initialize] FATAL: production build is using a Paystack TEST secret key.");
+    return NextResponse.json(
+      { error: "Payment service not configured for production." },
+      { status: 500 }
+    );
+  }
 
   // ── Parse body ────────────────────────────────────────────────────────
   let name: string, email: string, phone: string,

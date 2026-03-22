@@ -98,16 +98,16 @@ export default function TestimonialSection({
       setSubmitted(true);
 
       // Notify admin (fire-and-forget)
-      import("@/lib/emailjs")
-        .then(({ notifyAdminTestimonial }) =>
-          notifyAdminTestimonial({
-            name:       displayName,
-            type:       form.type,
-            quote:      form.quote.trim(),
-            eventTitle: form.eventTitle.trim() || undefined,
-          })
-        )
-        .catch((err) => console.error("[EmailJS] notifyAdminTestimonial failed:", err));
+      fetch("/api/emails/testimonial-notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name:       displayName,
+          type:       form.type,
+          quote:      form.quote.trim(),
+          eventTitle: form.eventTitle.trim() || undefined,
+        }),
+      }).catch(() => {});
       setForm({
         name: "",
         type: "user",

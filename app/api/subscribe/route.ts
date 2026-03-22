@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { sendNewsletterWelcomeEmail } from "@/lib/resend";
+import { SUBSCRIBE_RATE_LIMIT, RATE_LIMIT_WINDOW_MS } from "@/lib/constants";
 
 export async function POST(req: NextRequest) {
   // 10 subscribe attempts per hour per IP
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
-  if (!checkRateLimit(ip, 10, 3_600_000)) {
+  if (!(await checkRateLimit(ip, SUBSCRIBE_RATE_LIMIT, RATE_LIMIT_WINDOW_MS))) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
@@ -46,7 +48,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Subscription failed" }, { status: 500 });
     }
 
-    // Welcome email is sent client-side via EmailJS after this responds
+    // Send welcome email server-side for new subscribers only
+    if (isNew) {
+      sendNewsletterWelcomeEmail(normalized).catch(() => {});
+    }
     return NextResponse.json({ ok: true, isNew });
   } catch (err) {
     console.error("[subscribe]", err);

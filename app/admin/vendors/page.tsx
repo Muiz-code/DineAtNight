@@ -205,23 +205,23 @@ export default function AdminVendorsPage() {
     reapplying: vendors.filter((v) => (v.reapplyCount ?? 0) > 0),
   };
 
-  /* ── Email helper (EmailJS — client-side) ── */
+  /* ── Email helper (server-side via /api/emails/vendor-status) ── */
   const sendVendorEmail = (
-    status: "approved" | "declined",
+    status: "approved" | "declined" | "revoked",
     v: DanVendor,
     declineReason?: string,
   ) => {
-    import("@/lib/emailjs")
-      .then(({ sendVendorStatusEmail }) =>
-        sendVendorStatusEmail({
-          ownerName: v.ownerName,
-          brandName: v.brandName,
-          email: v.email,
-          status,
-          reason: declineReason,
-        }),
-      )
-      .catch(() => {});
+    fetch("/api/emails/vendor-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ownerName: v.ownerName,
+        brandName: v.brandName,
+        email: v.email,
+        status,
+        reason: declineReason,
+      }),
+    }).catch(() => {});
   };
 
   /* ── Actions ── */

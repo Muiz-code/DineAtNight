@@ -509,7 +509,7 @@ export default function AdminGalleryPage() {
                       className="w-full h-full object-cover"
                       muted
                       playsInline
-                      preload="none"
+                      preload="metadata"
                     />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -864,6 +864,7 @@ export default function AdminGalleryPage() {
                                       className="w-full h-full object-cover"
                                       muted
                                       playsInline
+                                      preload="metadata"
                                     />
                                   ) : (
                                     // eslint-disable-next-line @next/next/no-img-element

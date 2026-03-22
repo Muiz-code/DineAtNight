@@ -5,8 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { Images } from "@/assets/images";
 import { Linkedin } from "lucide-react";
-import { sendNewsletterWelcomeEmail } from "@/lib/emailjs";
-
 export default function Footer() {
   const { logo } = Images();
   const [subEmail, setSubEmail] = useState("");
@@ -19,11 +17,15 @@ export default function Footer() {
     if (!subEmail.trim()) return;
     setSubState("loading");
     try {
-      await sendNewsletterWelcomeEmail(subEmail.trim());
+      const res = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: subEmail.trim() }),
+      });
+      if (!res.ok) throw new Error("Subscribe failed");
       setSubState("done");
       setSubEmail("");
-    } catch (err) {
-      console.error("[EmailJS] sendNewsletterWelcomeEmail failed:", err);
+    } catch {
       setSubState("error");
       setSubEmail("");
     }

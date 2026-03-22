@@ -821,9 +821,11 @@ export default function EventPage() {
                                   >
                                     {pct}% sold
                                   </span>
-                                  <span className="text-gray-600">
-                                    {remaining} remaining
-                                  </span>
+                                  {pct >= 95 && (
+                                    <span className="text-[#FF3333] font-semibold">
+                                      {Math.round(((ev.totalTickets - sold) / ev.totalTickets) * 100)}% remaining
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                                   <div

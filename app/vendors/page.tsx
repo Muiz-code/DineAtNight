@@ -29,16 +29,13 @@ import {
 } from "lucide-react";
 import { Images, vendorCarouselImages } from "@/assets/images";
 
-// Map a single Firestore category string to filter key
-const categoryToFilter = (cat: string): string => {
+// Map a single Firestore category string to filter key.
+// Categories stored in Firestore are exactly: "Food", "Drinks", "Dessert".
+const categoryToFilter = (cat: string): FilterKey => {
   const c = cat.toLowerCase();
-  if (c.includes("grill") || c.includes("bbq")) return "grilled";
-  if (c.includes("rice") || c.includes("stew")) return "rice";
-  if (c.includes("street")) return "street";
-  if (c.includes("snack") || c.includes("finger")) return "snacks";
-  if (c.includes("dessert") || c.includes("sweet")) return "desserts";
-  if (c.includes("drink") || c.includes("cocktail")) return "drinks";
-  if (c.includes("fusion") || c.includes("international")) return "fusion";
+  if (c === "food") return "food";
+  if (c === "drinks" || c === "drink") return "drinks";
+  if (c === "dessert" || c === "desserts") return "desserts";
   return "other";
 };
 

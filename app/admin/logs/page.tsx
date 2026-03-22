@@ -67,12 +67,21 @@ export default function AdminLogsPage() {
   const [search, setSearch] = useState("");
   const [filterAdmin, setFilterAdmin] = useState("all");
   const [filterAction, setFilterAction] = useState("all");
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
-    deleteOldAdminLogs().catch(() => {});
     const u1 = subscribeAdminLogs((items) => { setLogs(items); setLogsLoading(false); });
     return () => { u1(); };
   }, []);
+
+  const handleClearOldLogs = async () => {
+    setClearing(true);
+    try {
+      await deleteOldAdminLogs();
+    } finally {
+      setClearing(false);
+    }
+  };
 
   const filteredLogs = logs.filter((log) => {
     if (filterAdmin !== "all" && log.adminEmail !== filterAdmin) return false;
@@ -94,11 +103,20 @@ export default function AdminLogsPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold uppercase tracking-widest" style={{ color: "#FFFF00", textShadow: "0 0 20px rgba(255,255,0,0.4)" }}>
-          Activity Log
-        </h1>
-        <p className="text-gray-600 text-xs mt-0.5">Admin activity history · auto-clears after 48 hours</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold uppercase tracking-widest" style={{ color: "#FFFF00", textShadow: "0 0 20px rgba(255,255,0,0.4)" }}>
+            Activity Log
+          </h1>
+          <p className="text-gray-600 text-xs mt-0.5">Admin activity history · retained for 30 days</p>
+        </div>
+        <button
+          onClick={handleClearOldLogs}
+          disabled={clearing}
+          className="shrink-0 px-3 py-1.5 rounded-lg border border-white/10 text-gray-500 text-xs font-bold uppercase tracking-widest hover:border-white/20 hover:text-gray-300 disabled:opacity-40 transition-all"
+        >
+          {clearing ? "Clearing…" : "Clear old logs"}
+        </button>
       </div>
 
       <div className="space-y-4">

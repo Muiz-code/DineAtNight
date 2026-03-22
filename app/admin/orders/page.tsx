@@ -23,7 +23,7 @@ import {
   reapplyOrderSoldCount,
   type DanMerchOrder,
 } from "@/lib/firestore";
-import { sendOrderStatusEmail } from "@/lib/emailjs";
+import { sendOrderStatusEmail } from "@/lib/resend";
 import { logAdminAction } from "@/lib/adminLog";
 type DeliveryStatus = DanMerchOrder["deliveryStatus"];
 type Tab = "all" | DeliveryStatus;

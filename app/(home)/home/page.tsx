@@ -675,32 +675,9 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    /*
-     * ────────────────────────────────────────────────────────────
-     * API NEEDED: Instagram Followers Count
-     * ────────────────────────────────────────────────────────────
-     * 1. Add to .env.local:
-     *      IG_ACCESS_TOKEN=<long-lived token from Meta developer console>
-     *      IG_USER_ID=<your Instagram user ID>
-     * 2. Activate the fetch in /app/api/ig-followers/route.ts
-     * 3. This useEffect will automatically pick up the live count
-     * ────────────────────────────────────────────────────────────
-     */
-    // const loadFollowers = async () => {
-    //   try {
-    //     const res = await fetch("/api/ig-followers");
-    //     if (!res.ok) return;
-    //     const data = await res.json();
-    //     if (data?.followers) {
-    //       setFollowers(formatFollowers(Number(data.followers)));
-    //     }
-    //   } catch {
-    //     // silently fail — fallback shown below
-    //   }
-    // };
-    // loadFollowers();
-  }, []);
+  // TODO: Instagram followers — create /app/api/ig-followers/route.ts using the
+  // Instagram Graph API (GET /me?fields=followers_count&access_token=...) and call
+  // setFollowers(formatFollowers(data.followers)) here once a valid token is available.
 
   // Pick 3 diverse gallery items (round-robin across events)
   const galleryPreview = useMemo(() => {
@@ -1273,9 +1250,11 @@ export default function Home() {
                                   >
                                     {pct}% sold
                                   </span>
-                                  <span className="text-gray-600">
-                                    {remaining} remaining
-                                  </span>
+                                  {pct >= 95 && (
+                                    <span className="text-[#FF3333] font-semibold">
+                                      {Math.round(((ev.totalTickets - sold) / ev.totalTickets) * 100)}% remaining
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                                   <div
@@ -1886,16 +1865,12 @@ export default function Home() {
       {/* ──────────────────────────────────────────
           INSTAGRAM FEED
           ─────────────────────────────────────────
-          API INTEGRATION NEEDED:
-          1. Instagram Graph API for live feed posts:
+          TODO: To wire up a live Instagram feed:
+          1. Add IG_ACCESS_TOKEN + IG_USER_ID to .env.local
+          2. Create /app/api/ig-feed/route.ts calling
                GET /me/media?fields=id,media_type,media_url,permalink
-               &access_token={IG_ACCESS_TOKEN}
-          2. Add to .env.local:
-               IG_ACCESS_TOKEN=<your long-lived token>
-               IG_USER_ID=<your user ID>
-          3. Activate /app/api/ig-followers/route.ts
-          4. Create /app/api/ig-feed/route.ts to return post data
-          5. Replace the placeholder grid below with real <Image> posts
+               &access_token={token}
+          3. Replace the placeholder grid below with real <Image> posts
           ────────────────────────────────────────── */}
       <SectionFadeIn>
         <section className="relative z-10pt-10 pb-5 px-6 md:px-16 bg-black/75">

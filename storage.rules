@@ -1,0 +1,57 @@
+rules_version = '2';
+
+// ── DineAtNight Firebase Storage Security Rules ───────────────────────────────
+//
+// Deploy: firebase deploy --only storage
+//
+// Folder structure:
+//   /vendors/*     — vendor logo and product images (public application form)
+//   /gallery/*     — event photos and videos (admin only)
+//   /products/*    — merch product images (admin only)
+//   /testimonials/* — testimonial photos if any (admin only)
+// ─────────────────────────────────────────────────────────────────────────────
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ── Vendor images ─────────────────────────────────────────────────────────
+    // Public upload — anyone filling out a vendor application can upload images.
+    // Enforce strict type and size limits server-side (client SDK enforces these).
+    match /vendors/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.resource.size <= 10 * 1024 * 1024  // 10 MB max
+                   && request.resource.contentType.matches("image/.*");
+    }
+
+    // ── Gallery ───────────────────────────────────────────────────────────────
+    // Photos and videos — authenticated admins only.
+    match /gallery/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size <= 200 * 1024 * 1024  // 200 MB max
+                   && (request.resource.contentType.matches("image/.*")
+                       || request.resource.contentType.matches("video/.*"));
+    }
+
+    // ── Products (merch shop) ─────────────────────────────────────────────────
+    match /products/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size <= 10 * 1024 * 1024
+                   && request.resource.contentType.matches("image/.*");
+    }
+
+    // ── Testimonials ──────────────────────────────────────────────────────────
+    match /testimonials/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size <= 5 * 1024 * 1024
+                   && request.resource.contentType.matches("image/.*");
+    }
+
+    // Deny everything else by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

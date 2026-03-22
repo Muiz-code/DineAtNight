@@ -1,10 +1,16 @@
 /**
- * Lightweight in-process rate limiter.
- * Each Vercel Lambda instance has its own map, so the cap applies
- * per-instance — this is "soft" rate limiting appropriate for spam
- * prevention, not hard security enforcement.
+ * Firestore-based rate limiter — works across all serverless instances.
+ *
+ * Each check writes an atomic increment to a `rate_limits` Firestore document
+ * keyed by `${key}:${windowStart}`. If the count exceeds the limit, the
+ * request is rejected. Documents expire naturally (they are small and cheap).
+ *
+ * Fail-open: if Firestore is unreachable the request is allowed through so
+ * that a database hiccup never blocks legitimate users.
  */
-const store = new Map<string, { count: number; resetAt: number }>();
+
+import { doc, getDoc, setDoc, increment, Timestamp } from "firebase/firestore";
+import { db } from "./firebase";
 
 /**
  * Returns true (request allowed) or false (limit exceeded).
@@ -12,21 +18,39 @@ const store = new Map<string, { count: number; resetAt: number }>();
  * @param limit    - Max requests allowed in the window.
  * @param windowMs - Window size in milliseconds.
  */
-export function checkRateLimit(
+export async function checkRateLimit(
   key: string,
   limit: number,
   windowMs: number,
-): boolean {
-  const now = Date.now();
-  const entry = store.get(key);
+): Promise<boolean> {
+  try {
+    const windowStart = Math.floor(Date.now() / windowMs);
+    const docId = `${encodeURIComponent(key)}:${windowStart}`;
+    const ref = doc(db, "rate_limits", docId);
 
-  if (!entry || now > entry.resetAt) {
-    store.set(key, { count: 1, resetAt: now + windowMs });
+    // Read current count first to avoid unnecessary writes on already-exceeded keys
+    const snap = await getDoc(ref);
+    const current = (snap.data()?.count as number) ?? 0;
+    if (current >= limit) return false;
+
+    // Atomically increment and record expiry
+    await setDoc(
+      ref,
+      {
+        count: increment(1),
+        key,
+        windowStart,
+        expiresAt: Timestamp.fromMillis(Date.now() + windowMs * 2),
+      },
+      { merge: true },
+    );
+
+    // Re-check after increment (handles concurrent requests at the boundary)
+    const after = await getDoc(ref);
+    const finalCount = (after.data()?.count as number) ?? 1;
+    return finalCount <= limit;
+  } catch {
+    // Fail open — a Firestore error should never block a legitimate request
     return true;
   }
-
-  if (entry.count >= limit) return false;
-
-  entry.count++;
-  return true;
 }

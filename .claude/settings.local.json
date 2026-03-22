@@ -17,7 +17,13 @@
       "Bash(npm ls:*)",
       "Bash(find /Users/user/Documents/Development/DineAtNight/public -name *og* -o -name *image*)",
       "Bash(ls \"/Users/user/Documents/Development/DineAtNight/app/\\(home\\)/\")",
-      "Bash(ls \"/Users/user/Documents/Development/DineAtNight/app/\\(home\\)/home/\")"
+      "Bash(ls \"/Users/user/Documents/Development/DineAtNight/app/\\(home\\)/home/\")",
+      "Bash(find /Users/user/Documents/Development/DineAtNight -name firestore* -o -name *rules* -o -name *firebase* -o -name *.rules)",
+      "Bash(openssl rand:*)",
+      "Bash(npm view:*)",
+      "Bash(ls /Users/user/Documents/Development/DineAtNight/app/\\\\\\(home\\\\\\)/home/error.tsx)",
+      "Bash(echo \"NODE_ENV=$NODE_ENV\")",
+      "Bash(npm uninstall:*)"
     ]
   }
 }

@@ -107,12 +107,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://firebasestorage.googleapis.com" />
         <link
           rel="dns-prefetch"
           href="https://firebasestorage.googleapis.com"
+        />
+        <meta
+          name="google-site-verification"
+          content="vhx_6AnCrOs5gltcjdAwfBZA45bxx-mBvnXqIYhbwYE"
         />
         <script
           type="application/ld+json"

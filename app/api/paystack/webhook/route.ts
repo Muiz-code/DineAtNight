@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { markTicketPaid } from "@/lib/firestore";
+import { markTicketPaid, markMerchOrderPaid } from "@/lib/firestore";
 
 export async function POST(req: NextRequest) {
   const SECRET = process.env.PAYSTACK_SECRET_KEY;
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     .update(body)
     .digest("hex");
 
-  if (hash !== signature) {
+  if (!crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(signature ?? ""))) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
@@ -24,13 +24,25 @@ export async function POST(req: NextRequest) {
 
   if (event.event === "charge.success") {
     const { reference, metadata } = event.data;
-    const { eventId, quantity } = metadata;
-    try {
-      await markTicketPaid(reference, eventId, quantity);
-    } catch (err) {
-      console.error("[webhook] markTicketPaid failed:", err);
+
+    // Distinguish ticket payments (have eventId) from merch order payments (have items)
+    if (metadata?.eventId) {
+      const { eventId, quantity } = metadata;
+      try {
+        await markTicketPaid(reference, eventId, Number(quantity ?? 1));
+      } catch (err) {
+        console.error("[webhook] markTicketPaid failed:", err);
+      }
+      // Ticket confirmation email is sent client-side on /tickets/verify
+    } else if (metadata?.items) {
+      try {
+        await markMerchOrderPaid(reference);
+      } catch (err) {
+        console.error("[webhook] markMerchOrderPaid failed:", err);
+      }
+    } else {
+      console.warn("[webhook] charge.success with unrecognised metadata shape:", reference);
     }
-    // Ticket confirmation email is sent client-side on /tickets/verify
   }
 
   return NextResponse.json({ received: true });

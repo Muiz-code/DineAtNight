@@ -24,6 +24,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { clearCache } from "./cache";
+import { ADMIN_LOG_RETENTION_MS } from "./constants";
 import { StaticImport } from "next/dist/shared/lib/get-img-props";
 
 /**
@@ -372,6 +373,8 @@ export async function upsertVendorApplication(
 
   // Case-insensitive dedup: query by brandNameLower (populated since the fix),
   // then fall back to exact-match for legacy docs that predate this field.
+  // Both queries happen BEFORE the transaction to stay within Firestore transaction
+  // read limits (transactions can only read docs by reference, not by query).
   const lowerSnap = await getDocs(
     query(
       collection(db, "vendors"),
@@ -383,58 +386,64 @@ export async function upsertVendorApplication(
     : toDoc<DanVendor>(lowerSnap.docs[0]);
 
   if (existing?.id) {
-    // Merge events (deduplicate) and categories (deduplicate, max 3)
-    const mergedEvents = Array.from(
-      new Set([...(existing.events ?? []), ...(data.events ?? [])]),
-    );
-    const existingCats =
-      existing.categories ?? (existing.category ? [existing.category] : []);
-    const mergedCats = Array.from(
-      new Set([...existingCats, ...(data.categories ?? [])]),
-    ).slice(0, 3);
+    // Existing vendor — update atomically to prevent partial writes
+    const existingRef = doc(db, "vendors", existing.id);
+    await runTransaction(db, async (tx) => {
+      // Re-read inside transaction to get the latest state
+      const snap = await tx.get(existingRef);
+      if (!snap.exists()) return; // was deleted between query and transaction — skip
+      const current = toDoc<DanVendor>(snap);
 
-    // Accumulate images — keep all unique photos from every application
-    const existingImages = existing.imageUrls?.length
-      ? existing.imageUrls
-      : existing.imageUrl
-        ? [existing.imageUrl]
-        : [];
-    const mergedImages =
-      data.imageUrl && !existingImages.includes(data.imageUrl)
-        ? [...existingImages, data.imageUrl]
-        : existingImages.length
-          ? existingImages
-          : [data.imageUrl];
+      const mergedEvents = Array.from(
+        new Set([...(current.events ?? []), ...(data.events ?? [])]),
+      );
+      const existingCats =
+        current.categories ?? (current.category ? [current.category] : []);
+      const mergedCats = Array.from(
+        new Set([...existingCats, ...(data.categories ?? [])]),
+      ).slice(0, 3);
 
-    // Capture current state as snapshot BEFORE overwriting
-    const previousSnapshot = {
-      description: existing.description,
-      products: existing.products,
-      imageUrl: existing.imageUrl,
-      categories: existingCats,
-      status: existing.status,
-    };
+      const existingImages = current.imageUrls?.length
+        ? current.imageUrls
+        : current.imageUrl
+          ? [current.imageUrl]
+          : [];
+      const mergedImages =
+        data.imageUrl && !existingImages.includes(data.imageUrl)
+          ? [...existingImages, data.imageUrl]
+          : existingImages.length
+            ? existingImages
+            : [data.imageUrl];
 
-    await updateDoc(doc(db, "vendors", existing.id), {
-      brandName: data.brandName,
-      brandNameLower,
-      ownerName: data.ownerName,
-      email: data.email, // update email in case it changed on re-apply
-      phone: data.phone,
-      instagram: data.instagram ?? "",
-      description: data.description,
-      products: data.products,
-      imageUrl: data.imageUrl, // latest image as primary
-      imageUrls: mergedImages, // full slideshow array
-      logoUrl: data.logoUrl ?? existing.logoUrl ?? null,
-      categories: mergedCats,
-      events: mergedEvents,
-      menu: data.menu ?? null,
-      status: "pending", // reset so admin re-reviews
-      declineReason: null,
-      reapplyCount: (existing.reapplyCount ?? 0) + 1,
-      previousSnapshot,
-      submittedAt: serverTimestamp(),
+      const previousSnapshot = {
+        description: current.description,
+        products: current.products,
+        imageUrl: current.imageUrl,
+        categories: existingCats,
+        status: current.status,
+      };
+
+      tx.update(existingRef, {
+        brandName: data.brandName,
+        brandNameLower,
+        ownerName: data.ownerName,
+        email: data.email,
+        phone: data.phone,
+        instagram: data.instagram ?? "",
+        description: data.description,
+        products: data.products,
+        imageUrl: data.imageUrl,
+        imageUrls: mergedImages,
+        logoUrl: data.logoUrl ?? current.logoUrl ?? null,
+        categories: mergedCats,
+        events: mergedEvents,
+        menu: data.menu ?? null,
+        status: "pending",
+        declineReason: null,
+        reapplyCount: (current.reapplyCount ?? 0) + 1,
+        previousSnapshot,
+        submittedAt: serverTimestamp(),
+      });
     });
     return { id: existing.id, isUpdate: true };
   }
@@ -808,6 +817,30 @@ export async function getMerchOrder(
   return toDoc<DanMerchOrder>(snap);
 }
 
+/**
+ * Idempotent: marks a merch order as "paid" and increments soldCount on each
+ * product. Uses a transaction so a concurrent webhook + verify call only
+ * processes the first writer — the second is a no-op.
+ */
+export async function markMerchOrderPaid(reference: string): Promise<void> {
+  const orderRef = doc(db, "merch_orders", reference);
+  await runTransaction(db, async (tx) => {
+    const orderSnap = await tx.get(orderRef);
+    if (!orderSnap.exists()) throw new Error(`Merch order not found: ${reference}`);
+    const order = orderSnap.data() as DanMerchOrder;
+    if (order.status === "paid") return; // already processed — idempotent
+
+    // Mark order paid
+    tx.update(orderRef, { status: "paid" });
+
+    // Increment soldCount on each product
+    for (const item of order.items ?? []) {
+      const prodRef = doc(db, "products", item.productId);
+      tx.update(prodRef, { soldCount: increment(item.qty) });
+    }
+  });
+}
+
 export async function getAllMerchOrders(): Promise<DanMerchOrder[]> {
   const snap = await getDocs(
     query(collection(db, "merch_orders"), orderBy("createdAt", "desc")),
@@ -887,9 +920,9 @@ export const subscribeAdminLogs = createSubscription<DanAdminLog>(
   [orderBy("timestamp", "desc"), limit(300)],
 );
 
-/** Deletes all admin_logs older than 48 hours in a single batch. */
+/** Deletes all admin_logs older than 30 days in a single batch. */
 export async function deleteOldAdminLogs(): Promise<void> {
-  const cutoff = Timestamp.fromDate(new Date(Date.now() - 48 * 60 * 60 * 1000));
+  const cutoff = Timestamp.fromDate(new Date(Date.now() - ADMIN_LOG_RETENTION_MS));
   const snap = await getDocs(
     query(collection(db, "admin_logs"), where("timestamp", "<", cutoff)),
   );

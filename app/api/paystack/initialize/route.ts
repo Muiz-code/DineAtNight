@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPendingTicket } from "@/lib/firestore";
+import { MIN_TICKET_QUANTITY, MAX_TICKET_QUANTITY } from "@/lib/constants";
 
 export async function POST(req: NextRequest) {
   const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
-  const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
-  if (!PAYSTACK_SECRET || !APP_URL) {
+  if (!PAYSTACK_SECRET) {
     return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
   }
+  if (process.env.NODE_ENV === "production" && PAYSTACK_SECRET.startsWith("sk_test_")) {
+    console.error("[paystack/initialize] FATAL: production build is using a Paystack TEST secret key.");
+    return NextResponse.json({ error: "Payment service not configured for production." }, { status: 500 });
+  }
+  const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || req.nextUrl.origin;
   try {
     const body = await req.json();
     const { eventId, eventTitle, name, email, phone, quantity, ticketPrice, ticketType } = body;
@@ -22,8 +27,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid email" }, { status: 400 });
     }
     const qty = Number(quantity);
-    if (!Number.isInteger(qty) || qty < 1 || qty > 20) {
-      return NextResponse.json({ error: "Quantity must be between 1 and 20" }, { status: 400 });
+    if (!Number.isInteger(qty) || qty < MIN_TICKET_QUANTITY || qty > MAX_TICKET_QUANTITY) {
+      return NextResponse.json({ error: `Quantity must be between ${MIN_TICKET_QUANTITY} and ${MAX_TICKET_QUANTITY}` }, { status: 400 });
     }
     const price = Number(ticketPrice);
     if (!Number.isFinite(price) || price <= 0) {
@@ -78,7 +83,7 @@ export async function POST(req: NextRequest) {
       email,
       phone: phone ? String(phone).slice(0, 20) : "",
       quantity: qty,
-      ticketType: ticketType ? String(ticketType).slice(0, 50) : undefined,
+      ...(ticketType ? { ticketType: String(ticketType).slice(0, 50) } : {}),
       amount: amountKobo,
       reference,
       status: "pending",

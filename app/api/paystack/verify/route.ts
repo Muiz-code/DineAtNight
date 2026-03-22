@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { markTicketPaid, type DanTicket } from "@/lib/firestore";
+import { sendTicketConfirmationEmail } from "@/lib/resend";
 
 export async function GET(req: NextRequest) {
   const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
@@ -61,10 +62,23 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ── Step 3: Return ticket data ────────────────────────────────────────
+  // ── Step 3: Return ticket data + send confirmation email ─────────────────
   try {
     const snap = await getDoc(doc(db, "tickets", reference));
     const ticket = snap.exists() ? ({ id: snap.id, ...snap.data() } as DanTicket) : null;
+
+    // Send confirmation email server-side (fire-and-forget — never block the response)
+    if (ticket?.email && ticket?.name) {
+      sendTicketConfirmationEmail({
+        name: ticket.name,
+        email: ticket.email,
+        eventTitle: ticket.eventTitle,
+        quantity: ticket.quantity,
+        amount: ticket.amount,
+        reference: ticket.reference,
+      }).catch(() => {});
+    }
+
     return NextResponse.json({ ok: true, ticket });
   } catch (err) {
     // Ticket was paid — just return success without the full data

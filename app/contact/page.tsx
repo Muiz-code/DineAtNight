@@ -118,14 +118,20 @@ export default function ContactPage() {
     }
     setStatus("loading");
     try {
-      const { sendContactEmail } = await import("@/lib/emailjs");
-      await sendContactEmail(form);
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({}));
+        throw new Error(error || "Request failed");
+      }
       localStorage.setItem(COOLDOWN_KEY, String(Date.now()));
       setStatus("success");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("[EmailJS] sendContactEmail failed:", err);
-      setEmailError(msg || "Unknown error — check the browser console.");
+      setEmailError(msg || "Something went wrong. Please try again.");
       setStatus("error");
     }
   };
@@ -460,7 +466,7 @@ export default function ContactPage() {
                   <p className="text-gray-500 text-sm mb-6">
                     Check the browser console (F12 → Console) for more detail.
                     <br />
-                    Likely cause: wrong EmailJS template ID or missing env var.
+                    Likely cause: network error or server misconfiguration.
                   </p>
                   <button
                     onClick={() => {
