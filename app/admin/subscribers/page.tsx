@@ -607,7 +607,7 @@ export default function SubscribersPage() {
                       : handleSuppress(row.email)
                   }
                   disabled={deleting === (row.source === "newsletter" ? (row as SubscriberRow).id : row.email)}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-700 hover:text-[#FF3333] transition-all opacity-0 group-hover:opacity-100"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-700 hover:text-[#FF3333] transition-all sm:opacity-0 sm:group-hover:opacity-100"
                   title={row.source === "ticket" ? "Remove from email list" : "Delete subscriber"}
                 >
                   {deleting === (row.source === "newsletter" ? (row as SubscriberRow).id : row.email)
