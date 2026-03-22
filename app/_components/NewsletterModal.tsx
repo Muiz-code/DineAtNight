@@ -9,7 +9,7 @@ const STORAGE_KEY = "dan_newsletter_seen";
 export default function NewsletterModal() {
   const [visible, setVisible] = useState(false);
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "exists">("idle");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -34,8 +34,11 @@ export default function NewsletterModal() {
         body: JSON.stringify({ email }),
       });
       const data = await res.json();
-      // Welcome email is sent server-side in /api/subscribe for new subscribers
-    } finally {
+      const isNew = data.isNew !== false;
+      setStatus(isNew ? "done" : "exists");
+      localStorage.setItem(STORAGE_KEY, "1");
+      setTimeout(() => setVisible(false), 3500);
+    } catch {
       setStatus("done");
       localStorage.setItem(STORAGE_KEY, "1");
       setTimeout(() => setVisible(false), 3500);
@@ -119,6 +122,33 @@ export default function NewsletterModal() {
                 </p>
                 <p className="text-gray-500 text-sm">
                   Welcome to the night — expect something special in your inbox.
+                </p>
+              </motion.div>
+            ) : status === "exists" ? (
+              <motion.div
+                className="py-4 space-y-3"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", damping: 18 }}
+              >
+                <CheckCircle2
+                  className="w-12 h-12 mx-auto"
+                  style={{
+                    color: "#FFFF00",
+                    filter: "drop-shadow(0 0 12px rgba(255,255,0,0.7))",
+                  }}
+                />
+                <p
+                  className="text-lg font-bold uppercase tracking-widest"
+                  style={{
+                    color: "#FFFF00",
+                    textShadow: "0 0 15px rgba(255,255,0,0.6)",
+                  }}
+                >
+                  We know you love us!
+                </p>
+                <p className="text-gray-500 text-sm">
+                  You&apos;re already in our records — we&apos;ve got you covered.
                 </p>
               </motion.div>
             ) : (

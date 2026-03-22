@@ -9,7 +9,7 @@ export default function Footer() {
   const { logo } = Images();
   const [subEmail, setSubEmail] = useState("");
   const [subState, setSubState] = useState<
-    "idle" | "loading" | "done" | "error"
+    "idle" | "loading" | "done" | "exists" | "error"
   >("idle");
 
   const handleSubscribe = async (e: React.FormEvent) => {
@@ -23,7 +23,8 @@ export default function Footer() {
         body: JSON.stringify({ email: subEmail.trim() }),
       });
       if (!res.ok) throw new Error("Subscribe failed");
-      setSubState("done");
+      const data = await res.json();
+      setSubState(data.isNew !== false ? "done" : "exists");
       setSubEmail("");
     } catch {
       setSubState("error");
@@ -225,16 +226,16 @@ export default function Footer() {
               />
               <button
                 type="submit"
-                disabled={subState === "loading" || subState === "done"}
+                disabled={subState === "loading" || subState === "done" || subState === "exists"}
                 className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest text-black transition-all shrink-0"
                 style={{
-                  background: subState === "done" ? "#00FF41" : "#FFFF00",
+                  background: subState === "done" || subState === "exists" ? "#00FF41" : "#FFFF00",
                   opacity: subState === "loading" ? 0.7 : 1,
                 }}
               >
                 {subState === "loading"
                   ? "…"
-                  : subState === "done"
+                  : subState === "done" || subState === "exists"
                     ? "✓"
                     : "Join"}
               </button>
@@ -242,6 +243,11 @@ export default function Footer() {
             {subState === "done" && (
               <p className="text-[11px] text-[#00FF41]">
                 You&apos;re on the list. See you under the neon lights 🌙
+              </p>
+            )}
+            {subState === "exists" && (
+              <p className="text-[11px] text-[#FFFF00]">
+                We know you love us — you&apos;re already in our records!
               </p>
             )}
             {subState === "error" && (

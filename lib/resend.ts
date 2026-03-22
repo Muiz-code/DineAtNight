@@ -17,6 +17,17 @@ const ADMIN_TO = process.env.RESEND_ADMIN_EMAIL ?? "hello@dineatnight.com";
 const APP_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? "https://www.dineatnight.com"
 ).replace(/\/$/, "");
+const SESSION_SECRET = process.env.SESSION_SECRET ?? "";
+
+// ── Unsubscribe token (HMAC-SHA256 of email) ──────────────────────────────────
+export async function generateUnsubscribeUrl(email: string): Promise<string> {
+  if (!SESSION_SECRET) return `${APP_URL}/unsubscribe`;
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(SESSION_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(email.toLowerCase()));
+  const token = Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `${APP_URL}/api/unsubscribe?email=${encodeURIComponent(email.toLowerCase())}&token=${token}`;
+}
 
 // ── Base HTML wrapper ─────────────────────────────────────────────────────────
 function baseEmail(accent: string, body: string): string {
@@ -118,6 +129,7 @@ async function send(opts: {
   subject: string;
   html: string;
   text: string;
+  headers?: Record<string, string>;
 }): Promise<void> {
   try {
     const { error } = await resend.emails.send({
@@ -126,6 +138,7 @@ async function send(opts: {
       subject: opts.subject,
       html: opts.html,
       text: opts.text,
+      ...(opts.headers ? { headers: opts.headers } : {}),
     });
     if (error) console.error("[resend] send error:", error);
   } catch (err) {
@@ -439,6 +452,8 @@ export async function sendVendorStatusEmail(data: {
 }
 
 export async function sendNewsletterWelcomeEmail(email: string): Promise<void> {
+  const unsubUrl = await generateUnsubscribeUrl(email);
+
   const html = baseEmail("#FFFF00", `
     <div style="text-align:center;margin-bottom:28px;">
       ${heading("You're on the list.", "#FFFF00")}
@@ -464,13 +479,28 @@ export async function sendNewsletterWelcomeEmail(email: string): Promise<void> {
     </div>
 
     ${ctaButton(`${APP_URL}/event`, "See Upcoming Events →", "#FFFF00")}
+
+    <p style="margin:32px 0 4px;color:#555;font-size:13px;text-align:center;line-height:1.8;">
+      Stay hungry. Stay out late.
+    </p>
+    <p style="margin:0 0 24px;color:#FFFF00;font-size:13px;font-weight:700;text-align:center;letter-spacing:0.1em;">
+      — Dine At Night
+    </p>
+
+    <p style="margin:0;text-align:center;">
+      <a href="${unsubUrl}" style="color:#333;font-size:10px;text-decoration:underline;">Unsubscribe</a>
+    </p>
   `);
 
   await send({
     to: email,
     subject: `Welcome to Dine At Night`,
     html,
-    text: `You're on the Dine At Night list! You'll be first to know about events, tickets, and vendor reveals. See upcoming events: ${APP_URL}/event`,
+    text: `You're on the Dine At Night list! You'll be first to know about events, tickets, and vendor reveals.\n\nSee upcoming events: ${APP_URL}/event\n\nStay hungry. Stay out late.\n— Dine At Night\n\nUnsubscribe: ${unsubUrl}`,
+    headers: {
+      "List-Unsubscribe": `<${unsubUrl}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
   });
 }
 

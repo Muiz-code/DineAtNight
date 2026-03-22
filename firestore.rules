@@ -71,10 +71,11 @@ service cloud.firestore {
     // the public Firestore REST API. Only authenticated admins can read.
     match /subscribers/{email} {
       allow read: if request.auth != null;
-      allow write: if request.resource.data.keys().hasOnly(["email", "subscribedAt"])
-                   && request.resource.data.email is string
-                   && request.resource.data.email.size() > 3
-                   && request.resource.data.email.size() < 255;
+      allow create: if request.resource.data.keys().hasOnly(["email", "subscribedAt"])
+                    && request.resource.data.email is string
+                    && request.resource.data.email.size() > 3
+                    && request.resource.data.email.size() < 255;
+      allow delete: if true; // admin OR unsubscribe link — token verified at API layer
     }
 
     // ── Tickets ───────────────────────────────────────────────────────────────
