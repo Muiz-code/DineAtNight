@@ -32,7 +32,7 @@ service cloud.firestore {
     // Public read for approved vendors only. Unapproved applications are hidden.
     // Writes come from the vendor application form (public) and admin panel (auth).
     match /vendors/{id} {
-      allow read: if resource.data.status == "approved";
+      allow read: if resource.data.status == "approved" || request.auth != null;
       // Allow public create for new vendor applications (phone is optional)
       allow create: if request.resource.data.keys().hasAll(["brandName", "ownerName", "email", "status"])
                     && request.resource.data.status == "pending";
@@ -113,6 +113,11 @@ service cloud.firestore {
     // since the rate limiter runs in unauthenticated server routes.
     match /rate_limits/{id} {
       allow read, write: if true;
+    }
+
+    // ── Newsletters (sent history) ────────────────────────────────────────────
+    match /newsletters/{id} {
+      allow read, write: if request.auth != null;
     }
 
     // ── Deleted archives (soft-delete) ────────────────────────────────────────
