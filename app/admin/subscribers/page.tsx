@@ -464,26 +464,52 @@ export default function SubscribersPage() {
         </div>
         {(tab === "newsletter" || tab === "all") && newsletterCount > 0 && (
           <button onClick={() => setClearConfirm(true)} className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-gray-700 hover:text-[#FF3333] transition-colors pb-2 whitespace-nowrap shrink-0">
-            <Trash2 className="w-3 h-3" />Clear Newsletter
+            <Trash2 className="w-3 h-3" />Clear All
           </button>
         )}
       </div>
 
-      {/* Clear confirm */}
+      {/* Clear all modal */}
       <AnimatePresence>
         {clearConfirm && (
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-            className="rounded-xl border border-[#FF3333]/30 px-5 py-4 flex items-center justify-between gap-4"
-            style={{ background: "rgba(255,51,51,0.04)" }}
-          >
-            <p className="text-gray-300 text-sm">Delete all {newsletterCount} newsletter subscribers?</p>
-            <div className="flex gap-2">
-              <button onClick={() => setClearConfirm(false)} className="px-3 py-1.5 text-xs text-gray-500 hover:text-white transition-colors">Cancel</button>
-              <button onClick={handleClearAll} disabled={clearing}
-                className="px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest border border-[#FF3333] text-[#FF3333] hover:bg-[#FF3333] hover:text-black transition-all">
-                {clearing ? "Clearing…" : "Yes, Delete All"}
-              </button>
-            </div>
+          <motion.div className="fixed inset-0 z-[300] flex items-center justify-center px-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setClearConfirm(false)} />
+            <motion.div
+              className="relative w-full max-w-sm bg-[#050505] border border-[#FF3333]/30 rounded-2xl p-6 space-y-5 text-center"
+              style={{ boxShadow: "0 0 60px rgba(255,51,51,0.1)" }}
+              initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
+            >
+              <div className="w-12 h-12 rounded-full border border-[#FF3333]/30 flex items-center justify-center mx-auto" style={{ background: "rgba(255,51,51,0.08)" }}>
+                <Trash2 className="w-5 h-5" style={{ color: "#FF3333" }} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold uppercase tracking-widest text-white">Clear All?</h3>
+                <p className="text-gray-500 text-sm mt-2 leading-relaxed">
+                  This will permanently delete all <span className="text-white font-semibold">{newsletterCount}</span> newsletter subscriber{newsletterCount !== 1 ? "s" : ""}. This cannot be undone.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setClearConfirm(false)}
+                  className="flex-1 py-3 rounded-full border border-white/10 text-gray-400 text-sm font-bold uppercase tracking-widest hover:border-white/30 hover:text-white transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleClearAll}
+                  disabled={clearing}
+                  className="flex-1 py-3 rounded-full font-bold uppercase tracking-widest text-sm transition-all"
+                  style={{ background: clearing ? "transparent" : "#FF3333", color: clearing ? "#FF3333" : "#000", border: "2px solid #FF3333" }}
+                >
+                  {clearing ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-[#FF3333] border-t-transparent rounded-full animate-spin" />
+                      Clearing…
+                    </span>
+                  ) : "Yes, Delete All"}
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
