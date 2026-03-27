@@ -340,7 +340,12 @@ export default function EventPage() {
             glowColor="rgba(255,255,0,0.65)"
             onClick={() => {
               if (activeEvents.length > 0) {
-                setTicketEvent(activeEvents[0]);
+                const ev = activeEvents[0];
+                if (ev.externalTicketUrl) {
+                  window.open(ev.externalTicketUrl, "_blank", "noopener,noreferrer");
+                } else {
+                  setTicketEvent(ev);
+                }
               } else {
                 setToast({
                   message: "No upcoming events available for ticket purchase.",
@@ -845,7 +850,14 @@ export default function EventPage() {
                         {/* Get Tickets button — always visible */}
                         <motion.button
                           disabled={soldOut}
-                          onClick={() => !soldOut && setTicketEvent(ev)}
+                          onClick={() => {
+                            if (soldOut) return;
+                            if (ev.externalTicketUrl) {
+                              window.open(ev.externalTicketUrl, "_blank", "noopener,noreferrer");
+                            } else {
+                              setTicketEvent(ev);
+                            }
+                          }}
                           className="mt-auto w-full sm:w-auto px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm shrink-0"
                           style={{
                             background: soldOut ? "transparent" : "#FFFF00",

@@ -1272,27 +1272,33 @@ export default function Home() {
                         </div>
 
                         {/* Get Tickets button — always visible */}
-                        <Link href="/event" className="mt-auto">
-                          <motion.button
-                            disabled={soldOut}
-                            className="w-full sm:w-auto px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm shrink-0"
-                            style={{
-                              background: soldOut ? "transparent" : "#FFFF00",
-                              color: soldOut ? "#666" : "#000",
-                              border: soldOut
-                                ? "2px solid #333"
-                                : "2px solid #FFFF00",
-                              boxShadow: soldOut
-                                ? "none"
-                                : "0 0 20px rgba(255,255,0,0.4)",
-                              cursor: soldOut ? "not-allowed" : "pointer",
-                            }}
-                            whileHover={!soldOut ? { scale: 1.03 } : {}}
-                            whileTap={!soldOut ? { scale: 0.97 } : {}}
-                          >
-                            {soldOut ? "Sold Out" : "Buy Tickets →"}
-                          </motion.button>
-                        </Link>
+                        <motion.button
+                          disabled={soldOut}
+                          onClick={() => {
+                            if (soldOut) return;
+                            if (ev.externalTicketUrl) {
+                              window.open(ev.externalTicketUrl, "_blank", "noopener,noreferrer");
+                            } else {
+                              window.location.href = "/event";
+                            }
+                          }}
+                          className="mt-auto w-full sm:w-auto px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm shrink-0"
+                          style={{
+                            background: soldOut ? "transparent" : "#FFFF00",
+                            color: soldOut ? "#666" : "#000",
+                            border: soldOut
+                              ? "2px solid #333"
+                              : "2px solid #FFFF00",
+                            boxShadow: soldOut
+                              ? "none"
+                              : "0 0 20px rgba(255,255,0,0.4)",
+                            cursor: soldOut ? "not-allowed" : "pointer",
+                          }}
+                          whileHover={!soldOut ? { scale: 1.03 } : {}}
+                          whileTap={!soldOut ? { scale: 0.97 } : {}}
+                        >
+                          {soldOut ? "Sold Out" : "Buy Tickets →"}
+                        </motion.button>
                       </div>
                     </motion.div>
                   );

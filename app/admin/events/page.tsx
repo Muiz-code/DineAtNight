@@ -41,6 +41,7 @@ const EMPTY_FORM = {
   totalTickets: 500,
   status: "draft" as DanEvent["status"],
   imageUrl: "",
+  externalTicketUrl: "",
   highlights: "",
   sponsors: [] as DanSponsor[],
   ticketTypes: [] as DanTicketType[],
@@ -145,6 +146,7 @@ export default function AdminEventsPage() {
       totalTickets: ev.totalTickets,
       status: ev.status,
       imageUrl: ev.imageUrl,
+      externalTicketUrl: ev.externalTicketUrl ?? "",
       highlights: (ev.highlights ?? []).join("\n"),
       sponsors: ev.sponsors ?? [],
       ticketTypes: ev.ticketTypes ?? [],
@@ -184,6 +186,7 @@ export default function AdminEventsPage() {
         totalTickets,
         status: form.status,
         imageUrl: form.imageUrl,
+        externalTicketUrl: form.externalTicketUrl.trim() || undefined,
         highlights: form.highlights
           .split("\n")
           .map((s) => s.trim())
@@ -953,6 +956,25 @@ export default function AdminEventsPage() {
                           setForm((p) => ({ ...p, imageUrl: url }))
                         }
                         folder="events"
+                        noCrop
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
+                        External Ticket Link
+                        <span className="ml-1.5 text-gray-700 normal-case">
+                          (optional — redirects buy button to this URL)
+                        </span>
+                      </label>
+                      <input
+                        type="url"
+                        value={form.externalTicketUrl}
+                        onChange={(e) =>
+                          setForm((p) => ({ ...p, externalTicketUrl: e.target.value }))
+                        }
+                        placeholder="https://paystack.com/buy/your-event"
+                        className={inputCls}
                       />
                     </div>
 

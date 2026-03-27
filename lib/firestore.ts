@@ -89,6 +89,7 @@ export interface DanEvent {
   imageUrl: string;
   highlights: string[];
   sponsors?: DanSponsor[];
+  externalTicketUrl?: string;
   createdAt?: Timestamp;
 }
 

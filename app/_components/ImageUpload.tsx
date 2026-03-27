@@ -16,6 +16,7 @@ interface ImageUploadProps {
   square?: boolean;
   free?: boolean;   // free-form crop — no fixed aspect ratio
   compact?: boolean;
+  noCrop?: boolean; // skip crop modal — upload original file directly
 }
 
 function centerAspectCrop(width: number, height: number, aspect: number) {
@@ -40,6 +41,7 @@ export default function ImageUpload({
   square = false,
   free = false,
   compact = false,
+  noCrop = false,
 }: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -140,9 +142,17 @@ export default function ImageUpload({
     setCrop(undefined);
   };
 
+  const uploadDirect = (file: File) => {
+    if (!file.type.startsWith("image/")) { setError("Please select an image file."); return; }
+    if (file.size > 10 * 1024 * 1024) { setError("Image must be under 10 MB."); return; }
+    setError("");
+    const ext = file.name.split(".").pop() ?? "jpg";
+    uploadBlob(file, ext);
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) openCropper(file);
+    if (file) noCrop ? uploadDirect(file) : openCropper(file);
     e.target.value = "";
   };
 
@@ -150,7 +160,7 @@ export default function ImageUpload({
     e.preventDefault();
     setDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file) openCropper(file);
+    if (file) noCrop ? uploadDirect(file) : openCropper(file);
   };
 
   const clear = (ev: React.MouseEvent) => {
