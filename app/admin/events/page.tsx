@@ -186,7 +186,7 @@ export default function AdminEventsPage() {
         totalTickets,
         status: form.status,
         imageUrl: form.imageUrl,
-        externalTicketUrl: form.externalTicketUrl.trim() || undefined,
+        ...(form.externalTicketUrl?.trim() && { externalTicketUrl: form.externalTicketUrl.trim() }),
         highlights: form.highlights
           .split("\n")
           .map((s) => s.trim())
