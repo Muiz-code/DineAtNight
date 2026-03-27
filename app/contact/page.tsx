@@ -55,12 +55,7 @@ const contactTopics = [
     glow: "rgba(255,51,51,0.5)",
     icon: <Utensils className="w-5 h-5" />,
   },
-  {
-    label: "Sponsorship & Partnerships",
-    color: "#00FF41",
-    glow: "rgba(0,255,65,0.5)",
-    icon: <Users className="w-5 h-5" />,
-  },
+  
   {
     label: "Media & Press",
     color: "#FFFF00",
@@ -229,19 +224,13 @@ export default function ContactPage() {
                 {[
                   {
                     icon: <Mail className="w-4 h-4" />,
-                    label: "General",
+                    label: "Email",
                     value: "contact@dineatnight.com",
                     href: "mailto:contact@dineatnight.com",
                     color: "#FFFF00",
                     sub: "thosewdine@gmail.com",
                   },
-                  {
-                    icon: <Mail className="w-4 h-4" />,
-                    label: "Sponsorship",
-                    value: "Email",
-                    href: "mailto:contact@dineatnight.com",
-                    color: "#FF3333",
-                  },
+                  
                   {
                     icon: <Instagram className="w-4 h-4" />,
                     label: "Instagram",
@@ -366,7 +355,7 @@ export default function ContactPage() {
                   },
                   {
                     label: "LinkedIn",
-                    href: "https://www.linkedin.com/company/dineatnight/",
+                    href: "https://www.linkedin.com/company/dine-at-night/",
                     color: "#0077B5",
                     glow: "rgba(0,119,181,0.3)",
                     icon: <Linkedin className="w-5 h-5" />,
