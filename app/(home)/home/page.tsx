@@ -1017,10 +1017,6 @@ export default function Home() {
                     });
                   const sold = soldByEvent[ev.id ?? ""] ?? ev.soldTickets ?? 0;
                   const remaining = ev.totalTickets - sold;
-                  const pct =
-                    ev.totalTickets > 0
-                      ? Math.round((sold / ev.totalTickets) * 100)
-                      : 0;
                   const soldOut = remaining <= 0;
                   const isExpanded = expandedIds.has(ev.id ?? "");
                   const toggleExpand = () => {
@@ -1237,36 +1233,6 @@ export default function Home() {
                                 </div>
                               )}
 
-                              {/* Progress bar */}
-                              <div>
-                                <div className="flex justify-between text-xs mb-1">
-                                  <span
-                                    style={{
-                                      color:
-                                        pct >= 90
-                                          ? "#FF3333"
-                                          : "rgba(255,255,255,0.4)",
-                                    }}
-                                  >
-                                    {pct}% sold
-                                  </span>
-                                  {pct >= 95 && (
-                                    <span className="text-[#FF3333] font-semibold">
-                                      {Math.round(((ev.totalTickets - sold) / ev.totalTickets) * 100)}% remaining
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full transition-all duration-700"
-                                    style={{
-                                      width: `${pct}%`,
-                                      background:
-                                        pct >= 90 ? "#FF3333" : "#FFFF00",
-                                    }}
-                                  />
-                                </div>
-                              </div>
                             </div>
                           </div>
                         </div>
