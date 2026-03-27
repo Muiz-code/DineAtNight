@@ -47,34 +47,15 @@ function createSubscription<T>(
   transform?: (items: T[]) => T[],
 ) {
   return (cb: (items: T[]) => void): (() => void) => {
-    let unsub: (() => void) | null = null;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
-    let stopped = false;
-
-    const attach = () => {
-      if (stopped) return;
-      const q = query(collection(db, col), ...constraints);
-      unsub = onSnapshot(
-        q,
-        (snap) => {
-          const items = snap.docs.map((d) => toDoc<T>(d));
-          cb(transform ? transform(items) : items);
-        },
-        () => {
-          // Firestore watch stream failed (network drop or SDK internal assertion).
-          // Retry after 3 s so the UI recovers automatically.
-          if (!stopped) retryTimer = setTimeout(attach, 3000);
-        },
-      );
-    };
-
-    attach();
-
-    return () => {
-      stopped = true;
-      if (retryTimer) clearTimeout(retryTimer);
-      try { unsub?.(); } catch (_) {}
-    };
+    const q = query(collection(db, col), ...constraints);
+    return onSnapshot(
+      q,
+      (snap) => {
+        const items = snap.docs.map((d) => toDoc<T>(d));
+        cb(transform ? transform(items) : items);
+      },
+      () => cb([]),
+    );
   };
 }
 

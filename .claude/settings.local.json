@@ -33,7 +33,18 @@
       "Bash(ls /Users/user/Documents/Development/DineAtNight/app/favicon* /Users/user/Documents/Development/DineAtNight/public/favicon*)",
       "Bash(ls /Users/user/Documents/Development/DineAtNight/public/logo*)",
       "Bash(sips -g pixelWidth -g pixelHeight /Users/user/Documents/Development/DineAtNight/public/logo.png)",
-      "Bash(sips -g pixelWidth -g pixelHeight /Users/user/Documents/Development/DineAtNight/app/favicon.ico)"
+      "Bash(sips -g pixelWidth -g pixelHeight /Users/user/Documents/Development/DineAtNight/app/favicon.ico)",
+      "Bash(node -e \"console.log\\(require\\(''./node_modules/firebase/package.json''\\).version\\)\")",
+      "Bash(node -e \"console.log\\(require\\(''./node_modules/@types/react/package.json''\\).version\\)\")",
+      "Bash(find node_modules -name package.json -path */types/react/package.json)",
+      "Bash(ls node_modules/react/*.d.ts)",
+      "Bash(npm cache:*)",
+      "Bash(sudo chown:*)",
+      "Bash(find node_modules -maxdepth 4 -name index.d.ts -path */react/*)",
+      "Bash(npm ci:*)",
+      "Bash(curl -sL \"https://registry.npmjs.org/@types/react/-/react-19.2.14.tgz\")",
+      "Bash(tar xz:*)",
+      "Bash(curl -sL \"https://registry.npmjs.org/@types/react-dom/-/react-dom-19.1.5.tgz\")"
     ]
   }
 }

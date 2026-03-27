@@ -618,8 +618,8 @@ export default function Home() {
       .catch(() => {});
 
     return () => {
-      try { unsubActive(); } catch (_) {}
-      try { unsubPast(); } catch (_) {}
+      unsubActive();
+      unsubPast();
     };
   }, []);
 
