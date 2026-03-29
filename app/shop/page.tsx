@@ -24,6 +24,7 @@ import { subscribeAllProducts, type DanProduct } from "@/lib/firestore";
 import { useScrollLock } from "@/lib/useScrollLock";
 import { getCache, setCache } from "@/lib/cache";
 import NeonMarquee from "../_components/NeonMarquee";
+import { track } from "@vercel/analytics";
 
 type CartItem = { id: string; name: string; price: number; qty: number };
 type Category =
@@ -228,6 +229,7 @@ export default function ShopPage() {
     e?.stopPropagation();
     const maxStock = availableStock(product);
     if (maxStock <= 0) return; // out of stock — silently block
+    track("shop_add_to_cart", { itemName: product.name, price: product.price });
     setCart((prev) => {
       const existing = prev.find((i) => i.id === product.id);
       if (existing) {
@@ -316,6 +318,10 @@ export default function ShopPage() {
       });
       const data = await res.json();
       if (data.authorization_url) {
+        track("shop_checkout_started", {
+          itemCount: cart.reduce((s, i) => s + i.qty, 0),
+          totalNaira: cartTotal,
+        });
         router.push(data.authorization_url);
       } else {
         setCheckoutError(data.error ?? "Could not initiate payment.");

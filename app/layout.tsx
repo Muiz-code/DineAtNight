@@ -44,16 +44,83 @@ export const metadata: Metadata = {
     "Dine at Night is a curated night food market in Lagos, Nigeria, bringing together top food vendors, chefs, and culture for a unique food and nightlife experience.",
 
   keywords: [
+    // Brand
     "Dine At Night",
-    "Lagos food market",
-    "nighttime food festival",
-    "Lagos events",
-    "street food Lagos",
-    "food vendors Lagos",
-    "Lagos nightlife",
+    "DAN Lagos",
+    "dine at night Lagos",
+    "dineatnight",
+    // Core concept
+    "night food market Lagos",
+    "nighttime food festival Lagos",
+    "night food market Nigeria",
+    "night market Lagos",
+    "night market Nigeria",
+    "outdoor night food market",
+    "neon food market Lagos",
+    // Night dining
+    "night dining Lagos",
+    "night dining experience Lagos",
+    "after dark dining Lagos",
+    "late night food Lagos",
+    "night eats Lagos",
+    "night bites Lagos",
+    "night food event Lagos",
+    "night food festival Nigeria",
+    "night food vendors Lagos",
+    "night out food Lagos",
+    "Lagos night out food",
+    "night street food Lagos",
+    "night food stalls Lagos",
+    "evening food market Lagos",
+    // Food events
+    "Lagos food event",
+    "Lagos food festival",
+    "Lagos food festival 2025",
     "food festival Nigeria",
-    "outdoor food market Lagos",
+    "food event Lagos",
+    "Lagos outdoor food event",
+    "Lagos pop up food event",
+    "pop up dinner Lagos",
+    "Lagos food gathering",
+    "food and music Lagos",
+    "food and drinks Lagos",
+    // Street food / vendors
+    "street food Lagos",
+    "Lagos street food",
+    "Lagos street eats",
+    "food vendors Lagos",
+    "Lagos food vendors",
+    "food stalls Lagos",
+    "best food vendors Lagos",
+    "top food vendors Nigeria",
+    "suya night Lagos",
+    "Lagos night hawkers",
+    // Nightlife
+    "Lagos nightlife",
+    "Lagos nightlife food",
+    "Lagos night entertainment",
+    "night out Lagos",
+    "Lagos date night",
+    "Lagos night experience",
+    "Nigerian nightlife food",
+    // Food experience
     "Lagos food experience",
+    "Lagos food culture",
+    "Lagos culinary experience",
+    "Nigerian food market",
+    "Nigerian street food",
+    "Lagos food market",
+    "outdoor dining Lagos",
+    "Lagos supper club",
+    "food tour Lagos",
+    // Tickets / events
+    "Lagos event tickets",
+    "Lagos event 2025",
+    "upcoming events Lagos",
+    "Lagos outdoor events",
+    "things to do in Lagos at night",
+    "Lagos weekend events",
+    "Lagos events this weekend",
   ],
 
   openGraph: {
@@ -66,9 +133,9 @@ export const metadata: Metadata = {
       "Dine at Night is a curated night food market in Lagos, Nigeria, bringing together top food vendors, chefs, and culture for a unique food and nightlife experience.",
     images: [
       {
-        url: "/og-image.png",
-        width: 1919,
-        height: 1054,
+        url: "https://www.dineatnight.com/og-image.png",
+        width: 1200,
+        height: 630,
         alt: "Dine At Night — Neon-lit outdoor food market, Lagos",
       },
     ],
@@ -76,12 +143,11 @@ export const metadata: Metadata = {
 
   twitter: {
     card: "summary_large_image",
-    title:
-      "Dine at Night is a curated night food market in Lagos, Nigeria, bringing together top food vendors, chefs, and culture for a unique food and nightlife experience.",
+    title: "Dine at Night — Nigeria's first night food market",
     site: "@dineatnight",
     description:
       "Lagos's premier nighttime food market. Local vendors, music, neon-lit vibes. Get your tickets now.",
-    images: ["/og-image.png"],
+    images: ["https://www.dineatnight.com/og-image.png"],
   },
 
   robots: {
@@ -125,54 +191,65 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify([
-              {
-                "@context": "https://schema.org",
-                "@type": "WebSite",
-                name: "Dine At Night",
-                url: "https://dineatnight.com",
-                potentialAction: {
-                  "@type": "SearchAction",
-                  target: "https://dineatnight.com/event",
-                  "query-input": "required name=search_term_string",
-                },
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Dine At Night",
+              url: "https://dineatnight.com/",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: "https://dineatnight.com/event",
+                "query-input": "required name=search_term_string",
               },
-              {
-                "@context": "https://schema.org",
-                "@type": "Organization",
-                name: "Dine At Night",
-                url: "https://dineatnight.com",
-                logo: "https://dineatnight.com/logo.png",
-                image: "https://dineatnight.com/og-image.png",
-                description:
-                  "Nigeria's first night food market. A curated outdoor food experience in Lagos bringing together top vendors, chefs, and culture after dark.",
-                address: {
-                  "@type": "PostalAddress",
-                  addressLocality: "Lagos",
-                  addressCountry: "NG",
-                },
-                sameAs: [
-                  "https://www.instagram.com/dineatnight.ng/",
-                  "https://www.linkedin.com/company/dine-at-night/",
-                ],
+            }),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: "Dine At Night",
+              url: "https://dineatnight.com/",
+              logo: {
+                "@type": "ImageObject",
+                url: "https://www.dineatnight.com/logo.png",
               },
-              {
-                "@context": "https://schema.org",
-                "@type": "FoodEstablishment",
-                name: "Dine At Night",
-                url: "https://dineatnight.com",
-                image: "https://dineatnight.com/og-image.png",
-                description:
-                  "Lagos's premier nighttime food market. Local vendors, music, and neon-lit vibes.",
-                servesCuisine: ["Nigerian", "African", "Street Food"],
-                address: {
-                  "@type": "PostalAddress",
-                  addressLocality: "Lagos",
-                  addressCountry: "NG",
-                },
-                priceRange: "₦₦",
+              image: "https://www.dineatnight.com/og-image.png",
+              description:
+                "Nigeria's first night food market. A curated outdoor food experience in Lagos bringing together top vendors, chefs, and culture after dark.",
+              address: {
+                "@type": "PostalAddress",
+                addressLocality: "Lagos",
+                addressCountry: "NG",
               },
-            ]),
+              sameAs: [
+                "https://www.instagram.com/dineatnight.ng/",
+                "https://www.linkedin.com/company/dine-at-night/",
+              ],
+            }),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "FoodEstablishment",
+              name: "Dine At Night",
+              url: "https://dineatnight.com/",
+              image: "https://www.dineatnight.com/og-image.png",
+              description:
+                "Lagos's premier nighttime food market. Local vendors, music, and neon-lit vibes.",
+              servesCuisine: ["Nigerian", "African", "Street Food"],
+              address: {
+                "@type": "PostalAddress",
+                addressLocality: "Lagos",
+                addressCountry: "NG",
+              },
+              priceRange: "₦₦",
+            }),
           }}
         />
       </head>

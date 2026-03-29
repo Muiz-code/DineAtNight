@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { X } from "lucide-react";
 import { useScrollLock } from "@/lib/useScrollLock";
 import { type DanEvent } from "@/lib/firestore";
+import { track } from "@vercel/analytics";
 
 const inputCls =
   "w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700";
@@ -84,6 +85,12 @@ export default function TicketModal({
       });
       const data = await res.json();
       if (data.authorization_url) {
+        track("ticket_purchase", {
+          eventTitle: event.title,
+          ticketType: hasTiers ? (selectedTier?.name ?? "general") : "general",
+          quantity: form.quantity,
+          totalNaira: total,
+        });
         router.push(data.authorization_url);
       } else {
         setError(data.error ?? "Failed to initialize payment.");

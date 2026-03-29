@@ -30,6 +30,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getCache, setCache } from "@/lib/cache";
 import { Camera, MapPin, ChevronDown } from "lucide-react";
+import { track } from "@vercel/analytics";
 import Footer from "@/app/_components/Footer";
 import SectionFadeIn from "@/app/_components/SectionFadeIn";
 // import { video } from "framer-motion/client";
@@ -1243,8 +1244,10 @@ export default function Home() {
                           onClick={() => {
                             if (soldOut) return;
                             if (ev.externalTicketUrl) {
+                              track("buy_tickets_click", { eventTitle: ev.title, type: "external" });
                               window.open(ev.externalTicketUrl, "_blank", "noopener,noreferrer");
                             } else {
+                              track("buy_tickets_click", { eventTitle: ev.title, type: "modal" });
                               window.location.href = "/event";
                             }
                           }}

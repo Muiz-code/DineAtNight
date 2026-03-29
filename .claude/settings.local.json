@@ -44,7 +44,17 @@
       "Bash(npm ci:*)",
       "Bash(curl -sL \"https://registry.npmjs.org/@types/react/-/react-19.2.14.tgz\")",
       "Bash(tar xz:*)",
-      "Bash(curl -sL \"https://registry.npmjs.org/@types/react-dom/-/react-dom-19.1.5.tgz\")"
+      "Bash(curl -sL \"https://registry.npmjs.org/@types/react-dom/-/react-dom-19.1.5.tgz\")",
+      "Bash(ls -la /Users/user/Documents/Development/DineAtNight/app/*/layout.tsx)",
+      "Bash(wc -l /Users/user/Documents/Development/DineAtNight/app/tickets/[reference]/page.tsx)",
+      "Bash(grep -r generateMetadata /Users/user/Documents/Development/DineAtNight/app --include=*.tsx --include=*.ts)",
+      "Bash(grep -r 'export const metadata' /Users/user/Documents/Development/DineAtNight/app --include=*.tsx --include=*.ts)",
+      "Bash(find /Users/user/Documents/Development/DineAtNight/public -type f -name *image* -o -name *icon* -o -name *apple*)",
+      "Bash(grep -l \"metadata\" /Users/user/Documents/Development/DineAtNight/app/*/page.tsx /Users/user/Documents/Development/DineAtNight/app/*/*/page.tsx)",
+      "Bash(find /Users/user/Documents/Development/DineAtNight -type f -name *schema* -o -name *seo*)",
+      "Bash(grep -r \"metadataBase\\\\|openGraph\\\\|twitter\" /Users/user/Documents/Development/DineAtNight/app --include=*.tsx --include=*.ts)",
+      "Bash(grep -r \"export.*metadata\\\\|generateMetadata\" /Users/user/Documents/Development/DineAtNight/app --include=*.tsx --include=*.ts)",
+      "Bash(grep -r \"ld\\\\+json\\\\|schema\\\\|@context\" /Users/user/Documents/Development/DineAtNight/app --include=*.tsx --include=*.ts)"
     ]
   }
 }

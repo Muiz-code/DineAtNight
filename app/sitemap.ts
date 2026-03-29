@@ -5,7 +5,7 @@ const BASE = (process.env.NEXT_PUBLIC_APP_URL ?? "https://dineatnight.com").repl
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: `${BASE}/home`,
+      url: `${BASE}/`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 1,
@@ -18,6 +18,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${BASE}/vendors`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    {
+      url: `${BASE}/shop`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.8,

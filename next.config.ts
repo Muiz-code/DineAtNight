@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  reactStrictMode: false,
   compress: true,
   poweredByHeader: false,
   images: {

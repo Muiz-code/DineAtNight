@@ -23,6 +23,7 @@ import {
 import { getCache, setCache } from "@/lib/cache";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { track } from "@vercel/analytics";
 import {
   X,
   Utensils,
@@ -342,8 +343,10 @@ export default function EventPage() {
               if (activeEvents.length > 0) {
                 const ev = activeEvents[0];
                 if (ev.externalTicketUrl) {
+                  track("buy_tickets_click", { eventTitle: ev.title, type: "external" });
                   window.open(ev.externalTicketUrl, "_blank", "noopener,noreferrer");
                 } else {
+                  track("buy_tickets_click", { eventTitle: ev.title, type: "modal" });
                   setTicketEvent(ev);
                 }
               } else {
@@ -359,7 +362,7 @@ export default function EventPage() {
           <NeonButton
             color="#fff"
             glowColor="rgba(255,51,51,0.65)"
-            onClick={() => setVendorModalOpen(true)}
+            onClick={() => { track("vendor_modal_open"); setVendorModalOpen(true); }}
           >
             Become a Vendor
           </NeonButton>
@@ -819,8 +822,10 @@ export default function EventPage() {
                           onClick={() => {
                             if (soldOut) return;
                             if (ev.externalTicketUrl) {
+                              track("buy_tickets_click", { eventTitle: ev.title, type: "external" });
                               window.open(ev.externalTicketUrl, "_blank", "noopener,noreferrer");
                             } else {
+                              track("buy_tickets_click", { eventTitle: ev.title, type: "modal" });
                               setTicketEvent(ev);
                             }
                           }}

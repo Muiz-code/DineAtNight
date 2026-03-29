@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import LordIcon from "./LordIcon";
+import { track } from "@vercel/analytics";
 
 const STORAGE_KEY = "dan_newsletter_seen";
 
@@ -36,6 +37,7 @@ export default function NewsletterModal() {
       });
       const data = await res.json();
       const isNew = data.isNew !== false;
+      if (isNew) track("newsletter_signup");
       setStatus(isNew ? "done" : "exists");
       localStorage.setItem(STORAGE_KEY, "1");
       setTimeout(() => setVisible(false), 3500);
