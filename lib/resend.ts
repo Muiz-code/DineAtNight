@@ -57,7 +57,7 @@ function baseEmail(accent: string, body: string): string {
           <tr>
             <td align="center" style="padding:32px 40px 28px;border-bottom:1px solid ${accent}18;">
               <p style="margin:0 0 6px;color:${accent};font-size:11px;font-weight:700;letter-spacing:0.35em;text-transform:uppercase;text-shadow:0 0 12px ${glow};">DINE AT NIGHT</p>
-              <p style="margin:0;color:#333;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;">Lagos Night Food Experience</p>
+              <p style="margin:0;color:#333;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;">Nigeria's First Night Food Market</p>
             </td>
           </tr>
 
@@ -349,7 +349,7 @@ export async function sendVendorAppliedEmail(data: {
     <div style="space-y:12px;">
       ${[
         ["01", "Application Received", "Your details are in our system."],
-        ["02", "Under Review", "Our team reviews every application carefully — allow 3–5 business days."],
+        ["02", "Under Review", "Our team reviews every application carefully — we'll be in touch closer to the event date."],
         ["03", "Decision Email", "We'll notify you with the outcome by email."],
       ].map(([num, title, desc]) => `
       <div style="display:flex;gap:16px;margin-bottom:16px;padding:14px 16px;background:#0d0d0d;border-radius:8px;border:1px solid #FFFF0010;">
@@ -372,7 +372,7 @@ export async function sendVendorAppliedEmail(data: {
     to: data.email,
     subject: `Application Received — ${data.brandName} | Dine At Night`,
     html,
-    text: `Hi ${data.ownerName}, your application for ${data.brandName} has been received. We'll be in touch within 3–5 business days.`,
+    text: `Hi ${data.ownerName}, your application for ${data.brandName} has been received. We'll reach out closer to the event date.`,
   });
 }
 

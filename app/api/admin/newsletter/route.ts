@@ -52,7 +52,7 @@ function buildHtml(subject: string, body: string, unsubscribeUrl: string, linkUr
       <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#080808;border:1px solid rgba(255,255,0,0.2);border-radius:16px;overflow:hidden;">
         <tr><td align="center" style="padding:32px 40px 24px;border-bottom:1px solid rgba(255,255,0,0.08);">
           <p style="margin:0 0 4px;color:#FFFF00;font-size:11px;font-weight:700;letter-spacing:0.35em;text-transform:uppercase;text-shadow:0 0 12px rgba(255,255,0,0.4);">DINE AT NIGHT</p>
-          <p style="margin:0;color:#333;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;">Lagos Night Food Experience</p>
+          <p style="margin:0;color:#333;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;">Nigeria's First Night Food Market</p>
         </td></tr>
         <tr><td style="padding:32px 40px 8px;">
           <h1 style="margin:0;color:#FFFF00;font-size:22px;font-weight:700;letter-spacing:0.05em;text-shadow:0 0 20px rgba(255,255,0,0.3);">${subject}</h1>

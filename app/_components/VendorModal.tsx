@@ -476,7 +476,7 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                       Apply
                     </h2>
                     <p className="text-gray-500 text-xs sm:text-sm mt-1">
-                      Join Lagos&apos; first night food market
+                      Join Nigeria&apos;s first night food market
                     </p>
                   </div>
                   <button
@@ -512,7 +512,7 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                     <p className="text-gray-400 leading-relaxed mb-8 text-sm sm:text-base">
                       {isUpdate
                         ? "Your existing application has been updated with the new event. Our team will review it shortly."
-                        : "We'll review your application and reach out within 5–7 business days. Get ready to dine after dark!"}
+                        : "We'll review your application and reach out closer to the event date. Get ready to dine after dark!"}
                     </p>
                     <button
                       onClick={handleClose}
