@@ -1297,7 +1297,7 @@ export default function Home() {
                 Past Events
               </motion.h2>
 
-              <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {pastEvents.map((ev) => {
                   const evDate = ev.date
                     ?.toDate?.()
@@ -1310,7 +1310,7 @@ export default function Home() {
                   return (
                     <motion.div
                       key={ev.id}
-                      className="relative rounded-2xl border overflow-hidden flex flex-col md:flex-row group"
+                      className="relative rounded-2xl border overflow-hidden flex flex-col group"
                       style={{
                         borderColor: "rgba(255,51,51,0.25)",
                         background: "linear-gradient(135deg, #090909, #040404)",
@@ -1338,27 +1338,20 @@ export default function Home() {
                       />
 
                       {/* Image */}
-                      <div className="relative w-full md:w-2/5 lg:w-[45%] shrink-0 overflow-hidden">
+                      <div className="relative w-full shrink-0 overflow-hidden">
                         {ev.imageUrl ? (
                           <>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={ev.imageUrl}
                               alt={ev.title}
-                              className="w-full h-auto block md:absolute md:inset-0 md:h-full md:object-cover md:object-center transition-transform duration-500 group-hover:scale-105"
+                              className="w-full h-auto block transition-transform duration-500 group-hover:scale-105"
                             />
                             <div
-                              className="absolute bottom-0 left-0 right-0 h-16 md:hidden"
+                              className="absolute bottom-0 left-0 right-0 h-16"
                               style={{
                                 background:
                                   "linear-gradient(to bottom, transparent, #090909)",
-                              }}
-                            />
-                            <div
-                              className="absolute inset-0 hidden md:block"
-                              style={{
-                                background:
-                                  "linear-gradient(to right, transparent 55%, #090909 100%)",
                               }}
                             />
                           </>
