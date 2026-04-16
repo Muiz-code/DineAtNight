@@ -863,117 +863,120 @@ export default function EventPage() {
         <SectionFadeIn>
           <section className="relative z-10 py-20 px-6 md:px-16 bg-black/85 border-t border-white/5">
             <div className="max-w-4xl mx-auto">
-              <Carousel
-                title="Past Events"
-                accentColor="#FF3333"
-                glowColor="rgba(255,51,51,0.4)"
-                items={pastEvents.map((ev) => {
+              <h2
+                className="text-4xl md:text-5xl uppercase tracking-wider text-center mb-12"
+                style={{
+                  color: "transparent",
+                  WebkitTextStroke: "2px #FF3333",
+                  textShadow: "0 0 20px rgba(255,51,51,0.3)",
+                }}
+              >
+                Past Events
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {pastEvents.map((ev) => {
                   const evDate = ev.date
                     ?.toDate?.()
                     ?.toLocaleDateString("en-NG", {
                       month: "long",
                       year: "numeric",
                     });
-                  return {
-                    id: ev.id!,
-                    content: (
-                      <Link
-                        href={`/gallery?event=${ev.id}`}
-                        className="relative rounded-2xl border overflow-hidden mx-2 flex flex-col md:flex-row group cursor-pointer"
+                  return (
+                    <Link
+                      key={ev.id}
+                      href={`/gallery?event=${ev.id}`}
+                      className="relative rounded-2xl border overflow-hidden flex flex-col group cursor-pointer"
+                      style={{
+                        borderColor: "rgba(255,51,51,0.3)",
+                        boxShadow: "0 0 30px rgba(255,51,51,0.08)",
+                        background: "linear-gradient(135deg, #090909, #040404)",
+                      }}
+                    >
+                      {/* Corner accents */}
+                      <span
+                        className="absolute top-0 left-0 w-8 h-8 z-10"
                         style={{
-                          borderColor: "rgba(255,51,51,0.3)",
-                          boxShadow: "0 0 30px rgba(255,51,51,0.08)",
-                          background:
-                            "linear-gradient(135deg, #090909, #040404)",
+                          borderTop: "2px solid #FF3333",
+                          borderLeft: "2px solid #FF3333",
                         }}
-                      >
-                        {/* Corner accents */}
-                        <span
-                          className="absolute top-0 left-0 w-8 h-8 z-10"
-                          style={{
-                            borderTop: "2px solid #FF3333",
-                            borderLeft: "2px solid #FF3333",
-                          }}
-                        />
-                        <span
-                          className="absolute bottom-0 right-0 w-8 h-8 z-10"
-                          style={{
-                            borderBottom: "2px solid #FF3333",
-                            borderRight: "2px solid #FF3333",
-                          }}
-                        />
+                      />
+                      <span
+                        className="absolute bottom-0 right-0 w-8 h-8 z-10"
+                        style={{
+                          borderBottom: "2px solid #FF3333",
+                          borderRight: "2px solid #FF3333",
+                        }}
+                      />
 
-                        {/* Image — natural dimensions, card sizes to the image */}
-                        <div className="relative w-full md:w-2/5 lg:w-[45%] shrink-0 overflow-hidden">
-                          {ev.imageUrl ? (
-                            <>
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={ev.imageUrl}
-                                alt={ev.title}
-                                className="w-full h-auto block transition-transform duration-500 group-hover:scale-105"
-                              />
-                              {/* Desktop: fade right edge into card */}
-                              <div
-                                className="absolute inset-0 hidden md:block"
-                                style={{
-                                  background:
-                                    "linear-gradient(to right, transparent 55%, #090909 100%)",
-                                }}
-                              />
-                            </>
-                          ) : (
+                      {/* Image */}
+                      <div className="relative w-full shrink-0 overflow-hidden">
+                        {ev.imageUrl ? (
+                          <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={ev.imageUrl}
+                              alt={ev.title}
+                              className="w-full h-auto block transition-transform duration-500 group-hover:scale-105"
+                            />
                             <div
-                              className="w-full min-h-[200px]"
+                              className="absolute bottom-0 left-0 right-0 h-16"
                               style={{
                                 background:
-                                  "radial-gradient(ellipse at center, rgba(255,51,51,0.12), #030303)",
+                                  "linear-gradient(to bottom, transparent, #090909)",
                               }}
                             />
-                          )}
-                        </div>
-
-                        {/* Content panel */}
-                        <div className="flex-1 flex flex-col gap-3 p-6 md:p-8">
-                          <div>
-                            <p
-                              className="text-xs tracking-[0.4em] uppercase mb-1"
-                              style={{ color: "#FF3333" }}
-                            >
-                              {evDate}
-                            </p>
-                            <h3
-                              className="text-2xl md:text-3xl font-bold uppercase tracking-wide"
-                              style={{
-                                color: "#FF3333",
-                                textShadow: "0 0 20px rgba(255,51,51,0.5)",
-                              }}
-                            >
-                              {ev.edition}
-                            </h3>
-                            <p className="text-gray-400 text-sm mt-0.5 flex items-center gap-1 tracking-widest">
-                              <MapPin className="w-3.5 h-3.5 shrink-0" />{" "}
-                              {ev.venue}
-                            </p>
-                          </div>
-                          <p className="text-gray-300 text-sm leading-relaxed line-clamp-3">
-                            {ev.description}
-                          </p>
+                          </>
+                        ) : (
                           <div
-                            className="flex items-center gap-1.5 text-xs mt-auto"
+                            className="w-full min-h-[200px]"
+                            style={{
+                              background:
+                                "radial-gradient(ellipse at center, rgba(255,51,51,0.12), #030303)",
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      {/* Content panel */}
+                      <div className="flex-1 flex flex-col gap-3 p-6">
+                        <div>
+                          <p
+                            className="text-xs tracking-[0.4em] uppercase mb-1"
                             style={{ color: "#FF3333" }}
                           >
-                            <Camera className="w-3.5 h-3.5" />
-                            <span className="uppercase tracking-widest font-semibold">
-                              View Gallery →
-                            </span>
-                          </div>
+                            {evDate}
+                          </p>
+                          <h3
+                            className="text-2xl font-bold uppercase tracking-wide"
+                            style={{
+                              color: "#FF3333",
+                              textShadow: "0 0 20px rgba(255,51,51,0.5)",
+                            }}
+                          >
+                            {ev.edition}
+                          </h3>
+                          <p className="text-gray-400 text-sm mt-0.5 flex items-center gap-1 tracking-widest">
+                            <MapPin className="w-3.5 h-3.5 shrink-0" />{" "}
+                            {ev.venue}
+                          </p>
                         </div>
-                      </Link>
-                    ),
-                  };
+                        <p className="text-gray-300 text-sm leading-relaxed line-clamp-3">
+                          {ev.description}
+                        </p>
+                        <div
+                          className="flex items-center gap-1.5 text-xs mt-auto"
+                          style={{ color: "#FF3333" }}
+                        >
+                          <Camera className="w-3.5 h-3.5" />
+                          <span className="uppercase tracking-widest font-semibold">
+                            View Gallery →
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  );
                 })}
-              />
+              </div>
             </div>
           </section>
         </SectionFadeIn>
