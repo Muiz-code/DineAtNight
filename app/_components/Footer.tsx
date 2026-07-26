@@ -120,7 +120,7 @@ export default function Footer() {
               },
               {
                 label: "TikTok",
-                href: "",
+                href: "https://tiktok.com/@dineatnight.ng",
                 color: "#FFFF00",
                 glow: "rgba(255,255,0,0.5)",
                 icon: (
