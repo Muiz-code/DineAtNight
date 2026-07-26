@@ -54,7 +54,9 @@
       "Bash(find /Users/user/Documents/Development/DineAtNight -type f -name *schema* -o -name *seo*)",
       "Bash(grep -r \"metadataBase\\\\|openGraph\\\\|twitter\" /Users/user/Documents/Development/DineAtNight/app --include=*.tsx --include=*.ts)",
       "Bash(grep -r \"export.*metadata\\\\|generateMetadata\" /Users/user/Documents/Development/DineAtNight/app --include=*.tsx --include=*.ts)",
-      "Bash(grep -r \"ld\\\\+json\\\\|schema\\\\|@context\" /Users/user/Documents/Development/DineAtNight/app --include=*.tsx --include=*.ts)"
+      "Bash(grep -r \"ld\\\\+json\\\\|schema\\\\|@context\" /Users/user/Documents/Development/DineAtNight/app --include=*.tsx --include=*.ts)",
+      "Bash(npx tsc *)",
+      "Bash(npx next *)"
     ]
   }
 }

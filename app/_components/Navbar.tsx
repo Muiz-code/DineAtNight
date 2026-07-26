@@ -21,6 +21,9 @@ const NAV_ITEMS: NavItem[] = [
   { label: "CONTACT", href: "/contact" },
 ];
 
+// Shown only in the mobile panel — keeps the desktop bar from crowding
+const MOBILE_ONLY_ITEMS: NavItem[] = [{ label: "CAREERS", href: "/careers" }];
+
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   useScrollLock(isOpen);
@@ -140,8 +143,8 @@ export default function Navbar() {
         </div>
 
         {/* Nav links */}
-        <div className="flex flex-col items-center justify-center h-[calc(100svh-4rem)] gap-8 pb-10">
-          {NAV_ITEMS.map((item) => {
+        <div className="flex flex-col items-center justify-center h-[calc(100svh-4rem)] gap-7 pb-10">
+          {[...NAV_ITEMS, ...MOBILE_ONLY_ITEMS].map((item) => {
             const isActive =
               pathname === item.href || pathname.startsWith(item.href + "/");
             return (
