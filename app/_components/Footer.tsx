@@ -34,9 +34,9 @@ export default function Footer() {
 
   return (
     <footer className="relative z-10 bg-black/95 border-t border-gray-800/60">
-      <div className="max-w-6xl mx-auto px-6 md:px-16 py-16 grid grid-cols-1 md:grid-cols-3 gap-12">
+      <div className="max-w-6xl mx-auto px-6 md:px-16 py-16 grid grid-cols-1 md:grid-cols-3 gap-12 text-center md:text-left">
         {/* Brand */}
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 items-center md:items-start">
           <Image
             src={logo}
             alt="Dine At Night"
@@ -69,7 +69,7 @@ export default function Footer() {
           >
             Quick Links
           </h4>
-          <ul className="space-y-3">
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-3">
             {[
               { label: "Home", href: "/home" },
               { label: "Events", href: "/event" },
@@ -101,7 +101,7 @@ export default function Footer() {
             Connect
           </h4>
 
-          <div className="flex gap-3 mb-6">
+          <div className="flex gap-3 mb-6 justify-center md:justify-start">
             {[
               {
                 label: "Instagram",
