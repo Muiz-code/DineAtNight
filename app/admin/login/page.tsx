@@ -54,6 +54,13 @@ export default function AdminLoginPage() {
         return;
       }
 
+      // The session API may have just set the `admin` claim / display name — refresh
+      // the token so Firestore rules see it before any admin write.
+      const { refreshToken } = await sessionRes.json().catch(() => ({ refreshToken: true }));
+      if (refreshToken) {
+        await cred.user.getIdToken(true);
+        await cred.user.reload();
+      }
       await logAdminAction("LOGIN", `Signed in to admin panel`);
       router.push("/admin");
     } catch {

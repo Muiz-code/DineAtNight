@@ -14,7 +14,7 @@ import {
   LogOut,
   ScrollText,
 } from "lucide-react";
-import { logAdminAction, ADMIN_NAME_MAP } from "@/lib/adminLog";
+import { logAdminAction, adminDisplayName } from "@/lib/adminLog";
 
 /* ── Tab groups (rendered in layout, outside animation) ─────── */
 const TAB_GROUPS: Record<string, { label: string; href: string }[]> = {
@@ -96,13 +96,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setChecking(false);
       return;
     }
-    const unsub = onAuthStateChanged(auth, (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
       if (pathname === "/admin/login") { setChecking(false); return; }
-      // Middleware (middleware.ts) handles the server-side block before any page renders.
+      // proxy.ts handles the server-side block before any page renders.
       // Here we only sync Firebase Auth state for the client-side shell.
       if (!user) { router.replace("/admin/login"); return; }
-      const fullName = ADMIN_NAME_MAP[user.email ?? ""] ?? user.email ?? "Admin";
-      setFirstName(fullName.split(" ")[0]);
+      // Firestore/Storage rules require the `admin` custom claim. Admins signed
+      // in before it existed (or after ADMIN_EMAILS changed) get it synced here
+      // without having to sign out and back in.
+      try {
+        const { claims } = await user.getIdTokenResult();
+        if (claims.admin !== true) {
+          const res = await fetch("/api/admin/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken: await user.getIdToken() }),
+          });
+          if (res.ok && (await res.json()).refreshToken) {
+            await user.getIdToken(true);
+            await user.reload();
+          }
+        }
+      } catch (err) {
+        console.warn("[admin] Could not sync admin claim:", err);
+      }
+      setFirstName(adminDisplayName(auth.currentUser ?? user).split(" ")[0]);
       setAuthed(true);
       setChecking(false);
     });

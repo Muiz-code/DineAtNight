@@ -51,13 +51,32 @@ export async function verifyHmacHex(data: string, signatureHex: string): Promise
   }
 }
 
-/** Server-side admin allowlist. An empty ADMIN_EMAILS allows nobody. */
-export function isAllowedAdmin(email: string): boolean {
-  const allowed = (process.env.ADMIN_EMAILS ?? "")
+/**
+ * ADMIN_EMAILS (Vercel) is the single admin list. Comma-separated entries,
+ * each either a bare email or `Full Name <email>`:
+ *   Admin <admin@dineatnight.com>, Tami Bolu <tami@dineatnight.com>
+ * An empty list allows nobody.
+ */
+export function getAdminList(): { email: string; name: string | null }[] {
+  return (process.env.ADMIN_EMAILS ?? "")
     .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  return allowed.includes(email.toLowerCase());
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const m = entry.match(/^(.*)<\s*([^>]+?)\s*>$/);
+      return m
+        ? { email: m[2].toLowerCase(), name: m[1].trim() || null }
+        : { email: entry.toLowerCase(), name: null };
+    });
+}
+
+export function isAllowedAdmin(email: string): boolean {
+  return getAdminList().some((a) => a.email === email.toLowerCase());
+}
+
+/** The display name configured for this admin in ADMIN_EMAILS, if any. */
+export function adminNameFor(email: string): string | null {
+  return getAdminList().find((a) => a.email === email.toLowerCase())?.name ?? null;
 }
 
 export async function createSessionValue(email: string): Promise<string> {

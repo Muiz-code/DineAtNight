@@ -6,7 +6,6 @@ import {
   deleteOldAdminLogs,
   type DanAdminLog,
 } from "@/lib/firestore";
-import { ADMIN_NAME_MAP } from "@/lib/adminLog";
 import { Timestamp } from "firebase/firestore";
 import { Search } from "lucide-react";
 
@@ -35,8 +34,6 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   UPDATE_ORDER:        { label: "Update Order",       color: "#FFB800" },
   CONFIRM_TICKET:      { label: "Confirm Ticket",     color: "#00FF41" },
 };
-
-const ADMINS = Object.entries(ADMIN_NAME_MAP).map(([email, name]) => ({ email, name }));
 
 function formatTs(ts: Timestamp | undefined | null): string {
   if (!ts) return "—";
@@ -137,7 +134,9 @@ export default function AdminLogsPage() {
               className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none"
             >
               <option value="all">All admins</option>
-              {ADMINS.map((a) => <option key={a.email} value={a.email}>{a.name}</option>)}
+              {Array.from(new Map(logs.map((l) => [l.adminEmail, l.adminName || l.adminEmail])))
+                .sort((a, b) => a[1].localeCompare(b[1]))
+                .map(([email, name]) => <option key={email} value={email}>{name}</option>)}
             </select>
             <select
               value={filterAction}

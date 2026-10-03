@@ -37,18 +37,50 @@ export function adminDb(): Firestore {
   return getFirestore(getAdminApp());
 }
 
+export type VerifiedUser = {
+  uid: string;
+  email: string;
+  name: string | null;
+  isAdminClaim: boolean;
+};
+
 /**
  * Verifies a Firebase ID token locally against Google's public keys.
- * Returns the verified email address, or null if the token is invalid.
+ * Returns the user, or null if the token is invalid.
  * Throws if the Admin SDK is not configured (so callers can report it).
  */
-export async function verifyFirebaseIdToken(idToken: string): Promise<string | null> {
+export async function verifyFirebaseIdToken(idToken: string): Promise<VerifiedUser | null> {
   const app = getAdminApp();
   try {
     const decoded = await getAuth(app).verifyIdToken(idToken);
-    return decoded.email ?? null;
+    if (!decoded.email) return null;
+    return {
+      uid: decoded.uid,
+      email: decoded.email,
+      name: typeof decoded.name === "string" ? decoded.name : null,
+      isAdminClaim: decoded.admin === true,
+    };
   } catch (err) {
     console.error("[firebase-admin] verifyIdToken failed:", err);
     return null;
   }
+}
+
+/**
+ * Sets or clears the `admin` custom claim that firestore.rules and
+ * storage.rules check. ADMIN_EMAILS (Vercel) is the single source of truth;
+ * /api/admin/session syncs this claim from it on every login.
+ */
+export async function setAdminClaim(uid: string, isAdmin: boolean): Promise<void> {
+  const auth = getAuth(getAdminApp());
+  const user = await auth.getUser(uid);
+  const claims = { ...(user.customClaims ?? {}) };
+  if (isAdmin) claims.admin = true;
+  else delete claims.admin;
+  await auth.setCustomUserClaims(uid, claims);
+}
+
+/** Keeps the Firebase display name in step with the name given in ADMIN_EMAILS. */
+export async function setDisplayName(uid: string, displayName: string): Promise<void> {
+  await getAuth(getAdminApp()).updateUser(uid, { displayName });
 }

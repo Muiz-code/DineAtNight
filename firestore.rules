@@ -12,22 +12,16 @@ rules_version = '2';
 // - The public may only: read public content, create a vendor application,
 //   create a pending testimonial, and get a single ticket by its reference.
 //
-// Keep ADMINS in sync with ADMIN_EMAILS (Vercel) and storage.rules.
+// Admins are defined only by ADMIN_EMAILS in Vercel (see isAdmin below).
 // ─────────────────────────────────────────────────────────────────────────────
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Admin = the `admin` custom claim, set/cleared by /api/admin/session from
+    // ADMIN_EMAILS (Vercel) — the single admin list. No emails live here.
     function isAdmin() {
-      return request.auth != null
-        && request.auth.token.email != null
-        && request.auth.token.email.lower() in [
-          "admin@dineatnight.com",
-          "tami@dineatnight.com",
-          "temi@dineatnight.com",
-          "ajibola@dineatnight.com",
-          "zena@dineatnight.com"
-        ];
+      return request.auth != null && request.auth.token.admin == true;
     }
 
     // ── Events ───────────────────────────────────────────────────────────────
