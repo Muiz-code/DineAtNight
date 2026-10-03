@@ -470,7 +470,7 @@ function VendorImageSlideshow({
   }, [images.length]);
 
   return (
-    <div className="relative h-[calc(13rem_+_2vh)] overflow-hidden">
+    <div className="relative h-[calc(13rem_+_2vh)] shrink-0 overflow-hidden">
       {images.map((src, i) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -790,7 +790,7 @@ export default function VendorsPage() {
                     <motion.div
                       key={vendor.id ?? vendor.brandName}
                       layout
-                      className="relative group rounded-2xl overflow-hidden border cursor-pointer"
+                      className="relative group rounded-2xl overflow-hidden border cursor-pointer flex flex-col h-full"
                       style={{
                         borderColor: `${palette.color}25`,
                         boxShadow: `0 0 15px ${palette.glow}10`,
@@ -812,7 +812,7 @@ export default function VendorsPage() {
                         palette={palette}
                       />
 
-                      <div className="p-5 bg-[#070707]">
+                      <div className="p-5 bg-[#070707] flex-1">
                         <h3
                           className="text-xl font-bold uppercase tracking-wide"
                           style={{

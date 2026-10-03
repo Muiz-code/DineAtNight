@@ -254,7 +254,7 @@ function VendorImageSlideshow({
   }, [images.length]);
 
   return (
-    <div className="relative h-[calc(13rem_+_2vh)] overflow-hidden">
+    <div className="relative h-[calc(13rem_+_2vh)] shrink-0 overflow-hidden">
       {images.length > 0 ? (
         images.map((src, i) => (
           // eslint-disable-next-line @next/next/no-img-element
@@ -334,7 +334,7 @@ function TiltCard({ children }: { children: React.ReactNode }) {
     el.style.transition = "transform 0.4s ease";
   };
   return (
-    <div ref={ref} onMouseMove={onMove} onMouseLeave={onLeave}>
+    <div ref={ref} onMouseMove={onMove} onMouseLeave={onLeave} className="h-full">
       {children}
     </div>
   );
@@ -1469,7 +1469,7 @@ export default function Home() {
                   return (
                     <TiltCard key={vendor.id ?? vendor.brandName}>
                       <motion.div
-                        className="relative group rounded-2xl overflow-hidden border"
+                        className="relative group rounded-2xl overflow-hidden border flex flex-col h-full"
                         style={{
                           borderColor: `${palette.color}25`,
                           boxShadow: `0 0 15px ${palette.glow}10`,
@@ -1488,7 +1488,7 @@ export default function Home() {
                           alt={vendor.brandName}
                           palette={palette}
                         />
-                        <div className="p-5 bg-[#070707]">
+                        <div className="p-5 bg-[#070707] flex-1">
                           <h3
                             className="text-xl font-bold uppercase tracking-wide"
                             style={{
