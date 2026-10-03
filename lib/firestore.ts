@@ -25,6 +25,7 @@ import {
 import { db } from "./firebase";
 import { clearCache } from "./cache";
 import { ADMIN_LOG_RETENTION_MS } from "./constants";
+import type { SerializedEvent } from "./publicData";
 import { StaticImport } from "next/dist/shared/lib/get-img-props";
 
 /**
@@ -147,6 +148,13 @@ export const subscribePastEvents = createSubscription<DanEvent>(
   [where("isPast", "==", true)],
   (evs) => evs.sort((a, b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0)),
 );
+
+/** Rebuilds server-rendered events (plain timestamps) into DanEvent with real Timestamps. */
+export function hydrateEvents(events: SerializedEvent[]): DanEvent[] {
+  const ts = (t: { seconds: number; nanoseconds: number } | null | undefined) =>
+    t ? new Timestamp(t.seconds, t.nanoseconds) : undefined;
+  return events.map((e) => ({ ...e, date: ts(e.date)!, createdAt: ts(e.createdAt) }));
+}
 
 export async function getEventById(id: string): Promise<DanEvent | null> {
   const snap = await getDoc(doc(db, "events", id));

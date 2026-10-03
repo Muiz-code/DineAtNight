@@ -367,12 +367,15 @@ that every possible result is readable, or the whole query is denied.
 
 | Layer | Where | What |
 |---|---|---|
+| Server rendering (ISR) | `/event`, `/vendors` | `page.tsx` reads data on the server (`lib/publicData.ts`, Admin SDK) with `revalidate = 60`; Vercel caches the HTML. The client component (`EventClient` / `VendorsClient`) starts from that data; `/event` keeps live subscriptions for ticket counts. If the server read fails, the page falls back to loading in the browser. |
 | Browser display cache | `lib/cache.ts` | localStorage, 10 min TTL. Bump `CACHE_VERSION` in `lib/constants.ts` when a cached shape changes. Never use cached data for prices or auth. |
 | Edge cache | `/api/vendors` | `s-maxage=60, stale-while-revalidate=300` |
 | Images | `next/image` | AVIF/WebP per device; remote hosts allowed in `next.config.ts` |
 
-Public pages are client-rendered today and subscribe to Firestore. Planned
-improvement: render them on the server with ISR for instant first loads and SEO.
+Other public pages (home, gallery, shop) are still client-rendered and are the
+next candidates for the same pattern. When converting, keep render output free
+of `Date.now()` / `Math.random()` / `window` (do those in effects) to avoid
+hydration mismatches — see `useCountdown` in `CardCountdown.tsx`.
 
 Keep `assets/` images small (resize to ≤1600 px wide before committing). Large
 video goes on Cloudinary, not in git.
