@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createMerchOrder } from "@/lib/firestore";
-import { db } from "@/lib/firebase";
-import { getDoc, doc } from "firebase/firestore";
+import { createMerchOrder, priceCart } from "@/lib/payments";
+import { checkRateLimit, clientIp } from "@/lib/rateLimit";
+import { CHECKOUT_RATE_LIMIT, RATE_LIMIT_WINDOW_MS } from "@/lib/constants";
 
-const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
 
+const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+
 export async function POST(req: NextRequest) {
+  const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
   // ── Guard: env vars ───────────────────────────────────────────────────
   if (!PAYSTACK_SECRET) {
     console.error("[merch/initialize] PAYSTACK_SECRET_KEY is not set");
@@ -22,73 +24,45 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+  if (!(await checkRateLimit(`checkout:${clientIp(req)}`, CHECKOUT_RATE_LIMIT, RATE_LIMIT_WINDOW_MS))) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
+  }
 
-  // ── Parse body ────────────────────────────────────────────────────────
-  let name: string, email: string, phone: string,
-      address: { street: string; city: string; state: string } | undefined,
-      items: { productId: string; productName: string; price: number; qty: number }[],
-      total: number;
-
+  // ── Parse and validate body ───────────────────────────────────────────
+  let body: Record<string, unknown>;
   try {
-    ({ name, email, phone, address, items, total } = await req.json());
+    body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  if (!name || !email || !phone || !items?.length || !total) {
+  const name = str(body.name, 100);
+  const email = str(body.email, 200);
+  const phone = str(body.phone, 20);
+  const rawAddress = (body.address ?? null) as Record<string, unknown> | null;
+  const address = rawAddress
+    ? { street: str(rawAddress.street, 200), city: str(rawAddress.city, 100), state: str(rawAddress.state, 100) }
+    : undefined;
+
+  if (name.length < 2 || !phone) {
     return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
   }
-
-  // ── Validate items against Firestore and recompute total server-side ──
-  // This prevents a user from manipulating the client-sent total to pay less.
-  let computedTotal: number;
-  try {
-    const productSnaps = await Promise.all(
-      items.map((item) => getDoc(doc(db, "products", item.productId)))
-    );
-    for (let i = 0; i < productSnaps.length; i++) {
-      if (!productSnaps[i].exists()) {
-        return NextResponse.json({ error: "One or more products were not found." }, { status: 400 });
-      }
-      const prod = productSnaps[i].data() as {
-        active?: boolean;
-        stock: number;
-        soldCount?: number;
-        name?: string;
-      };
-      if (prod.active === false) {
-        return NextResponse.json({ error: "One or more products are no longer available." }, { status: 400 });
-      }
-      // Stock check — only enforce when stock is tracked (not unlimited/-1)
-      if (prod.stock !== -1) {
-        const available = Math.max(0, prod.stock - (prod.soldCount ?? 0));
-        if (available <= 0) {
-          return NextResponse.json(
-            { error: `"${prod.name ?? "A product"}" is sold out.` },
-            { status: 400 }
-          );
-        }
-        if (items[i].qty > available) {
-          return NextResponse.json(
-            { error: `Only ${available} unit${available === 1 ? "" : "s"} of "${prod.name ?? "a product"}" are available.` },
-            { status: 400 }
-          );
-        }
-      }
-    }
-    computedTotal = productSnaps.reduce((sum, snap, i) => {
-      const price = (snap.data() as { price: number }).price ?? 0;
-      return sum + price * items[i].qty;
-    }, 0);
-  } catch (err) {
-    console.error("[merch/initialize] Product lookup failed:", err);
-    return NextResponse.json({ error: "Could not validate order. Please try again." }, { status: 500 });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return NextResponse.json({ error: "Invalid email." }, { status: 400 });
   }
 
-  const amountKobo = Math.round(computedTotal * 100);
-  const callbackUrl = APP_URL
-    ? `${APP_URL}/shop/verify`
-    : `${req.nextUrl.origin}/shop/verify`;
+  // ── Price the cart from Firestore (names, prices, stock never trusted from client) ──
+  let items, total: number;
+  try {
+    ({ items, total } = await priceCart(body.items));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Could not validate order.";
+    console.warn("[merch/initialize] cart rejected:", msg);
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
+
+  const amountKobo = Math.round(total * 100);
+  const callbackUrl = `${APP_URL || req.nextUrl.origin}/shop/verify`;
 
   // ── Initialize Paystack transaction ──────────────────────────────────
   let reference: string;
@@ -116,9 +90,9 @@ export async function POST(req: NextRequest) {
     const paystackData = await paystackRes.json();
 
     if (!paystackData.status || !paystackData.data) {
-      console.error("[merch/initialize] Paystack rejected:", paystackData);
+      console.error("[merch/initialize] Paystack rejected:", paystackData.message);
       return NextResponse.json(
-        { error: paystackData.message || "Paystack declined the request." },
+        { error: "Payment provider error. Please try again." },
         { status: 502 }
       );
     }
@@ -140,9 +114,9 @@ export async function POST(req: NextRequest) {
       name,
       email,
       phone,
-      address,
+      ...(address ? { address } : {}),
       items,
-      total: computedTotal, // server-validated, not client-sent
+      total, // server-computed, not client-sent
       status: "pending",
       deliveryStatus: "pending",
     });

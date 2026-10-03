@@ -342,13 +342,9 @@ export default function EventPage() {
             onClick={() => {
               if (activeEvents.length > 0) {
                 const ev = activeEvents[0];
-                if (ev.externalTicketUrl) {
-                  track("buy_tickets_click", { eventTitle: ev.title, type: "external" });
-                  window.open(ev.externalTicketUrl, "_blank", "noopener,noreferrer");
-                } else {
-                  track("buy_tickets_click", { eventTitle: ev.title, type: "modal" });
-                  setTicketEvent(ev);
-                }
+                // Always use the site's own checkout; externalTicketUrl is kept in admin but not used.
+                track("buy_tickets_click", { eventTitle: ev.title, type: "modal" });
+                setTicketEvent(ev);
               } else {
                 setToast({
                   message: "No upcoming events available for ticket purchase.",
@@ -821,13 +817,9 @@ export default function EventPage() {
                           disabled={soldOut}
                           onClick={() => {
                             if (soldOut) return;
-                            if (ev.externalTicketUrl) {
-                              track("buy_tickets_click", { eventTitle: ev.title, type: "external" });
-                              window.open(ev.externalTicketUrl, "_blank", "noopener,noreferrer");
-                            } else {
-                              track("buy_tickets_click", { eventTitle: ev.title, type: "modal" });
-                              setTicketEvent(ev);
-                            }
+                            // Always use the site's own checkout; externalTicketUrl is kept in admin but not used.
+                            track("buy_tickets_click", { eventTitle: ev.title, type: "modal" });
+                            setTicketEvent(ev);
                           }}
                           className="mt-auto w-full sm:w-auto px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm shrink-0"
                           style={{

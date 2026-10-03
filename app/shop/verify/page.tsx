@@ -93,6 +93,8 @@ export default function ShopVerifyPage() {
           setDeliveryStatus(snap.data().deliveryStatus ?? "pending");
         }
       },
+      // merch_orders is admin-read-only; customers keep the status returned by the verify API
+      () => {},
     );
     return unsub;
   }, [status, order?.reference]);

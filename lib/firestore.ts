@@ -174,67 +174,17 @@ export async function updateEvent(
   clearCache("dan_past_events");
 }
 
-export async function deleteEvent(id: string): Promise<void> {
-  // Delete all tickets for this event
-  const ticketSnap = await getDocs(
-    query(collection(db, "tickets"), where("eventId", "==", id)),
-  );
-  if (!ticketSnap.empty) {
-    const batch = writeBatch(db);
-    ticketSnap.docs.forEach((d) => batch.delete(d.ref));
-    await batch.commit();
-  }
-  await deleteDoc(doc(db, "events", id));
-  clearCache("dan_active_events");
-  clearCache("dan_past_events");
-}
-
 /* ═══════════════════════════════════════════════
    Tickets
-   NOTE: Document ID = Paystack reference.
-   This means all ticket operations are GET/SET on
-   a known doc ID — no collection queries needed
-   for the payment flow, so no auth required.
+   Document ID = Paystack reference. Tickets are created and marked
+   paid server-side only (lib/payments.ts, Admin SDK).
 ═══════════════════════════════════════════════ */
-export async function createPendingTicket(
-  data: Omit<DanTicket, "id" | "purchasedAt" | "confirmedAt">,
-): Promise<string> {
-  // Use Paystack reference as the Firestore doc ID
-  await setDoc(doc(db, "tickets", data.reference), {
-    ...data,
-    status: "pending",
-    purchasedAt: serverTimestamp(),
-    confirmedAt: null,
-  });
-  return data.reference;
-}
-
 export async function getTicketByReference(
   reference: string,
 ): Promise<DanTicket | null> {
   const snap = await getDoc(doc(db, "tickets", reference));
   if (!snap.exists()) return null;
   return toDoc<DanTicket>(snap);
-}
-
-export async function markTicketPaid(
-  reference: string,
-  eventId: string,
-  quantity: number,
-): Promise<void> {
-  const ticketRef = doc(db, "tickets", reference);
-  const eventRef = doc(db, "events", eventId);
-  // Use a transaction so the idempotency check + both writes are atomic.
-  // If the ticket is already paid/confirmed (webhook + verify both fire), only
-  // the first writer increments soldTickets — the second is a no-op.
-  await runTransaction(db, async (tx) => {
-    const ticketSnap = await tx.get(ticketRef);
-    if (!ticketSnap.exists()) throw new Error(`Ticket not found: ${reference}`);
-    const status = ticketSnap.data().status as string;
-    if (status === "paid" || status === "confirmed") return; // already processed — idempotent
-    tx.update(ticketRef, { status: "paid" });
-    tx.update(eventRef, { soldTickets: increment(quantity) });
-  });
 }
 
 export async function confirmTicket(reference: string): Promise<{
@@ -244,32 +194,35 @@ export async function confirmTicket(reference: string): Promise<{
   ticket: DanTicket | null;
 }> {
   const ticketRef = doc(db, "tickets", reference);
-  const snap = await getDoc(ticketRef);
 
-  if (!snap.exists())
-    return { ok: false, already: false, reason: "not_found", ticket: null };
+  // Transaction: two scanners on the same ticket cannot both admit it
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(ticketRef);
+    if (!snap.exists())
+      return { ok: false, already: false, reason: "not_found" as const, ticket: null };
 
-  const ticket = toDoc<DanTicket>(snap);
+    const ticket = toDoc<DanTicket>(snap);
 
-  if (ticket.status === "confirmed") {
-    return { ok: false, already: true, ticket };
-  }
+    if (ticket.status === "confirmed") {
+      return { ok: false, already: true, ticket };
+    }
 
-  if (ticket.status === "pending") {
-    // Payment not verified — cannot confirm an unpaid ticket
-    return { ok: false, already: false, reason: "unpaid", ticket };
-  }
+    if (ticket.status === "pending") {
+      // Payment not verified — cannot confirm an unpaid ticket
+      return { ok: false, already: false, reason: "unpaid" as const, ticket };
+    }
 
-  await updateDoc(ticketRef, {
-    status: "confirmed",
-    confirmedAt: serverTimestamp(),
+    tx.update(ticketRef, {
+      status: "confirmed",
+      confirmedAt: serverTimestamp(),
+    });
+
+    return {
+      ok: true,
+      already: false,
+      ticket: { ...ticket, status: "confirmed" as const },
+    };
   });
-
-  return {
-    ok: true,
-    already: false,
-    ticket: { ...ticket, status: "confirmed" },
-  };
 }
 
 export async function getTicketsByEvent(eventId: string): Promise<DanTicket[]> {
@@ -748,30 +701,6 @@ export async function reapplyOrderSoldCount(
   clearCache("dan_products");
 }
 
-export async function deleteProduct(id: string): Promise<void> {
-  // Delete all merch orders that contain this product
-  const orderSnap = await getDocs(collection(db, "merch_orders"));
-  const affected = orderSnap.docs.filter((d) =>
-    ((d.data().items as { productId: string }[]) ?? []).some(
-      (item) => item.productId === id,
-    ),
-  );
-  if (affected.length > 0) {
-    const batch = writeBatch(db);
-    affected.forEach((d) => batch.delete(d.ref));
-    await batch.commit();
-  }
-  await deleteDoc(doc(db, "products", id));
-  clearCache("dan_products");
-}
-
-export async function incrementProductSold(
-  id: string,
-  qty: number,
-): Promise<void> {
-  await updateDoc(doc(db, "products", id), { soldCount: increment(qty) });
-}
-
 /* ═══════════════════════════════════════════════
    Merch Orders
 ═══════════════════════════════════════════════ */
@@ -810,45 +739,12 @@ export interface DanMerchOrder {
   createdAt?: Timestamp;
 }
 
-export async function createMerchOrder(
-  data: Omit<DanMerchOrder, "id" | "createdAt">,
-): Promise<void> {
-  await setDoc(doc(db, "merch_orders", data.reference), {
-    ...data,
-    createdAt: serverTimestamp(),
-  });
-}
-
 export async function getMerchOrder(
   reference: string,
 ): Promise<DanMerchOrder | null> {
   const snap = await getDoc(doc(db, "merch_orders", reference));
   if (!snap.exists()) return null;
   return toDoc<DanMerchOrder>(snap);
-}
-
-/**
- * Idempotent: marks a merch order as "paid" and increments soldCount on each
- * product. Uses a transaction so a concurrent webhook + verify call only
- * processes the first writer — the second is a no-op.
- */
-export async function markMerchOrderPaid(reference: string): Promise<void> {
-  const orderRef = doc(db, "merch_orders", reference);
-  await runTransaction(db, async (tx) => {
-    const orderSnap = await tx.get(orderRef);
-    if (!orderSnap.exists()) throw new Error(`Merch order not found: ${reference}`);
-    const order = orderSnap.data() as DanMerchOrder;
-    if (order.status === "paid") return; // already processed — idempotent
-
-    // Mark order paid
-    tx.update(orderRef, { status: "paid" });
-
-    // Increment soldCount on each product
-    for (const item of order.items ?? []) {
-      const prodRef = doc(db, "products", item.productId);
-      tx.update(prodRef, { soldCount: increment(item.qty) });
-    }
-  });
 }
 
 export async function getAllMerchOrders(): Promise<DanMerchOrder[]> {

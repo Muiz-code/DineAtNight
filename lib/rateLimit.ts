@@ -1,16 +1,22 @@
 /**
  * Firestore-based rate limiter — works across all serverless instances.
  *
- * Each check writes an atomic increment to a `rate_limits` Firestore document
- * keyed by `${key}:${windowStart}`. If the count exceeds the limit, the
- * request is rejected. Documents expire naturally (they are small and cheap).
+ * Each check atomically increments a `rate_limits` document keyed by
+ * `${key}:${windowStart}` via the Admin SDK (the collection is closed to
+ * clients by security rules, so counters cannot be reset from a browser).
  *
  * Fail-open: if Firestore is unreachable the request is allowed through so
  * that a database hiccup never blocks legitimate users.
  */
 
-import { doc, getDoc, setDoc, increment, Timestamp } from "firebase/firestore";
-import { db } from "./firebase";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import type { NextRequest } from "next/server";
+import { adminDb } from "./firebase-admin";
+
+/** Client IP as reported by Vercel's edge (first x-forwarded-for hop). */
+export function clientIp(req: NextRequest): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
+}
 
 /**
  * Returns true (request allowed) or false (limit exceeded).
@@ -24,33 +30,29 @@ export async function checkRateLimit(
   windowMs: number,
 ): Promise<boolean> {
   try {
+    const db = adminDb();
     const windowStart = Math.floor(Date.now() / windowMs);
-    const docId = `${encodeURIComponent(key)}:${windowStart}`;
-    const ref = doc(db, "rate_limits", docId);
+    const ref = db.collection("rate_limits").doc(`${encodeURIComponent(key)}:${windowStart}`);
 
-    // Read current count first to avoid unnecessary writes on already-exceeded keys
-    const snap = await getDoc(ref);
-    const current = (snap.data()?.count as number) ?? 0;
-    if (current >= limit) return false;
-
-    // Atomically increment and record expiry
-    await setDoc(
-      ref,
-      {
-        count: increment(1),
-        key,
-        windowStart,
-        expiresAt: Timestamp.fromMillis(Date.now() + windowMs * 2),
-      },
-      { merge: true },
-    );
-
-    // Re-check after increment (handles concurrent requests at the boundary)
-    const after = await getDoc(ref);
-    const finalCount = (after.data()?.count as number) ?? 1;
-    return finalCount <= limit;
-  } catch {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const current = (snap.data()?.count as number | undefined) ?? 0;
+      if (current >= limit) return false;
+      tx.set(
+        ref,
+        {
+          count: FieldValue.increment(1),
+          key,
+          windowStart,
+          expiresAt: Timestamp.fromMillis(Date.now() + windowMs * 2),
+        },
+        { merge: true },
+      );
+      return true;
+    });
+  } catch (err) {
     // Fail open — a Firestore error should never block a legitimate request
+    console.error("[rateLimit] check failed, allowing request:", err);
     return true;
   }
 }

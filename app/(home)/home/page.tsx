@@ -1243,13 +1243,10 @@ export default function Home() {
                           disabled={soldOut}
                           onClick={() => {
                             if (soldOut) return;
-                            if (ev.externalTicketUrl) {
-                              track("buy_tickets_click", { eventTitle: ev.title, type: "external" });
-                              window.open(ev.externalTicketUrl, "_blank", "noopener,noreferrer");
-                            } else {
-                              track("buy_tickets_click", { eventTitle: ev.title, type: "modal" });
-                              window.location.href = "/event";
-                            }
+                            // Always use the site's own checkout (event page → TicketModal → Paystack).
+                            // ev.externalTicketUrl is still saved from admin but intentionally not used here.
+                            track("buy_tickets_click", { eventTitle: ev.title, type: "modal" });
+                            window.location.href = "/event";
                           }}
                           className="mt-auto w-full sm:w-auto px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm shrink-0"
                           style={{

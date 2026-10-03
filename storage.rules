@@ -5,64 +5,69 @@ rules_version = '2';
 // Deploy: firebase deploy --only storage
 //
 // Folder structure:
-//   /vendors/*     — vendor logo and product images (public application form)
-//   /gallery/*     — event photos and videos (admin only)
-//   /products/*    — merch product images (admin only)
-//   /testimonials/* — testimonial photos if any (admin only)
+//   /vendors/*      — vendor logo and food images (public application form)
+//   /events/*, /sponsors/*, /gallery/*, /products/*, /testimonials/* — admin only
+//
+// Keep the admin list in sync with ADMIN_EMAILS (Vercel) and firestore.rules.
 // ─────────────────────────────────────────────────────────────────────────────
 
 service firebase.storage {
   match /b/{bucket}/o {
 
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() in [
+          "admin@dineatnight.com",
+          "tami@dineatnight.com",
+          "temi@dineatnight.com",
+          "ajibola@dineatnight.com",
+          "zena@dineatnight.com"
+        ];
+    }
+
+    function isImageUnder(mb) {
+      return request.resource.size <= mb * 1024 * 1024
+        && request.resource.contentType.matches("image/.*");
+    }
+
     // ── Vendor images ─────────────────────────────────────────────────────────
-    // Public upload — anyone filling out a vendor application can upload images.
-    // Enforce strict type and size limits server-side (client SDK enforces these).
+    // Public create only (the upload component uses random file names), so an
+    // existing vendor's images can never be overwritten or deleted publicly.
     match /vendors/{allPaths=**} {
       allow read: if true;
-      allow write: if request.resource.size <= 10 * 1024 * 1024  // 10 MB max
-                   && request.resource.contentType.matches("image/.*");
+      allow create: if isImageUnder(10);
+      allow update, delete: if isAdmin();
     }
 
-    // ── Events ────────────────────────────────────────────────────────────────
     match /events/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null
-                   && request.resource.size <= 10 * 1024 * 1024
-                   && request.resource.contentType.matches("image/.*");
+      allow write: if isAdmin() && (request.resource == null || isImageUnder(10));
     }
 
-    // ── Sponsors ──────────────────────────────────────────────────────────────
     match /sponsors/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null
-                   && request.resource.size <= 5 * 1024 * 1024
-                   && request.resource.contentType.matches("image/.*");
+      allow write: if isAdmin() && (request.resource == null || isImageUnder(5));
     }
 
-    // ── Gallery ───────────────────────────────────────────────────────────────
-    // Photos and videos — authenticated admins only.
+    // Photos and videos
     match /gallery/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null
-                   && request.resource.size <= 200 * 1024 * 1024  // 200 MB max
-                   && (request.resource.contentType.matches("image/.*")
-                       || request.resource.contentType.matches("video/.*"));
+      allow write: if isAdmin()
+        && (request.resource == null
+            || (request.resource.size <= 200 * 1024 * 1024
+                && (request.resource.contentType.matches("image/.*")
+                    || request.resource.contentType.matches("video/.*"))));
     }
 
-    // ── Products (merch shop) ─────────────────────────────────────────────────
     match /products/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null
-                   && request.resource.size <= 10 * 1024 * 1024
-                   && request.resource.contentType.matches("image/.*");
+      allow write: if isAdmin() && (request.resource == null || isImageUnder(10));
     }
 
-    // ── Testimonials ──────────────────────────────────────────────────────────
     match /testimonials/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null
-                   && request.resource.size <= 5 * 1024 * 1024
-                   && request.resource.contentType.matches("image/.*");
+      allow write: if isAdmin() && (request.resource == null || isImageUnder(5));
     }
 
     // Deny everything else by default

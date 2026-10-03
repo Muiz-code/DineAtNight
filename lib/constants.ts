@@ -32,6 +32,9 @@ export const VENDOR_APPLY_RATE_LIMIT = 5;
 /** Max testimonial-notification calls per IP per window. */
 export const TESTIMONIAL_RATE_LIMIT = 5;
 
+/** Max ticket/merch checkout initialisations per IP per window. */
+export const CHECKOUT_RATE_LIMIT = 30;
+
 // ── Tickets ───────────────────────────────────────────────────────────────────
 /** Minimum number of tickets a customer can purchase in one order. */
 export const MIN_TICKET_QUANTITY = 1;

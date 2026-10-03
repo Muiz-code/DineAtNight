@@ -19,6 +19,12 @@ export function getAdminName(email: string): string {
   return ADMIN_NAME_MAP[email.toLowerCase()] ?? email.split("@")[0];
 }
 
+/** The signed-in admin's email and display name (for archive/audit fields). */
+export function currentAdmin(): { email: string; name: string } {
+  const email = getAuthClient()?.currentUser?.email ?? "unknown";
+  return { email, name: getAdminName(email) };
+}
+
 export async function logAdminAction(
   action: string,
   details: string,

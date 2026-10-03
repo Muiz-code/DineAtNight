@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { logAdminAction } from "@/lib/adminLog";
+import { logAdminAction, currentAdmin } from "@/lib/adminLog";
 import ImageUpload from "@/app/_components/ImageUpload";
 import { Plus, Pencil, Trash2, X, Package, Flame, ShoppingBag, Eye, EyeOff } from "lucide-react";
 import {
@@ -10,7 +10,7 @@ import {
   subscribeMerchOrders,
   createProduct,
   updateProduct,
-  deleteProduct,
+  archiveAndDeleteProduct,
   type DanProduct,
   type DanMerchOrder,
 } from "@/lib/firestore";
@@ -141,7 +141,9 @@ export default function AdminShopPage() {
     try {
       const p = products.find((x) => x.id === id);
       if (!p) return;
-      await deleteProduct(id);
+      // Archive instead of hard-delete: merch orders (payment records) are kept intact
+      const admin = currentAdmin();
+      await archiveAndDeleteProduct(p, admin.email, admin.name);
       await logAdminAction("DELETE_PRODUCT", `Deleted product "${p.name}"`, { type: "product", id, name: p.name });
       setDeleteId(null);
     } finally {
