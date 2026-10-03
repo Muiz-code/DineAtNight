@@ -30,7 +30,6 @@ import {
   Instagram,
   Tag,
   FileText,
-  ShoppingBag,
   Calendar,
   BookOpen,
   Pencil,
@@ -367,18 +366,28 @@ export default function AdminVendorsPage() {
   const handleAddVendor = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    // Main (card) picture: falls back to the logo, the same way logos uploaded
+    // through the vendor application become the main picture.
+    const main = form.imageUrl || form.logoUrl;
+    const payload: FormState = {
+      ...form,
+      imageUrl: main,
+      imageUrls: main
+        ? [main, ...form.imageUrls.filter((u) => u && u !== main && u !== form.logoUrl)]
+        : form.imageUrls.filter(Boolean),
+    };
     try {
       if (editTarget) {
         // Edit mode
-        await updateVendor(editTarget.id!, form);
+        await updateVendor(editTarget.id!, payload);
         await logAdminAction("UPDATE_VENDOR", `Updated vendor "${form.brandName}"`, { type: "vendor", id: editTarget.id, name: form.brandName });
-        const updated = { ...editTarget, ...form };
+        const updated = { ...editTarget, ...payload };
         setVendors((prev) => prev.map((x) => (x.id === editTarget.id ? updated : x)));
         if (detailVendor?.id === editTarget.id) setDetailVendor(updated);
         setEditTarget(null);
       } else {
         // Add mode
-        await createVendorDirect(form);
+        await createVendorDirect(payload);
         await logAdminAction("CREATE_VENDOR", `Added vendor "${form.brandName}" directly`, { type: "vendor", name: form.brandName });
         await load();
         setActiveTab(form.status === "approved" ? "approved" : "pending");
@@ -511,10 +520,10 @@ export default function AdminVendorsPage() {
               >
                 {/* Thumbnail — logo circle overlaid on food photo */}
                 <div className="relative flex-shrink-0">
-                  {v.imageUrl ? (
+                  {v.imageUrl || v.logoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={v.imageUrl}
+                      src={v.imageUrl || v.logoUrl}
                       alt={v.brandName}
                       className="w-14 h-14 rounded-lg object-cover"
                       onError={(e) => {
@@ -526,7 +535,7 @@ export default function AdminVendorsPage() {
                       <Store className="w-6 h-6 text-gray-700" />
                     </div>
                   )}
-                  {v.logoUrl && (
+                  {v.logoUrl && v.imageUrl && v.logoUrl !== v.imageUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={v.logoUrl}
@@ -950,16 +959,6 @@ export default function AdminVendorsPage() {
                       {detailVendor.description}
                     </p>
                   </div>
-                  {detailVendor.products && (
-                    <div>
-                      <div className="flex items-center gap-1.5 text-gray-600 text-[10px] uppercase tracking-widest mb-1.5">
-                        <ShoppingBag className="w-3 h-3" /> Products / Menu
-                      </div>
-                      <p className="text-gray-300 text-sm leading-relaxed">
-                        {detailVendor.products}
-                      </p>
-                    </div>
-                  )}
                   {[
                     { label: "Menu Pictures", urls: detailVendor.menuImages ?? [] },
                     { label: "Product Pictures", urls: detailVendor.productImages ?? [] },
@@ -1497,21 +1496,6 @@ export default function AdminVendorsPage() {
                     className={`${inputCls} resize-none`}
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
-                    Products / Menu{" "}
-                    <span className="text-gray-700 normal-case">(short summary)</span>
-                  </label>
-                  <textarea
-                    name="products"
-                    value={form.products}
-                    onChange={handleChange}
-                    rows={2}
-                    placeholder="e.g. Suya, Chicken Wings, Peppered Fish"
-                    className={`${inputCls} resize-none`}
-                  />
-                </div>
-
                 {/* ── Structured Menu ── */}
                 <div className="space-y-3">
                   <label className="block text-[10px] text-gray-500 uppercase tracking-widest">
@@ -1672,6 +1656,21 @@ export default function AdminVendorsPage() {
                   >
                     <Plus className="w-3.5 h-3.5" /> Add New Category
                   </button>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
+                    Main Picture{" "}
+                    <span className="text-gray-700 normal-case">(shown on the vendor card — uses the logo if empty)</span>
+                  </label>
+                  <div className="w-48">
+                    <ImageUpload
+                      value={form.imageUrl}
+                      onChange={(url) => setForm((p) => ({ ...p, imageUrl: url }))}
+                      folder="vendors/photos"
+                      hint="Food photo or brand image."
+                    />
+                  </div>
                 </div>
 
                 <div>

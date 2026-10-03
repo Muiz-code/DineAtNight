@@ -254,7 +254,7 @@ function VendorImageSlideshow({
   }, [images.length]);
 
   return (
-    <div className="relative h-52 overflow-hidden">
+    <div className="relative h-[calc(13rem_+_2vh)] overflow-hidden">
       {images.length > 0 ? (
         images.map((src, i) => (
           // eslint-disable-next-line @next/next/no-img-element
@@ -1444,7 +1444,7 @@ export default function Home() {
                     key={i}
                     className="rounded-2xl overflow-hidden border border-white/5 animate-pulse"
                   >
-                    <div className="h-52 bg-white/5" />
+                    <div className="h-[calc(13rem_+_2vh)] bg-white/5" />
                     <div className="p-5 bg-[#070707] space-y-3">
                       <div className="h-5 w-2/3 bg-white/5 rounded" />
                       <div className="h-3 w-1/3 bg-white/5 rounded" />

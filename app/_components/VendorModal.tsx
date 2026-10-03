@@ -341,7 +341,8 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
         categories: form.categories,
         events: form.eventTitle ? [form.eventTitle] : [],
         description: form.description,
-        ...(form.logoUrl ? { logoUrl: form.logoUrl } : {}),
+        // The "Brand Logo" upload is both the main picture and the small logo (vendor strip)
+        ...(form.logoUrl || form.imageUrl ? { logoUrl: form.logoUrl || form.imageUrl } : {}),
         imageUrl: form.imageUrl,
         menu: cleanMenu.length > 0 ? cleanMenu : undefined,
         ...(menuImages.length > 0 ? { menuImages } : {}),

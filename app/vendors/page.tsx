@@ -22,7 +22,6 @@ import {
   UtensilsCrossed,
   X,
   Instagram,
-  ShoppingBag,
   Calendar,
   Phone,
   Mail,
@@ -63,13 +62,6 @@ function VendorDetailModal({
   }, [images.length]);
 
   useScrollLock(true);
-
-  const products = vendor.products
-    ? vendor.products
-        .split(/[,\n]/)
-        .map((p) => p.trim())
-        .filter(Boolean)
-    : [];
 
   return (
     <motion.div
@@ -215,26 +207,6 @@ function VendorDetailModal({
               <p className="text-gray-300 text-sm leading-relaxed">
                 {vendor.description}
               </p>
-            </div>
-          )}
-
-          {/* Menu / Products */}
-          {products.length > 0 && (
-            <div>
-              <div className="flex items-center gap-1.5 text-gray-600 text-[10px] uppercase tracking-widest mb-2">
-                <ShoppingBag className="w-3 h-3" /> Menu / Products
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {products.map((p) => (
-                  <span
-                    key={p}
-                    className="text-xs px-3 py-1 rounded-full border border-white/10 text-gray-300"
-                    style={{ background: `${palette.color}08` }}
-                  >
-                    {p}
-                  </span>
-                ))}
-              </div>
             </div>
           )}
 
@@ -498,7 +470,7 @@ function VendorImageSlideshow({
   }, [images.length]);
 
   return (
-    <div className="relative h-52 overflow-hidden">
+    <div className="relative h-[calc(13rem_+_2vh)] overflow-hidden">
       {images.map((src, i) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -569,7 +541,7 @@ const filterCategories: { key: FilterKey; label: string }[] = [
 
 const SkeletonCard = () => (
   <div className="rounded-2xl overflow-hidden border border-white/5 animate-pulse">
-    <div className="h-52 bg-white/5" />
+    <div className="h-[calc(13rem_+_2vh)] bg-white/5" />
     <div className="p-5 bg-[#070707] space-y-3">
       <div className="h-5 w-2/3 bg-white/5 rounded" />
       <div className="h-3 w-1/3 bg-white/5 rounded" />
@@ -865,7 +837,8 @@ export default function VendorsPage() {
                             </span>
                           ))}
                         </div>
-                        <p className="text-gray-400 text-sm leading-relaxed">
+                        {/* 2 lines + "…"; the full text is in the detail popup */}
+                        <p className="text-gray-400 text-sm leading-relaxed line-clamp-2">
                           {vendor.description}
                         </p>
                       </div>

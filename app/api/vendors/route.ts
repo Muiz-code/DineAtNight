@@ -26,7 +26,6 @@ export async function GET() {
         ...(v.categories ? { categories: v.categories } : {}),
         ...(v.category ? { category: v.category } : {}),
         ...(v.events ? { events: v.events } : {}),
-        ...(v.products ? { products: v.products } : {}),
         ...(v.instagram ? { instagram: v.instagram } : {}),
         ...(v.email ? { email: v.email } : {}),
         ...(v.phone ? { phone: v.phone } : {}),
