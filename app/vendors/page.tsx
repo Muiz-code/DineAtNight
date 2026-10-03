@@ -74,7 +74,7 @@ function VendorDetailModal({
       <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" />
 
       <motion.div
-        className="relative w-full sm:max-w-lg max-h-[93svh] sm:max-h-[88vh] overflow-y-auto bg-[#060606] border sm:rounded-2xl rounded-t-3xl"
+        className="relative w-full sm:max-w-lg max-h-[93svh] sm:max-h-[88vh] overflow-y-auto scrollbar-hide bg-[#060606] border sm:rounded-2xl rounded-t-3xl"
         style={{
           borderColor: `${palette.color}30`,
           boxShadow: `0 0 60px ${palette.glow}15`,
