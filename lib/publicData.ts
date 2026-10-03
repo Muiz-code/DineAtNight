@@ -7,7 +7,7 @@
  */
 
 import { adminDb } from "./firebase-admin";
-import type { DanEvent, DanVendor, PublicVendor } from "./firestore";
+import type { DanEvent, DanGalleryItem, DanVendor, PublicVendor } from "./firestore";
 
 /** A Firestore timestamp as plain data (safe to pass from server to client components). */
 export type PlainTimestamp = { seconds: number; nanoseconds: number };
@@ -16,6 +16,12 @@ export type PlainTimestamp = { seconds: number; nanoseconds: number };
 export type SerializedEvent = Omit<DanEvent, "date" | "createdAt"> & {
   date: PlainTimestamp | null;
   createdAt?: PlainTimestamp | null;
+};
+
+/** DanGalleryItem with its timestamp flattened for serialization. */
+export type SerializedGalleryItem = Omit<DanGalleryItem, "createdAt" | "src"> & {
+  src: string;
+  createdAt: PlainTimestamp | null;
 };
 
 type TimestampLike = { seconds: number; nanoseconds: number; toMillis?: () => number };
@@ -83,4 +89,20 @@ export async function getPublicEvents(): Promise<{ active: SerializedEvent[]; pa
   const active = activeSnap.docs.map((d) => serializeEvent(d.id, d.data())).sort((a, b) => bySeconds(a) - bySeconds(b));
   const past = pastSnap.docs.map((d) => serializeEvent(d.id, d.data())).sort((a, b) => bySeconds(b) - bySeconds(a));
   return { active, past };
+}
+
+/** Gallery items, newest first (same order as the client subscription). */
+export async function getPublicGallery(limit?: number): Promise<SerializedGalleryItem[]> {
+  let q = adminDb().collection("gallery").orderBy("createdAt", "desc");
+  if (limit) q = q.limit(limit);
+  const snap = await q.get();
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      ...(data as Omit<DanGalleryItem, "createdAt" | "src">),
+      id: d.id,
+      src: typeof data.src === "string" ? data.src : (data.url ?? ""),
+      createdAt: plain(data.createdAt),
+    };
+  });
 }

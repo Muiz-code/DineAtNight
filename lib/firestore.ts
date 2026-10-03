@@ -25,7 +25,7 @@ import {
 import { db } from "./firebase";
 import { clearCache } from "./cache";
 import { ADMIN_LOG_RETENTION_MS } from "./constants";
-import type { SerializedEvent } from "./publicData";
+import type { SerializedEvent, SerializedGalleryItem } from "./publicData";
 import { StaticImport } from "next/dist/shared/lib/get-img-props";
 
 /**
@@ -154,6 +154,14 @@ export function hydrateEvents(events: SerializedEvent[]): DanEvent[] {
   const ts = (t: { seconds: number; nanoseconds: number } | null | undefined) =>
     t ? new Timestamp(t.seconds, t.nanoseconds) : undefined;
   return events.map((e) => ({ ...e, date: ts(e.date)!, createdAt: ts(e.createdAt) }));
+}
+
+/** Rebuilds server-rendered gallery items (plain timestamps) into DanGalleryItem. */
+export function hydrateGallery(items: SerializedGalleryItem[]): DanGalleryItem[] {
+  return items.map((g) => ({
+    ...g,
+    createdAt: g.createdAt ? new Timestamp(g.createdAt.seconds, g.createdAt.nanoseconds) : undefined,
+  }));
 }
 
 export async function getEventById(id: string): Promise<DanEvent | null> {

@@ -367,13 +367,13 @@ that every possible result is readable, or the whole query is denied.
 
 | Layer | Where | What |
 |---|---|---|
-| Server rendering (ISR) | `/event`, `/vendors` | `page.tsx` reads data on the server (`lib/publicData.ts`, Admin SDK) with `revalidate = 60`; Vercel caches the HTML. The client component (`EventClient` / `VendorsClient`) starts from that data; `/event` keeps live subscriptions for ticket counts. If the server read fails, the page falls back to loading in the browser. |
+| Server rendering (ISR) | `/home`, `/event`, `/vendors`, `/gallery` | `page.tsx` reads data on the server (`lib/publicData.ts`, Admin SDK) with `revalidate = 60`; Vercel caches the HTML. The `*Client.tsx` component starts from that data; `/home` and `/event` keep live event subscriptions for ticket counts. If a server read fails, that section falls back to loading in the browser. Random picks use `seededShuffle()` with a seed chosen on the server (`lib/random.ts`) so the server HTML matches hydration. |
 | Browser display cache | `lib/cache.ts` | localStorage, 10 min TTL. Bump `CACHE_VERSION` in `lib/constants.ts` when a cached shape changes. Never use cached data for prices or auth. |
 | Edge cache | `/api/vendors` | `s-maxage=60, stale-while-revalidate=300` |
 | Images | `next/image` | AVIF/WebP per device; remote hosts allowed in `next.config.ts` |
 
-Other public pages (home, gallery, shop) are still client-rendered and are the
-next candidates for the same pattern. When converting, keep render output free
+The shop is still client-rendered (no products yet); it can follow the same
+pattern when it's used. When converting, keep render output free
 of `Date.now()` / `Math.random()` / `window` (do those in effects) to avoid
 hydration mismatches — see `useCountdown` in `CardCountdown.tsx`.
 
