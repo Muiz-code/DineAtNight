@@ -14,18 +14,16 @@ const inputCls =
 export default function TicketModal({
   initialEvent,
   events,
-  soldCounts,
   onClose,
 }: {
   initialEvent: DanEvent;
   events: DanEvent[];
-  soldCounts: Record<string, number>;
   onClose: () => void;
 }) {
   useScrollLock(true);
   const [selectedId, setSelectedId] = useState(initialEvent.id ?? "");
   const event = events.find((e) => e.id === selectedId) ?? initialEvent;
-  const soldCount = soldCounts[event.id ?? ""] ?? event.soldTickets ?? 0;
+  const soldCount = event.soldTickets ?? 0;
   const remaining = event.totalTickets - soldCount;
   const pct = event.totalTickets > 0 ? Math.round((soldCount / event.totalTickets) * 100) : 0;
   const router = useRouter();

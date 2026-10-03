@@ -9,10 +9,10 @@ import Footer from "../_components/Footer";
 import Image from "next/image";
 import NeonMarquee from "../_components/NeonMarquee";
 import {
-  subscribeApprovedVendors,
+  fetchApprovedVendors,
   subscribeActiveEvents,
   getVendorCategories,
-  type DanVendor,
+  type PublicVendor,
   type DanEvent,
 } from "@/lib/firestore";
 import { getCache, setCache } from "@/lib/cache";
@@ -45,7 +45,7 @@ function VendorDetailModal({
   palette,
   onClose,
 }: {
-  vendor: DanVendor;
+  vendor: PublicVendor;
   palette: { color: string; glow: string };
   onClose: () => void;
 }) {
@@ -301,7 +301,8 @@ function VendorDetailModal({
             </div>
           )}
 
-          {/* Contact info */}
+          {/* Contact info — business email/phone/Instagram are public (see /api/vendors) */}
+          {(vendor.email || vendor.phone || vendor.instagram) && (
           <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4 space-y-3">
             <p className="text-[10px] uppercase tracking-widest text-gray-600 mb-0.5">
               Contact
@@ -353,6 +354,7 @@ function VendorDetailModal({
               </a>
             )}
           </div>
+          )}
         </div>
       </motion.div>
     </motion.div>
@@ -362,7 +364,7 @@ function VendorDetailModal({
 
 // ── Vendor Logo Strip ─────────────────────────────────────────────────────────
 // Single logo + name chip
-function VendorLogoChip({ v }: { v: DanVendor }) {
+function VendorLogoChip({ v }: { v: PublicVendor }) {
   return (
     <div className="flex flex-col items-center gap-2 flex-shrink-0">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -382,7 +384,7 @@ function VendorLogoChip({ v }: { v: DanVendor }) {
 }
 
 // Centered when logos fit one row; switches to infinite marquee when they overflow
-function VendorLogoStrip({ logoVendors }: { logoVendors: DanVendor[] }) {
+function VendorLogoStrip({ logoVendors }: { logoVendors: PublicVendor[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
   const [isMarquee, setIsMarquee] = useState(false);
@@ -553,28 +555,38 @@ const SkeletonCard = () => (
 export default function VendorsPage() {
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
-  const [vendors, setVendors] = useState<DanVendor[]>([]);
+  const [vendors, setVendors] = useState<PublicVendor[]>([]);
   const [loadingVendors, setLoadingVendors] = useState(true);
   const [vendorLoadError, setVendorLoadError] = useState(false);
+  const [vendorReloadKey, setVendorReloadKey] = useState(0);
   const [activeEventTitle, setActiveEventTitle] = useState(
     () => getCache<DanEvent[]>("dan_active_events")?.[0]?.title ?? "",
   );
   const [selected, setSelected] = useState<{
-    v: DanVendor;
+    v: PublicVendor;
     palette: { color: string; glow: string };
   } | null>(null);
   const [vendorCarouselIdx, setVendorCarouselIdx] = useState(0);
 
   useEffect(() => {
-    // Real-time subscription: vendor list stays live while the tab is open.
-    // If the admin approves a new vendor, it appears instantly without a refresh.
-    const unsub = subscribeApprovedVendors((data) => {
-      setVendors(data);
-      setVendorLoadError(false);
-      setLoadingVendors(false);
-    });
-    return unsub;
-  }, []);
+    // Public fields only (no contact details) — see /api/vendors.
+    let cancelled = false;
+    fetchApprovedVendors()
+      .then((data) => {
+        if (cancelled) return;
+        setVendors(data);
+        setVendorLoadError(false);
+      })
+      .catch(() => {
+        if (!cancelled) setVendorLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingVendors(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [vendorReloadKey]);
 
   useEffect(() => {
     return subscribeActiveEvents((evs) => {
@@ -747,15 +759,13 @@ export default function VendorsPage() {
                   Couldn&apos;t load vendors.
                 </p>
                 <p className="text-gray-700 text-sm mt-2">
-                  Check your Firestore security rules — the{" "}
-                  <code className="text-gray-600">vendors</code> collection
-                  needs{" "}
-                  <code className="text-gray-600">allow read: if true</code>.
+                  Please check your connection and try again.
                 </p>
                 <button
                   onClick={() => {
                     setVendorLoadError(false);
                     setLoadingVendors(true);
+                    setVendorReloadKey((k) => k + 1);
                   }}
                   className="mt-4 px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest border border-white/15 text-gray-500 hover:text-white hover:border-white/30 transition-all"
                 >

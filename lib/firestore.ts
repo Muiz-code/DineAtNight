@@ -435,13 +435,6 @@ export async function upsertVendorApplication(
   return { id: ref.id, isUpdate: false };
 }
 
-export async function getApprovedVendors(): Promise<DanVendor[]> {
-  const snap = await getDocs(
-    query(collection(db, "vendors"), where("status", "==", "approved")),
-  );
-  return snap.docs.map((d) => toDoc<DanVendor>(d));
-}
-
 export async function getAllVendors(): Promise<DanVendor[]> {
   const snap = await getDocs(collection(db, "vendors"));
   const vendors = snap.docs.map((d) => toDoc<DanVendor>(d));
@@ -502,15 +495,26 @@ export async function updateVendor(
  * Run a one-time Firestore migration to eliminate this shim:
  *   for each vendor doc: update({ categories: getVendorCategories(data), category: deleteField() })
  */
-export function getVendorCategories(v: DanVendor): string[] {
+export function getVendorCategories(v: Pick<DanVendor, "categories" | "category">): string[] {
   return v.categories?.length ? v.categories : v.category ? [v.category] : [];
 }
 
-/** Real-time: approved vendors (public home + vendors page). */
-export const subscribeApprovedVendors = createSubscription<DanVendor>(
-  "vendors",
-  [where("status", "==", "approved")],
-);
+/**
+ * The public view of a vendor: business contact (email/phone/Instagram) and
+ * menu are public; owner name and review data are not. Vendor docs are
+ * admin-only in security rules; the public site gets this shape from
+ * GET /api/vendors (Admin SDK + field whitelist).
+ */
+export type PublicVendor = Pick<DanVendor, "id" | "brandName" | "description" | "imageUrl"> &
+  Partial<Pick<DanVendor, "imageUrls" | "logoUrl" | "categories" | "category" | "events" | "products" | "instagram" | "menu" | "email" | "phone">>;
+
+/** Approved vendors for the public home + vendors pages. */
+export async function fetchApprovedVendors(): Promise<PublicVendor[]> {
+  const res = await fetch("/api/vendors");
+  if (!res.ok) throw new Error(`Failed to load vendors (${res.status})`);
+  const { vendors } = (await res.json()) as { vendors: PublicVendor[] };
+  return vendors;
+}
 
 /* ═══════════════════════════════════════════════
    Testimonials

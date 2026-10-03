@@ -19,15 +19,13 @@ import NeonMarquee from "../../_components/NeonMarquee";
 import {
   subscribeActiveEvents,
   subscribePastEvents,
-  subscribeApprovedVendors,
   subscribeGalleryItems,
   getVendorCategories,
   type DanEvent,
-  type DanVendor,
+  fetchApprovedVendors,
+  type PublicVendor,
   type DanGalleryItem,
 } from "@/lib/firestore";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { getCache, setCache } from "@/lib/cache";
 import { Camera, MapPin, ChevronDown } from "lucide-react";
 import { track } from "@vercel/analytics";
@@ -569,10 +567,9 @@ export default function Home() {
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
   const [activeEvents, setActiveEvents] = useState<DanEvent[]>([]);
   const [pastEvents, setPastEvents] = useState<DanEvent[]>([]);
-  const [soldByEvent, setSoldByEvent] = useState<Record<string, number>>({});
   const [isMobile, setIsMobile] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [approvedVendors, setApprovedVendors] = useState<DanVendor[]>([]);
+  const [approvedVendors, setApprovedVendors] = useState<PublicVendor[]>([]);
   const [vendorsLoading, setVendorsLoading] = useState(true);
   const [vendorsError, setVendorsError] = useState(false);
   const [galleryItems, setGalleryItems] = useState<DanGalleryItem[]>([]);
@@ -604,20 +601,6 @@ export default function Home() {
     });
     const unsubPast = subscribePastEvents((evs) => setPastEvents(evs));
 
-    // Cross-check sold counts from actual ticket documents (same as events page)
-    getDocs(collection(db, "tickets"))
-      .then((snap) => {
-        const counts: Record<string, number> = {};
-        for (const d of snap.docs) {
-          const t = d.data();
-          if (t.status !== "pending") {
-            counts[t.eventId] = (counts[t.eventId] ?? 0) + (t.quantity ?? 1);
-          }
-        }
-        setSoldByEvent(counts);
-      })
-      .catch(() => {});
-
     return () => {
       unsubActive();
       unsubPast();
@@ -626,10 +609,10 @@ export default function Home() {
 
   // Vendors — delayed on mobile to avoid competing with hero paint
   useEffect(() => {
-    let unsub: (() => void) | null = null;
+    let cancelled = false;
     const start = () => {
       vendorsResolvedRef.current = false;
-      const cached = getCache<DanVendor[]>("dan_approved_vendors");
+      const cached = getCache<PublicVendor[]>("dan_approved_vendors");
       if (cached) {
         setApprovedVendors(
           [...cached].sort(() => Math.random() - 0.5).slice(0, 3),
@@ -637,23 +620,31 @@ export default function Home() {
         setVendorsLoading(false);
         vendorsResolvedRef.current = true;
       }
-      unsub = subscribeApprovedVendors((vendors) => {
-        setCache("dan_approved_vendors", vendors);
-        setApprovedVendors(
-          [...vendors].sort(() => Math.random() - 0.5).slice(0, 3),
-        );
-        setVendorsError(false);
-        if (!vendorsResolvedRef.current) {
-          setVendorsLoading(false);
-          vendorsResolvedRef.current = true;
-        }
-      });
+      // Public fields only (no contact details) — see /api/vendors
+      fetchApprovedVendors()
+        .then((vendors) => {
+          if (cancelled) return;
+          setCache("dan_approved_vendors", vendors);
+          setApprovedVendors(
+            [...vendors].sort(() => Math.random() - 0.5).slice(0, 3),
+          );
+          setVendorsError(false);
+        })
+        .catch(() => {
+          if (!cancelled && !vendorsResolvedRef.current) setVendorsError(true);
+        })
+        .finally(() => {
+          if (!cancelled && !vendorsResolvedRef.current) {
+            setVendorsLoading(false);
+            vendorsResolvedRef.current = true;
+          }
+        });
     };
     const delay = window.innerWidth < 768 ? 1000 : 0;
     const t = setTimeout(start, delay);
     return () => {
+      cancelled = true;
       clearTimeout(t);
-      unsub?.();
     };
   }, []);
 
@@ -1016,7 +1007,7 @@ export default function Home() {
                       hour: "2-digit",
                       minute: "2-digit",
                     });
-                  const sold = soldByEvent[ev.id ?? ""] ?? ev.soldTickets ?? 0;
+                  const sold = ev.soldTickets ?? 0;
                   const remaining = ev.totalTickets - sold;
                   const soldOut = remaining <= 0;
                   const isExpanded = expandedIds.has(ev.id ?? "");

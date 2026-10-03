@@ -38,10 +38,13 @@ service cloud.firestore {
     }
 
     // ── Vendors ──────────────────────────────────────────────────────────────
-    // Public sees approved vendors only. Public can submit a new application
-    // (status must be "pending"); only admins can edit, approve or delete.
+    // Vendor docs contain private contact details (email, phone, owner name),
+    // so only admins can read them. The public site gets approved vendors,
+    // public fields only, from GET /api/vendors (Admin SDK).
+    // Public can submit a new application (status must be "pending");
+    // only admins can edit, approve or delete.
     match /vendors/{id} {
-      allow read: if resource.data.status == "approved" || isAdmin();
+      allow read: if isAdmin();
       allow create: if isAdmin()
         || (request.resource.data.status == "pending"
             && request.resource.data.keys().hasAll(["brandName", "ownerName", "email", "status"])

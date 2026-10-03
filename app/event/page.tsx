@@ -21,8 +21,6 @@ import {
   type DanEvent,
 } from "@/lib/firestore";
 import { getCache, setCache } from "@/lib/cache";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { track } from "@vercel/analytics";
 import {
   X,
@@ -202,7 +200,6 @@ export default function EventPage() {
   const [ticketEvent, setTicketEvent] = useState<DanEvent | null>(null);
   const [activeEvents, setActiveEvents] = useState<DanEvent[]>([]);
   const [pastEvents, setPastEvents] = useState<DanEvent[]>([]);
-  const [soldByEvent, setSoldByEvent] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -256,22 +253,6 @@ export default function EventPage() {
         pastResolvedRef.current = true;
       }
     });
-
-    // Fetch tickets separately — if rules block this it won't affect events showing
-    getDocs(collection(db, "tickets"))
-      .then((txSnap) => {
-        const counts: Record<string, number> = {};
-        for (const d of txSnap.docs) {
-          const t = d.data();
-          if (t.status !== "pending") {
-            counts[t.eventId] = (counts[t.eventId] ?? 0) + (t.quantity ?? 1);
-          }
-        }
-        setSoldByEvent(counts);
-      })
-      .catch(() => {
-        // Silently fall back to ev.soldTickets for sold counts
-      });
 
     return () => {
       unsubActive();
@@ -589,7 +570,7 @@ export default function EventPage() {
                       hour: "2-digit",
                       minute: "2-digit",
                     });
-                  const sold = soldByEvent[ev.id ?? ""] ?? ev.soldTickets ?? 0;
+                  const sold = ev.soldTickets ?? 0;
                   const remaining = ev.totalTickets - sold;
                   const soldOut = remaining <= 0;
                   const isExpanded = expandedIds.has(ev.id ?? "");
@@ -1164,7 +1145,6 @@ export default function EventPage() {
           <TicketModal
             initialEvent={ticketEvent}
             events={activeEvents}
-            soldCounts={soldByEvent}
             onClose={() => setTicketEvent(null)}
           />
         )}
