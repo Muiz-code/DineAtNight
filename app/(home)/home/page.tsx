@@ -247,10 +247,13 @@ function VendorImageSlideshow({
   images,
   alt,
   palette,
+  eager = false,
 }: {
   images: string[];
   alt: string;
   palette: { color: string; glow: string };
+  /** Load the first slide immediately (cards in the first row); everything else loads lazily. */
+  eager?: boolean;
 }) {
   const [idx, setIdx] = useState(0);
 
@@ -269,6 +272,8 @@ function VendorImageSlideshow({
             key={src + i}
             src={src}
             alt={`${alt} ${i + 1}`}
+            loading={eager && i === 0 ? "eager" : "lazy"}
+            decoding="async"
             className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
             style={{ opacity: i === idx ? 1 : 0 }}
           />
