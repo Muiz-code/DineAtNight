@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { fetchPaystackTransaction, getTicket, isValidReference, markTicketPaid } from "@/lib/payments";
+import { pushTicketToCheckin } from "@/lib/checkin";
 import { sendTicketConfirmationEmail } from "@/lib/resend";
 
 export async function GET(req: NextRequest) {
@@ -40,6 +41,8 @@ export async function GET(req: NextRequest) {
   if (!ticket) return NextResponse.json({ ok: true, ticket: null });
 
   if (newlyPaid) {
+    // Forward to the external check-in system once, after the response is sent
+    after(() => pushTicketToCheckin(reference));
     sendTicketConfirmationEmail({
       name: ticket.name,
       email: ticket.email,

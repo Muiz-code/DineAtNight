@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import crypto from "crypto";
 import { isValidReference, markMerchOrderPaid, markTicketPaid } from "@/lib/payments";
+import { pushTicketToCheckin } from "@/lib/checkin";
 
 /**
  * Paystack webhook — the authoritative payment confirmation channel.
@@ -35,7 +36,10 @@ export async function POST(req: NextRequest) {
   try {
     // Ticket payments carry eventId; merch payments carry items
     if (metadata?.eventId) {
-      await markTicketPaid(reference, amount);
+      if (await markTicketPaid(reference, amount)) {
+        // Forward to the external check-in system once, after responding to Paystack
+        after(() => pushTicketToCheckin(reference));
+      }
     } else if (metadata?.items) {
       await markMerchOrderPaid(reference, amount);
     } else {
