@@ -174,6 +174,7 @@ export default function AdminEventsPage() {
           Number(form.totalTickets)
         : Number(form.totalTickets);
 
+      const externalTicketUrl = form.externalTicketUrl?.trim() ?? "";
       const data = {
         title: form.title,
         edition: form.title,
@@ -186,7 +187,7 @@ export default function AdminEventsPage() {
         totalTickets,
         status: form.status,
         imageUrl: form.imageUrl,
-        ...(form.externalTicketUrl?.trim() && { externalTicketUrl: form.externalTicketUrl.trim() }),
+        ...(externalTicketUrl && { externalTicketUrl }),
         highlights: form.highlights
           .split("\n")
           .map((s) => s.trim())
@@ -197,7 +198,8 @@ export default function AdminEventsPage() {
       };
 
       if (editing?.id) {
-        await updateEvent(editing.id, data);
+        // Always send the link on update: "" tells updateEvent to remove the stored value
+        await updateEvent(editing.id, { ...data, externalTicketUrl });
         await logAdminAction("UPDATE_EVENT", `Updated event "${data.title}"`, {
           type: "event",
           id: editing.id,

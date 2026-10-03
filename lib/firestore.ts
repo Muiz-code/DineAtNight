@@ -17,6 +17,7 @@ import {
   increment,
   serverTimestamp,
   arrayUnion,
+  deleteField,
   writeBatch,
   type DocumentSnapshot,
   type QueryDocumentSnapshot,
@@ -169,7 +170,15 @@ export async function updateEvent(
   id: string,
   data: Partial<DanEvent>,
 ): Promise<void> {
-  await updateDoc(doc(db, "events", id), data);
+  // updateDoc only touches the keys it's given, so an empty externalTicketUrl
+  // must be turned into deleteField() — otherwise a cleared link stays stored.
+  const { externalTicketUrl, ...rest } = data;
+  await updateDoc(doc(db, "events", id), {
+    ...rest,
+    ...(externalTicketUrl !== undefined && {
+      externalTicketUrl: externalTicketUrl || deleteField(),
+    }),
+  });
   clearCache("dan_active_events");
   clearCache("dan_past_events");
 }
