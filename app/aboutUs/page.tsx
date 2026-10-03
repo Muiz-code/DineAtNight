@@ -1,8 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { useScrollLock } from "@/lib/useScrollLock";
-import { motion, useInView, animate, AnimatePresence } from "framer-motion";
+import { motion, useInView, animate } from "framer-motion";
 import SectionFadeIn from "../_components/SectionFadeIn";
 import Footer from "../_components/Footer";
 import Carousel from "../_components/Carousel";
@@ -19,7 +18,6 @@ import {
   Star,
   Landmark,
   TrendingUp,
-  X,
 } from "lucide-react";
 
 const Counter = ({
@@ -48,13 +46,6 @@ const Counter = ({
 
   return <span ref={ref} />;
 };
-
-interface TeamPerson {
-  name: string;
-  title: string;
-  bio: string;
-  imageUrl: string;
-}
 
 interface TeamGroup {
   name: string;

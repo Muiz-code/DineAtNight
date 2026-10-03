@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import SectionFadeIn from "../_components/SectionFadeIn";
 import VendorModal from "../_components/VendorModal";
 import Footer from "../_components/Footer";
-// import HeroCarousel from "../_components/HeroCarousel";
 import Image from "next/image";
 import NeonMarquee from "../_components/NeonMarquee";
 import {
@@ -27,7 +26,7 @@ import {
   Mail,
   BookOpen,
 } from "lucide-react";
-import { Images, vendorCarouselImages } from "@/assets/images";
+import { vendorCarouselImages } from "@/assets/images";
 
 // Map a single Firestore category string to filter key.
 // Categories stored in Firestore are exactly: "Food", "Drinks", "Dessert".

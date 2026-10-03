@@ -173,7 +173,6 @@ export default function AdminVendorsPage() {
   const [editTarget, setEditTarget] = useState<DanVendor | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
-  const [addPhotoKey, setAddPhotoKey] = useState(0);
 
   // Decline reason modal
   const [declineTarget, setDeclineTarget] = useState<DanVendor | null>(null);
@@ -374,7 +373,6 @@ export default function AdminVendorsPage() {
       productImages: v.productImages ?? [],
       status: v.status,
     });
-    setAddPhotoKey((k) => k + 1);
     setFormOpen(true);
   };
 
@@ -417,7 +415,6 @@ export default function AdminVendorsPage() {
   };
 
   const currentList = byTab[activeTab];
-  const currentAccent = TAB_CONFIG.find((t) => t.key === activeTab)!.accent;
 
   if (loading) {
     return (

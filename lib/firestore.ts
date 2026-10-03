@@ -14,7 +14,6 @@ import {
   onSnapshot,
   runTransaction,
   Timestamp,
-  increment,
   serverTimestamp,
   arrayUnion,
   deleteField,

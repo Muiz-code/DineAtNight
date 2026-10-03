@@ -152,7 +152,10 @@ export default function ImageUpload({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) noCrop ? uploadDirect(file) : openCropper(file);
+    if (file) {
+      if (noCrop) uploadDirect(file);
+      else openCropper(file);
+    }
     e.target.value = "";
   };
 
@@ -160,7 +163,10 @@ export default function ImageUpload({
     e.preventDefault();
     setDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file) noCrop ? uploadDirect(file) : openCropper(file);
+    if (file) {
+      if (noCrop) uploadDirect(file);
+      else openCropper(file);
+    }
   };
 
   const clear = (ev: React.MouseEvent) => {

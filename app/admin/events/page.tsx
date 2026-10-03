@@ -13,7 +13,7 @@ import {
   type DanSponsor,
   type DanTicketType,
 } from "@/lib/firestore";
-import { getAuthClient, storage } from "@/lib/firebase";
+import { storage } from "@/lib/firebase";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import {
   Plus,

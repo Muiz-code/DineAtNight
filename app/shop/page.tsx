@@ -10,7 +10,6 @@ import {
   X,
   Plus,
   Minus,
-  Shirt,
   ShoppingBag,
   Flame,
   Star,
@@ -18,7 +17,6 @@ import {
   Trash2,
 } from "lucide-react";
 import Footer from "../_components/Footer";
-import Carousel from "../_components/Carousel";
 import HeroCarousel from "../_components/HeroCarousel";
 import { subscribeAllProducts, type DanProduct } from "@/lib/firestore";
 import { useScrollLock } from "@/lib/useScrollLock";

@@ -23,12 +23,10 @@ import {
 import { getCache, setCache } from "@/lib/cache";
 import { track } from "@vercel/analytics";
 import {
-  X,
   Utensils,
   Music2,
   Camera,
   Wine,
-  Trophy,
   Moon,
   MapPin,
   ChevronDown,
@@ -260,11 +258,6 @@ export default function EventPage() {
     };
   }, []);
 
-  // Hero slideshow: collect images from active events (most recent first)
-  const heroImages = activeEvents
-    .filter((e) => e.imageUrl)
-    .map((e) => e.imageUrl as string);
-
   const nextEventDate =
     activeEvents.length > 0 ? (activeEvents[0].date?.toDate?.() ?? null) : null;
   const countdown = useCountdown(nextEventDate);
@@ -274,7 +267,6 @@ export default function EventPage() {
       {/* ── HERO ── */}
       <section className="relative flex flex-col items-center justify-center h-[50vh] px-6 text-center pt-24 pb-16 overflow-hidden">
         <HeroCarousel accent="#00FF41" />
-        {/* <HeroCarousel images={heroImages} accent="#FFFF00" /> */}
 
         {/* Neon radial glow on top */}
         <div

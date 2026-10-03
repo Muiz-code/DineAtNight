@@ -381,14 +381,6 @@ const VENDOR_PALETTE = [
   { color: "#00FF41", glow: "rgba(0,255,65,0.5)" },
 ];
 
-// Sponsor accent colors — cycled by index
-const SPONSOR_COLORS = [
-  { color: "#FFFF00", glow: "rgba(255,255,0,0.5)" },
-  { color: "#00FF41", glow: "rgba(0,255,65,0.5)" },
-  { color: "#FF3333", glow: "rgba(255,51,51,0.5)" },
-  { color: "#FFFF00", glow: "rgba(255,255,0,0.5)" },
-];
-
 // Real stats from the first edition — all verified in the brief
 const stats = [
   {

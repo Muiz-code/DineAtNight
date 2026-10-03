@@ -207,7 +207,6 @@ export default function AdminDashboard() {
         ), "Tickets");
 
         // Merch Orders
-        type OX = DanMerchOrder & Record<string, unknown>;
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
           orders.map((o) => {
             return {

@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import Image from "next/image";
 import { Suspense } from "react";
 import LordIcon from "@/app/_components/LordIcon";
 
