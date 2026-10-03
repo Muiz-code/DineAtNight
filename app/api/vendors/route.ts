@@ -14,9 +14,14 @@ import type { DanVendor, PublicVendor } from "@/lib/firestore";
 export async function GET() {
   try {
     const snap = await adminDb().collection("vendors").where("status", "==", "approved").get();
-    // Newest first. Sorted here rather than with orderBy, which would need a composite index.
+    // Pinned vendors first, then newest first. Sorted here rather than with
+    // orderBy, which would need a composite index.
     const millis = (t: unknown) => (t as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
-    const docs = [...snap.docs].sort((a, b) => millis(b.get("submittedAt")) - millis(a.get("submittedAt")));
+    const docs = [...snap.docs].sort(
+      (a, b) =>
+        Number(b.get("pinned") === true) - Number(a.get("pinned") === true) ||
+        millis(b.get("submittedAt")) - millis(a.get("submittedAt")),
+    );
     const vendors: PublicVendor[] = docs.map((d) => {
       const v = d.data() as DanVendor;
       return {
@@ -35,6 +40,7 @@ export async function GET() {
         ...(v.menu ? { menu: v.menu } : {}),
         ...(v.menuImages?.length ? { menuImages: v.menuImages } : {}),
         ...(v.productImages?.length ? { productImages: v.productImages } : {}),
+        ...(v.pinned ? { pinned: true } : {}),
       };
     });
     return NextResponse.json(

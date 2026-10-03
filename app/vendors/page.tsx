@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import SectionFadeIn from "../_components/SectionFadeIn";
 import VendorModal from "../_components/VendorModal";
@@ -360,97 +360,6 @@ function VendorDetailModal({
 }
 // ──────────────────────────────────────────────────────────────────────────────
 
-// ── Vendor Logo Strip ─────────────────────────────────────────────────────────
-// Single logo + name chip
-function VendorLogoChip({ v }: { v: PublicVendor }) {
-  return (
-    <div className="flex flex-col items-center gap-2 flex-shrink-0">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={v.logoUrl!}
-        alt={v.brandName}
-        className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-contain border border-white/10 bg-white/5 p-1.5 transition-all duration-300 hover:border-[#FFFF00]/40 hover:shadow-[0_0_15px_rgba(255,255,0,0.2)]"
-        onError={(e) => {
-          (e.target as HTMLImageElement).style.display = "none";
-        }}
-      />
-      <span className="text-[9px] text-gray-600 uppercase tracking-wide text-center max-w-[72px] leading-tight">
-        {v.brandName}
-      </span>
-    </div>
-  );
-}
-
-// Centered when logos fit one row; switches to infinite marquee when they overflow
-function VendorLogoStrip({ logoVendors }: { logoVendors: PublicVendor[] }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const measureRef = useRef<HTMLDivElement>(null);
-  const [isMarquee, setIsMarquee] = useState(false);
-
-  const measure = useCallback(() => {
-    if (measureRef.current && containerRef.current) {
-      setIsMarquee(
-        measureRef.current.scrollWidth > containerRef.current.clientWidth,
-      );
-    }
-  }, []);
-
-  useEffect(() => {
-    const t = setTimeout(measure, 60); // small delay for images
-    window.addEventListener("resize", measure);
-    return () => {
-      clearTimeout(t);
-      window.removeEventListener("resize", measure);
-    };
-  }, [measure, logoVendors.length]);
-
-  const duration = Math.max(logoVendors.length * 3, 16);
-  // Triple the list so the loop is visually seamless (translateX -33.333%)
-  const triple = [...logoVendors, ...logoVendors, ...logoVendors];
-
-  return (
-    <div ref={containerRef} className="relative overflow-hidden">
-      {/* Hidden measurement row — no-wrap so we get the true single-line width */}
-      <div
-        ref={measureRef}
-        className="absolute flex flex-nowrap gap-10 invisible pointer-events-none"
-        aria-hidden="true"
-      >
-        {logoVendors.map((v, i) => (
-          <VendorLogoChip key={`m-${v.id ?? v.brandName}-${i}`} v={v} />
-        ))}
-      </div>
-
-      {isMarquee ? (
-        <>
-          <style>{`
-            @keyframes vendor-scroll {
-              0%   { transform: translateX(0); }
-              100% { transform: translateX(-33.333%); }
-            }
-            .vendor-scroll-track {
-              animation: vendor-scroll ${duration}s linear infinite;
-            }
-            .vendor-scroll-track:hover { animation-play-state: paused; }
-          `}</style>
-          <div className="vendor-scroll-track flex flex-nowrap gap-10 w-max">
-            {triple.map((v, i) => (
-              <VendorLogoChip key={`s-${v.id ?? v.brandName}-${i}`} v={v} />
-            ))}
-          </div>
-        </>
-      ) : (
-        <div className="flex flex-wrap justify-center gap-10">
-          {logoVendors.map((v, i) => (
-            <VendorLogoChip key={`c-${v.id ?? v.brandName}-${i}`} v={v} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-// ──────────────────────────────────────────────────────────────────────────────
-
 // Slideshow component — auto-advances through multiple images
 function VendorImageSlideshow({
   images,
@@ -692,16 +601,6 @@ export default function VendorsPage() {
       </section>
 
       <NeonMarquee />
-
-      {/* ── VENDOR LOGO STRIP ── */}
-      {vendors.some((v) => v.logoUrl) && (
-        <section className="py-10 border-y border-white/5">
-          <p className="text-center text-[10px] tracking-[0.5em] text-gray-700 uppercase mb-6">
-            Our Vendors
-          </p>
-          <VendorLogoStrip logoVendors={vendors.filter((v) => v.logoUrl)} />
-        </section>
-      )}
 
       {/* ── FILTER PILLS ── */}
       <SectionFadeIn>

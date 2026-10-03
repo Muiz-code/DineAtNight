@@ -25,6 +25,8 @@ import {
   Trash2,
   Store,
   ChevronRight,
+  Pin,
+  PinOff,
   Mail,
   Phone,
   Instagram,
@@ -266,6 +268,19 @@ export default function AdminVendorsPage() {
     setVendors((prev) => prev.map((x) => (x.id === v.id ? updated : x)));
     if (detailVendor?.id === v.id) setDetailVendor(updated);
     setActiveTab("pending");
+  };
+
+  /** Pinned vendors always show first on the public site (until unpinned or deleted). */
+  const togglePin = async (v: DanVendor) => {
+    const pinned = !v.pinned;
+    await updateVendor(v.id!, { pinned });
+    await logAdminAction(
+      pinned ? "PIN_VENDOR" : "UNPIN_VENDOR",
+      `${pinned ? "Pinned" : "Unpinned"} vendor "${v.brandName}"`,
+      { type: "vendor", id: v.id, name: v.brandName },
+    );
+    setVendors((prev) => prev.map((x) => (x.id === v.id ? { ...x, pinned } : x)));
+    if (detailVendor?.id === v.id) setDetailVendor({ ...v, pinned });
   };
 
   const openRevoke = (v: DanVendor) => {
@@ -560,6 +575,11 @@ export default function AdminVendorsPage() {
                       {v.brandName}
                     </span>
                     <StatusBadge status={v.status} />
+                    {v.pinned && (
+                      <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-[#FFFF00]/40 text-[#FFFF00] uppercase tracking-widest font-bold">
+                        <Pin className="w-3 h-3" /> Pinned
+                      </span>
+                    )}
                     {(v.reapplyCount ?? 0) > 0 && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#FFFF00]/40 text-[#FFFF00] uppercase tracking-widest font-bold">
                         ↩ Re-applicant
@@ -602,6 +622,22 @@ export default function AdminVendorsPage() {
                       : (activeTab as DanVendor["status"]);
                   return (
                     <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-shrink-0">
+                      {/* Pin to top of the public list (approved vendors only) */}
+                      {v.status === "approved" && (
+                        <button
+                          onClick={() => togglePin(v)}
+                          title={v.pinned ? "Unpin — stop showing first" : "Pin — always show first on the site"}
+                          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border transition-all ${
+                            v.pinned
+                              ? "border-[#FFFF00]/50 text-[#FFFF00] hover:border-[#FFFF00]"
+                              : "border-white/10 text-gray-400 hover:text-white hover:border-white/25"
+                          }`}
+                        >
+                          {v.pinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
+                          {v.pinned ? "Unpin" : "Pin"}
+                        </button>
+                      )}
+
                       {/* View details */}
                       <button
                         onClick={() => setDetailVendor(v)}

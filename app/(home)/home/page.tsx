@@ -236,6 +236,13 @@ const Counter = ({
 /* ═══════════════════════════════════════════════
    Vendor Image Slideshow
 ═══════════════════════════════════════════════ */
+/** Home shows 3 vendors: pinned ones always (first), the rest picked at random. */
+function pickHomeVendors(vendors: PublicVendor[]): PublicVendor[] {
+  const pinned = vendors.filter((v) => v.pinned);
+  const others = vendors.filter((v) => !v.pinned).sort(() => Math.random() - 0.5);
+  return [...pinned, ...others].slice(0, 3);
+}
+
 function VendorImageSlideshow({
   images,
   alt,
@@ -615,9 +622,7 @@ export default function Home() {
       vendorsResolvedRef.current = false;
       const cached = getCache<PublicVendor[]>("dan_approved_vendors");
       if (cached) {
-        setApprovedVendors(
-          [...cached].sort(() => Math.random() - 0.5).slice(0, 3),
-        );
+        setApprovedVendors(pickHomeVendors(cached));
         setVendorsLoading(false);
         vendorsResolvedRef.current = true;
       }
@@ -626,9 +631,7 @@ export default function Home() {
         .then((vendors) => {
           if (cancelled) return;
           setCache("dan_approved_vendors", vendors);
-          setApprovedVendors(
-            [...vendors].sort(() => Math.random() - 0.5).slice(0, 3),
-          );
+          setApprovedVendors(pickHomeVendors(vendors));
           setVendorsError(false);
         })
         .catch(() => {

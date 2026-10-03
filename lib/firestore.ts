@@ -294,6 +294,7 @@ export interface DanVendor {
   menu?: VendorMenuCategory[]; // structured menu (optional)
   menuImages?: string[]; // menu photos/screenshots, shown as-is (any menu style)
   productImages?: string[]; // optional product photos (added to the card slideshow)
+  pinned?: boolean; // admin-pinned: always listed first on the public site
   reapplyCount?: number; // how many times this vendor has re-applied
   previousSnapshot?: {
     // state captured right before the last merge
@@ -512,7 +513,7 @@ export function getVendorCategories(v: Pick<DanVendor, "categories" | "category"
  * GET /api/vendors (Admin SDK + field whitelist).
  */
 export type PublicVendor = Pick<DanVendor, "id" | "brandName" | "description" | "imageUrl"> &
-  Partial<Pick<DanVendor, "imageUrls" | "logoUrl" | "categories" | "category" | "events" | "products" | "instagram" | "menu" | "menuImages" | "productImages" | "email" | "phone">>;
+  Partial<Pick<DanVendor, "imageUrls" | "logoUrl" | "categories" | "category" | "events" | "products" | "instagram" | "menu" | "menuImages" | "productImages" | "email" | "phone" | "pinned">>;
 
 /**
  * Pictures for a vendor's card/slideshow: food photos, then product photos.
