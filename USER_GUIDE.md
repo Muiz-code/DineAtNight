@@ -138,11 +138,15 @@ Any food, drink, or food-adjacent business is welcome to apply. We review all ap
 - **Food Category** — select up to 3 that describe your offerings
 - Which event you're applying for
 
-**Section 2 — More About Your Brand**
 - Description of your brand and what makes you unique
-- Main image URL (a clear photo of your food or booth)
-- Logo URL (optional)
-- Menu builder — add your menu categories and items with prices
+- **Brand Logo** — your logo or a clear photo of your food; shown as your main picture (optional)
+- **Product Pictures** — up to 6 photos of your dishes or drinks (optional)
+
+**Section 2 — Your Menu** (optional)
+- **Menu Pictures** — upload up to 6 photos or screenshots of your menu; customers see it exactly as designed
+- and/or type your menu, or import it from Excel/CSV (a template is provided)
+
+> Your business email, phone number and Instagram are shown on your public vendor profile so customers can reach you.
 
 3. Review your information in the **confirmation step** (step 3)
 4. Submit the application
