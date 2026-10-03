@@ -5,11 +5,13 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { getAuthClient } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { Eye, EyeOff } from "lucide-react";
 import { logAdminAction } from "@/lib/adminLog";
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -39,8 +41,16 @@ export default function AdminLoginPage() {
 
       if (!sessionRes.ok) {
         await auth.signOut();
-        const { error } = await sessionRes.json();
-        setError(error === "Not authorised" ? "This account is not authorised as an admin." : "Sign-in failed. Please try again.");
+        const { error, missing } = await sessionRes.json().catch(() => ({}));
+        if (error === "Not authorised") {
+          setError("This account is not on the admin list (ADMIN_EMAILS).");
+        } else if (error === "Server misconfiguration") {
+          setError(`Password is correct, but admin login isn't configured on the server. Missing in Vercel: ${(missing ?? []).join(", ") || "env vars"}.`);
+        } else if (error === "Invalid token") {
+          setError("Password is correct, but the server couldn't verify the sign-in. Check FIREBASE_SERVICE_ACCOUNT is for this Firebase project.");
+        } else {
+          setError(`Sign-in failed (server ${sessionRes.status}). Please try again.`);
+        }
         return;
       }
 
@@ -99,14 +109,26 @@ export default function AdminLoginPage() {
             </div>
             <div>
               <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder="••••••••"
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  className="w-full pl-4 pr-12 py-3 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  className="absolute inset-y-0 right-0 flex items-center px-4 text-gray-500 hover:text-[#FFFF00] transition-colors"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             {error && (

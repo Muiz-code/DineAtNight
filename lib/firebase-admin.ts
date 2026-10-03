@@ -39,11 +39,13 @@ export function adminDb(): Firestore {
 
 /**
  * Verifies a Firebase ID token locally against Google's public keys.
- * Returns the verified email address, or null if verification fails.
+ * Returns the verified email address, or null if the token is invalid.
+ * Throws if the Admin SDK is not configured (so callers can report it).
  */
 export async function verifyFirebaseIdToken(idToken: string): Promise<string | null> {
+  const app = getAdminApp();
   try {
-    const decoded = await getAuth(getAdminApp()).verifyIdToken(idToken);
+    const decoded = await getAuth(app).verifyIdToken(idToken);
     return decoded.email ?? null;
   } catch (err) {
     console.error("[firebase-admin] verifyIdToken failed:", err);

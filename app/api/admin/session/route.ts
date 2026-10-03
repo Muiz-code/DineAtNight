@@ -15,9 +15,11 @@ import {
  * proxy.ts and admin API routes verify (see lib/session.ts).
  */
 export async function POST(req: NextRequest) {
-  if (!process.env.SESSION_SECRET || !process.env.ADMIN_EMAILS) {
-    console.error("[session] SESSION_SECRET or ADMIN_EMAILS is not set — admin login is disabled.");
-    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+  // Name the missing env vars (names only, never values) so the login page can say what to fix
+  const missing = ["SESSION_SECRET", "ADMIN_EMAILS", "FIREBASE_SERVICE_ACCOUNT"].filter((k) => !process.env[k]);
+  if (missing.length) {
+    console.error(`[session] Missing env vars: ${missing.join(", ")} — admin login is disabled.`);
+    return NextResponse.json({ error: "Server misconfiguration", missing }, { status: 500 });
   }
 
   let idToken: unknown;
@@ -30,7 +32,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing idToken" }, { status: 400 });
   }
 
-  const email = await verifyFirebaseIdToken(idToken);
+  let email: string | null;
+  try {
+    email = await verifyFirebaseIdToken(idToken);
+  } catch (err) {
+    // Usually a malformed FIREBASE_SERVICE_ACCOUNT (not valid one-line JSON)
+    console.error("[session] Firebase Admin SDK failed to initialise:", err);
+    return NextResponse.json({ error: "Server misconfiguration", missing: ["FIREBASE_SERVICE_ACCOUNT (invalid JSON)"] }, { status: 500 });
+  }
   if (!email) {
     return NextResponse.json({ error: "Invalid token" }, { status: 401 });
   }
