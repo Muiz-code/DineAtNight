@@ -46,19 +46,16 @@ const STATUS_COLOR: Record<DeliveryStatus, string> = {
 export default function ShopVerifyPage() {
   const params = useSearchParams();
   const router = useRouter();
-  const [status, setStatus] = useState<Status>("loading");
+  // A missing reference is known at render time — start in the error state
+  const [status, setStatus] = useState<Status>(params.get("reference") ? "loading" : "error");
   const [order, setOrder] = useState<OrderSummary | null>(null);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState(params.get("reference") ? "" : "No payment reference found.");
   const [deliveryStatus, setDeliveryStatus] = useState<DeliveryStatus>("pending");
 
   // 1. Verify payment via API
   useEffect(() => {
     const reference = params.get("reference");
-    if (!reference) {
-      setErrorMsg("No payment reference found.");
-      setStatus("error");
-      return;
-    }
+    if (!reference) return;
 
     const verify = async () => {
       try {

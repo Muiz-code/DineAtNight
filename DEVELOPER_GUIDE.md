@@ -46,7 +46,7 @@ testimonials and newsletter.
 
 ## 2. Local setup
 
-Requirements: **Node.js 22+** and npm.
+Requirements: **Node.js 22+** (required by firebase-admin 14; `engines` in package.json) and npm.
 
 ```bash
 npm install
@@ -59,8 +59,18 @@ npm run dev                  # http://localhost:3000
 | `npm run dev` | Dev server |
 | `npm run build` | Production build (also type-checks) |
 | `npm run start` | Serve the production build |
-| `npm run lint` | ESLint |
-| `npx tsc --noEmit` | Type-check only |
+| `npm run lint` | ESLint (must have 0 errors — CI fails otherwise) |
+| `npm run typecheck` | Type-check only |
+| `npm test` | Unit tests (Vitest, `tests/`) |
+
+**CI** (`.github/workflows/ci.yml`) runs typecheck, lint, tests and a build on
+every push and pull request to `master`.
+
+**Tests** cover the money and access paths: payment pricing/limits/idempotency
+(`tests/payments.test.ts`, against an in-memory fake Firestore), the admin
+session cookie and `ADMIN_EMAILS` parsing (`tests/session.test.ts`), the Paystack
+webhook and admin login routes (`tests/routes.test.ts`). They never touch real
+Firebase, Paystack or Resend. Add a test when you change any of these.
 
 `npm run build` needs at least `RESEND_API_KEY` set (any non-empty value works
 locally) because `lib/resend.ts` constructs its client at import time.

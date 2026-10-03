@@ -92,9 +92,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     const auth = getAuthClient();
     if (!auth) {
-      setConfigError("Firebase is not configured. Add NEXT_PUBLIC_FIREBASE_* environment variables in your Vercel dashboard.");
-      setChecking(false);
-      return;
+      // Deferred: auth is only available in the browser, so this can't be decided at render time
+      const t = setTimeout(() => {
+        setConfigError("Firebase is not configured. Add NEXT_PUBLIC_FIREBASE_* environment variables in your Vercel dashboard.");
+        setChecking(false);
+      }, 0);
+      return () => clearTimeout(t);
     }
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (pathname === "/admin/login") { setChecking(false); return; }

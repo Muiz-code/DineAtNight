@@ -64,12 +64,12 @@ export async function quoteTicket(eventId: string, quantity: number, ticketType?
   }
   if (!Number.isFinite(unitPrice) || unitPrice <= 0) throw new Error("This event has no valid ticket price.");
 
-  if (event.totalTickets > 0) {
-    const remaining = event.totalTickets - (event.soldTickets ?? 0);
-    const cap = tierLimit != null ? Math.min(remaining, tierLimit) : remaining;
-    if (quantity > cap) {
-      throw new Error(cap <= 0 ? "This event is sold out." : `Only ${cap} ticket${cap === 1 ? "" : "s"} left.`);
-    }
+  // Overall capacity (when set) and the tier's limit are enforced independently
+  let cap = Infinity;
+  if (event.totalTickets > 0) cap = event.totalTickets - (event.soldTickets ?? 0);
+  if (tierLimit != null) cap = Math.min(cap, tierLimit);
+  if (quantity > cap) {
+    throw new Error(cap <= 0 ? "This event is sold out." : `Only ${cap} ticket${cap === 1 ? "" : "s"} left.`);
   }
 
   return { eventTitle: event.title, ticketType: tierName, unitPrice };

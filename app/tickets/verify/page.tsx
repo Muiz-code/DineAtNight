@@ -24,16 +24,13 @@ function VerifyContent() {
   const router = useRouter();
   const reference = searchParams.get("reference") ?? searchParams.get("trxref");
 
-  const [state, setState] = useState<"loading" | "success" | "error">("loading");
+  // A missing reference is known at render time — start in the error state
+  const [state, setState] = useState<"loading" | "success" | "error">(reference ? "loading" : "error");
   const [ticket, setTicket] = useState<TicketData | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(reference ? "" : "No payment reference found.");
 
   useEffect(() => {
-    if (!reference) {
-      setError("No payment reference found.");
-      setState("error");
-      return;
-    }
+    if (!reference) return;
 
     (async () => {
       try {
