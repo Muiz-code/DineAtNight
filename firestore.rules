@@ -51,13 +51,15 @@ service cloud.firestore {
             && request.resource.data.keys().hasOnly([
                  "brandName", "brandNameLower", "ownerName", "email", "phone", "instagram",
                  "category", "categories", "events", "description", "products",
-                 "logoUrl", "imageUrl", "imageUrls", "menu",
+                 "logoUrl", "imageUrl", "imageUrls", "menu", "menuImages", "productImages",
                  "status", "submittedAt", "reviewedAt"
                ])
             && request.resource.data.brandName is string
             && request.resource.data.brandName.size() <= 100
             && request.resource.data.description is string
-            && request.resource.data.description.size() <= 5000);
+            && request.resource.data.description.size() <= 5000
+            && request.resource.data.get("menuImages", []).size() <= 6
+            && request.resource.data.get("productImages", []).size() <= 6);
       allow update, delete: if isAdmin();
     }
 

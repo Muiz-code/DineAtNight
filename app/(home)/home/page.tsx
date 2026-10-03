@@ -21,6 +21,7 @@ import {
   subscribePastEvents,
   subscribeGalleryItems,
   getVendorCategories,
+  vendorDisplayImages,
   type DanEvent,
   fetchApprovedVendors,
   type PublicVendor,
@@ -1483,13 +1484,7 @@ export default function Home() {
                         }}
                       >
                         <VendorImageSlideshow
-                          images={
-                            vendor.imageUrls?.length
-                              ? vendor.imageUrls
-                              : vendor.imageUrl
-                                ? [vendor.imageUrl]
-                                : []
-                          }
+                          images={vendorDisplayImages(vendor)}
                           alt={vendor.brandName}
                           palette={palette}
                         />

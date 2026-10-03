@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { logAdminAction } from "@/lib/adminLog";
 import ImageUpload from "@/app/_components/ImageUpload";
+import MultiImageUpload from "@/app/_components/MultiImageUpload";
 import {
   getAllVendors,
   getAllEvents,
@@ -54,6 +55,8 @@ const EMPTY_FORM = {
   imageUrl: "",
   imageUrls: [] as string[],
   menu: [] as VendorMenuCategory[],
+  menuImages: [] as string[],
+  productImages: [] as string[],
   status: "approved" as DanVendor["status"],
 };
 
@@ -353,6 +356,8 @@ export default function AdminVendorsPage() {
       imageUrl: v.imageUrl,
       imageUrls: v.imageUrls ?? (v.imageUrl ? [v.imageUrl] : []),
       menu: v.menu ?? [],
+      menuImages: v.menuImages ?? [],
+      productImages: v.productImages ?? [],
       status: v.status,
     });
     setAddPhotoKey((k) => k + 1);
@@ -955,6 +960,26 @@ export default function AdminVendorsPage() {
                       </p>
                     </div>
                   )}
+                  {[
+                    { label: "Menu Pictures", urls: detailVendor.menuImages ?? [] },
+                    { label: "Product Pictures", urls: detailVendor.productImages ?? [] },
+                  ]
+                    .filter((g) => g.urls.length > 0)
+                    .map((g) => (
+                      <div key={g.label}>
+                        <div className="flex items-center gap-1.5 text-gray-600 text-[10px] uppercase tracking-widest mb-2">
+                          <BookOpen className="w-3 h-3" /> {g.label}
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          {g.urls.map((url, i) => (
+                            <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block aspect-[3/4] rounded-lg overflow-hidden border border-white/10">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={url} alt={`${g.label} ${i + 1}`} loading="lazy" className="w-full h-full object-cover" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   {(detailVendor.menu?.length ?? 0) > 0 && (
                     <div>
                       <div className="flex items-center gap-1.5 text-gray-600 text-[10px] uppercase tracking-widest mb-2">
@@ -1647,6 +1672,36 @@ export default function AdminVendorsPage() {
                   >
                     <Plus className="w-3.5 h-3.5" /> Add New Category
                   </button>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
+                    Menu Pictures{" "}
+                    <span className="text-gray-700 normal-case">(optional — shown on the site exactly as uploaded)</span>
+                  </label>
+                  <MultiImageUpload
+                    value={form.menuImages}
+                    onChange={(urls) => setForm((p) => ({ ...p, menuImages: urls }))}
+                    folder="vendors/menus"
+                    addLabel="Add menu pictures"
+                    hint="Photo or screenshot of the menu"
+                    itemLabel="Menu page"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
+                    Product Pictures{" "}
+                    <span className="text-gray-700 normal-case">(optional)</span>
+                  </label>
+                  <MultiImageUpload
+                    value={form.productImages}
+                    onChange={(urls) => setForm((p) => ({ ...p, productImages: urls }))}
+                    folder="vendors/products"
+                    addLabel="Add product pictures"
+                    hint="Photos of dishes or drinks"
+                    itemLabel="Product picture"
+                  />
                 </div>
 
                 <div>

@@ -31,6 +31,8 @@ export async function GET() {
         ...(v.email ? { email: v.email } : {}),
         ...(v.phone ? { phone: v.phone } : {}),
         ...(v.menu ? { menu: v.menu } : {}),
+        ...(v.menuImages?.length ? { menuImages: v.menuImages } : {}),
+        ...(v.productImages?.length ? { productImages: v.productImages } : {}),
       };
     });
     return NextResponse.json(

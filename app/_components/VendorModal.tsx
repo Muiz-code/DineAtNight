@@ -29,6 +29,8 @@ import {
 import { getCache, setCache } from "@/lib/cache";
 import { useScrollLock } from "@/lib/useScrollLock";
 import ImageUpload from "@/app/_components/ImageUpload";
+import MultiImageUpload from "@/app/_components/MultiImageUpload";
+import Image from "next/image";
 
 interface VendorModalProps {
   isOpen: boolean;
@@ -108,6 +110,8 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [menu, setMenu] = useState<VendorMenuCategory[]>([EMPTY_CATEGORY()]);
   const [menuUploadError, setMenuUploadError] = useState("");
+  const [menuImages, setMenuImages] = useState<string[]>([]);
+  const [productImages, setProductImages] = useState<string[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [activeEvents, setActiveEvents] = useState<DanEvent[]>([]);
   const [submitted, setSubmitted] = useState(false);
@@ -340,6 +344,8 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
         ...(form.logoUrl ? { logoUrl: form.logoUrl } : {}),
         imageUrl: form.imageUrl,
         menu: cleanMenu.length > 0 ? cleanMenu : undefined,
+        ...(menuImages.length > 0 ? { menuImages } : {}),
+        ...(productImages.length > 0 ? { productImages } : {}),
       });
       setIsUpdate(result.isUpdate);
       setSubmitted(true);
@@ -389,6 +395,8 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
       setStep(1);
       setForm(EMPTY_FORM);
       setMenu([EMPTY_CATEGORY()]);
+      setMenuImages([]);
+      setProductImages([]);
       setMenuUploadError("");
       setIsDragOver(false);
     }, 400);
@@ -761,6 +769,17 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                             />
                           </Field>
 
+                          <Field label="Product Pictures">
+                            <MultiImageUpload
+                              value={productImages}
+                              onChange={setProductImages}
+                              folder="vendors/products"
+                              addLabel="Add product pictures"
+                              hint="Optional — photos of your dishes or drinks"
+                              itemLabel="Product picture"
+                            />
+                          </Field>
+
                           {error && (
                             <p className="text-[#FF3333] text-xs text-center py-1">
                               {error}
@@ -809,6 +828,34 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                               Optional — add your menu items so the admin can
                               see exactly what you&apos;ll be serving.
                             </p>
+                          </div>
+
+                          {/* Menu pictures — shown on the site exactly as uploaded */}
+                          <div className="space-y-3">
+                            <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">
+                              Menu Pictures
+                            </p>
+                            <p className="text-gray-600 text-xs -mt-1.5">
+                              Already have a designed menu? Upload it here —
+                              customers will see it exactly as it looks.
+                            </p>
+                            <MultiImageUpload
+                              value={menuImages}
+                              onChange={setMenuImages}
+                              folder="vendors/menus"
+                              addLabel="Add menu pictures"
+                              hint="Photo or screenshot of your menu"
+                              itemLabel="Menu page"
+                            />
+                          </div>
+
+                          {/* Divider */}
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 h-px bg-white/8" />
+                            <span className="text-gray-700 text-[10px] uppercase tracking-widest">
+                              and / or
+                            </span>
+                            <div className="flex-1 h-px bg-white/8" />
                           </div>
 
                           {/* Upload zone */}
@@ -1173,6 +1220,16 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
 
                             {(() => {
                               const preview = getCleanMenu();
+                              const pictures = menuImages.length > 0 && (
+                                <div className="grid grid-cols-4 gap-1.5">
+                                  {menuImages.map((url, i) => (
+                                    <div key={url} className="relative aspect-[3/4] rounded-md overflow-hidden border border-white/10">
+                                      <Image src={url} alt={`Menu page ${i + 1}`} fill sizes="96px" className="object-cover" />
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                              if (preview.length === 0 && pictures) return pictures;
                               if (preview.length === 0) {
                                 return (
                                   <p className="text-gray-700 text-xs italic">
@@ -1182,6 +1239,7 @@ export default function VendorModal({ isOpen, onClose }: VendorModalProps) {
                               }
                               return (
                                 <div className="space-y-3">
+                                  {pictures}
                                   {preview.map((cat, ci) => (
                                     <div key={ci}>
                                       <p

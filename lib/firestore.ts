@@ -292,6 +292,8 @@ export interface DanVendor {
   status: "pending" | "approved" | "declined";
   declineReason?: string;
   menu?: VendorMenuCategory[]; // structured menu (optional)
+  menuImages?: string[]; // menu photos/screenshots, shown as-is (any menu style)
+  productImages?: string[]; // optional product photos (added to the card slideshow)
   reapplyCount?: number; // how many times this vendor has re-applied
   previousSnapshot?: {
     // state captured right before the last merge
@@ -407,6 +409,9 @@ export async function upsertVendorApplication(
         categories: mergedCats,
         events: mergedEvents,
         menu: data.menu ?? null,
+        // A re-application with new menu pictures replaces the old ones
+        menuImages: data.menuImages?.length ? data.menuImages : (current.menuImages ?? []),
+        productImages: data.productImages?.length ? data.productImages : (current.productImages ?? []),
         status: "pending",
         declineReason: null,
         reapplyCount: (current.reapplyCount ?? 0) + 1,
@@ -506,7 +511,22 @@ export function getVendorCategories(v: Pick<DanVendor, "categories" | "category"
  * GET /api/vendors (Admin SDK + field whitelist).
  */
 export type PublicVendor = Pick<DanVendor, "id" | "brandName" | "description" | "imageUrl"> &
-  Partial<Pick<DanVendor, "imageUrls" | "logoUrl" | "categories" | "category" | "events" | "products" | "instagram" | "menu" | "email" | "phone">>;
+  Partial<Pick<DanVendor, "imageUrls" | "logoUrl" | "categories" | "category" | "events" | "products" | "instagram" | "menu" | "menuImages" | "productImages" | "email" | "phone">>;
+
+/**
+ * Pictures for a vendor's card/slideshow: food photos, then product photos.
+ * Falls back to the logo, then the first menu picture, so a vendor who only
+ * uploaded a logo still gets a proper card instead of an empty box.
+ */
+export function vendorDisplayImages(
+  v: Pick<DanVendor, "imageUrl" | "imageUrls" | "productImages" | "logoUrl" | "menuImages">,
+): string[] {
+  const food = v.imageUrls?.length ? v.imageUrls : v.imageUrl ? [v.imageUrl] : [];
+  const all = Array.from(new Set([...food, ...(v.productImages ?? [])].filter(Boolean)));
+  if (all.length) return all;
+  if (v.logoUrl) return [v.logoUrl];
+  return v.menuImages?.length ? [v.menuImages[0]] : [];
+}
 
 /** Approved vendors for the public home + vendors pages. */
 export async function fetchApprovedVendors(): Promise<PublicVendor[]> {

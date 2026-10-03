@@ -12,6 +12,7 @@ import {
   fetchApprovedVendors,
   subscribeActiveEvents,
   getVendorCategories,
+  vendorDisplayImages,
   type PublicVendor,
   type DanEvent,
 } from "@/lib/firestore";
@@ -50,11 +51,7 @@ function VendorDetailModal({
   onClose: () => void;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
-  const images = vendor.imageUrls?.length
-    ? vendor.imageUrls
-    : vendor.imageUrl
-      ? [vendor.imageUrl]
-      : [];
+  const images = vendorDisplayImages(vendor);
 
   useEffect(() => {
     if (images.length <= 1) return;
@@ -236,6 +233,35 @@ function VendorDetailModal({
                   >
                     {p}
                   </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Menu pictures — shown exactly as the vendor designed them */}
+          {(vendor.menuImages?.length ?? 0) > 0 && (
+            <div>
+              <div className="flex items-center gap-1.5 text-gray-600 text-[10px] uppercase tracking-widest mb-3">
+                <BookOpen className="w-3 h-3" /> Menu
+              </div>
+              <div className="space-y-3">
+                {vendor.menuImages!.map((src, i) => (
+                  <a
+                    key={src}
+                    href={src}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded-xl overflow-hidden border border-white/10"
+                    title="Open full size"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={src}
+                      alt={`${vendor.brandName} menu page ${i + 1}`}
+                      loading="lazy"
+                      className="w-full h-auto block"
+                    />
+                  </a>
                 ))}
               </div>
             </div>
@@ -809,13 +835,7 @@ export default function VendorsPage() {
                     >
                       {/* Image slideshow */}
                       <VendorImageSlideshow
-                        images={
-                          vendor.imageUrls?.length
-                            ? vendor.imageUrls
-                            : vendor.imageUrl
-                              ? [vendor.imageUrl]
-                              : []
-                        }
+                        images={vendorDisplayImages(vendor)}
                         alt={vendor.brandName}
                         palette={palette}
                       />
