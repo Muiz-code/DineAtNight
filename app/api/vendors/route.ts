@@ -14,7 +14,10 @@ import type { DanVendor, PublicVendor } from "@/lib/firestore";
 export async function GET() {
   try {
     const snap = await adminDb().collection("vendors").where("status", "==", "approved").get();
-    const vendors: PublicVendor[] = snap.docs.map((d) => {
+    // Newest first. Sorted here rather than with orderBy, which would need a composite index.
+    const millis = (t: unknown) => (t as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+    const docs = [...snap.docs].sort((a, b) => millis(b.get("submittedAt")) - millis(a.get("submittedAt")));
+    const vendors: PublicVendor[] = docs.map((d) => {
       const v = d.data() as DanVendor;
       return {
         id: d.id,

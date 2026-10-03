@@ -379,9 +379,10 @@ export async function upsertVendorApplication(
         : current.imageUrl
           ? [current.imageUrl]
           : [];
+      // Newest photo first, so a re-application's new photo leads the slideshow
       const mergedImages =
         data.imageUrl && !existingImages.includes(data.imageUrl)
-          ? [...existingImages, data.imageUrl]
+          ? [data.imageUrl, ...existingImages]
           : existingImages.length
             ? existingImages
             : [data.imageUrl];

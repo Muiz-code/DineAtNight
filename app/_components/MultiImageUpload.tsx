@@ -73,7 +73,8 @@ export default function MultiImageUpload({
       setUploading((n) => n + 1);
       try {
         const url = await uploadOne(file);
-        onChange([...latest.current, url]);
+        // Newest upload first
+        onChange([url, ...latest.current]);
       } catch (err) {
         console.error("[MultiImageUpload]", err);
         setError("An upload failed. Please try again.");
