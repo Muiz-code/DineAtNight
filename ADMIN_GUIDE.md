@@ -125,7 +125,7 @@ Tick **"Mark as Past"** in the edit form when the event date has passed. This:
 
 ### Deleting an Event
 
-Click the **trash icon** → confirm in the dialog. This is permanent. Tickets linked to this event are **not automatically deleted** — they remain in Firestore. Only delete events with zero ticket sales.
+Click the **trash icon** → confirm in the dialog. The event is removed from the site and **archived** (with its tickets sold and revenue at the time). Tickets linked to it are kept — payment records are never deleted with an event.
 
 ### Ticket Types (Multi-Tier)
 
@@ -259,15 +259,24 @@ If an approved vendor needs to be removed:
 
 Admins can add vendors who bypass the normal application form (e.g. returning partners):
 1. Click **"+ Add Vendor"**
-2. Fill in the vendor details (including optional brand logo upload)
+2. Fill in the vendor details and pictures (see below)
 3. Set the initial status as needed
 
 ### Editing a Vendor
 
 Click the vendor card to open the detail drawer, then click **Edit**. Fields include:
-- All contact and brand details
-- **Brand Logo** — upload a square logo (shown in the vendor strip and directory)
-- Menu categories and items
+- All contact and brand details (business email and phone are shown publicly so customers can reach the vendor)
+- **Main Picture** — the image on the vendor's card. If left empty, the logo is used.
+- **Menu Pictures** — up to 6 photos or screenshots of their menu, shown on the site exactly as designed
+- **Product Pictures** — up to 6 optional photos of dishes or drinks, added to the card slideshow
+- **Brand Logo** — square logo
+- Menu categories and items (optional typed price list)
+
+New pictures are added at the front. Cropping is free-form (logos stay square).
+
+### Pinning a Vendor
+
+On the **Approved** tab, click **📌 Pin** on a vendor to keep them **first** on the Vendors page and always included on the home page. Click **Unpin** to return them to normal ordering (newest first). You can pin more than one vendor.
 
 ### Deleting a Vendor
 
@@ -389,7 +398,7 @@ Use this to temporarily hide out-of-stock or seasonal items without deleting the
 
 ### Deleting a Product
 
-Click the **trash icon** → confirm. This permanently deletes the product. If there are existing orders for this product, the orders remain in the system — the product record is just removed.
+Click the **trash icon** → confirm. The product is removed from the shop and **archived**. Orders that include it are kept.
 
 ### The "Hot Pick" Badge
 
@@ -622,17 +631,22 @@ The system automatically emails vendors when you approve, decline, or revoke the
 
 Only the technical team can add or remove admins.
 
+`ADMIN_EMAILS` in Vercel is the **only** admin list. Each entry is an email, optionally with the person's name:
+
+```
+Admin <admin@dineatnight.com>, Tami Bolu <tami@dineatnight.com>
+```
+
+The name is what appears in the admin greeting and activity log.
+
 ### To Add an Admin
 1. Create a Firebase Auth account for them (Firebase Console → Authentication → Add User)
-2. Add their email to `ADMIN_EMAILS` in Vercel environment variables
-3. Redeploy or wait for the next deployment
+2. Add them to `ADMIN_EMAILS` in Vercel
+3. Redeploy. They get admin access the first time they sign in.
 
 ### To Remove an Admin
-1. Remove their email from `ADMIN_EMAILS` in Vercel → redeploy
-2. Disable or delete their Firebase Auth account (Firebase Console)
-3. Their session cookie expires within 24 hours
-
-> There is no instant session revocation. Plan around the 24-hour window.
+1. Remove them from `ADMIN_EMAILS` in Vercel → redeploy. The admin panel rejects them immediately.
+2. **Disable their Firebase Auth account** (Firebase Console → Authentication) to cut their database access straight away too.
 
 ---
 
@@ -672,4 +686,4 @@ Verify the webhook URL in Paystack dashboard is `https://dineatnight.com/api/pay
 
 *For technical issues beyond this guide, contact the development team.*
 
-*Last updated: March 2026 | Dine At Night Admin System*
+*Last updated: October 2026 | Dine At Night Admin System*

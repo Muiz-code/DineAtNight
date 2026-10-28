@@ -14,7 +14,7 @@ interface ImageUploadProps {
   hint?: string;
   required?: boolean;
   square?: boolean;
-  free?: boolean;   // free-form crop — no fixed aspect ratio
+  free?: boolean;   // free-form crop, no fixed aspect ratio (default; pass free={false} for 16:9)
   compact?: boolean;
   noCrop?: boolean; // skip crop modal — upload original file directly
 }
@@ -39,7 +39,7 @@ export default function ImageUpload({
   hint,
   required,
   square = false,
-  free = false,
+  free = true,
   compact = false,
   noCrop = false,
 }: ImageUploadProps) {
@@ -152,7 +152,10 @@ export default function ImageUpload({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) noCrop ? uploadDirect(file) : openCropper(file);
+    if (file) {
+      if (noCrop) uploadDirect(file);
+      else openCropper(file);
+    }
     e.target.value = "";
   };
 
@@ -160,7 +163,10 @@ export default function ImageUpload({
     e.preventDefault();
     setDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file) noCrop ? uploadDirect(file) : openCropper(file);
+    if (file) {
+      if (noCrop) uploadDirect(file);
+      else openCropper(file);
+    }
   };
 
   const clear = (ev: React.MouseEvent) => {

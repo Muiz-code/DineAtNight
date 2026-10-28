@@ -11,14 +11,12 @@ import {
   Check,
   Ticket,
   Utensils,
-  Users,
   Moon,
   MessageCircle,
   Linkedin,
 } from "lucide-react";
 import Footer from "../_components/Footer";
 import LordIcon from "../_components/LordIcon";
-import Carousel from "../_components/Carousel";
 import HeroCarousel from "../_components/HeroCarousel";
 import NeonMarquee from "../_components/NeonMarquee";
 

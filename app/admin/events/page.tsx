@@ -8,12 +8,12 @@ import {
   getAllTickets,
   createEvent,
   updateEvent,
-  deleteEvent,
+  archiveAndDeleteEvent,
   type DanEvent,
   type DanSponsor,
   type DanTicketType,
 } from "@/lib/firestore";
-import { getAuthClient, storage } from "@/lib/firebase";
+import { storage } from "@/lib/firebase";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import {
   Plus,
@@ -24,7 +24,7 @@ import {
   Lock,
   UploadCloud,
 } from "lucide-react";
-import { logAdminAction } from "@/lib/adminLog";
+import { logAdminAction, currentAdmin } from "@/lib/adminLog";
 import ImageUpload from "@/app/_components/ImageUpload";
 
 const inputCls =
@@ -174,6 +174,7 @@ export default function AdminEventsPage() {
           Number(form.totalTickets)
         : Number(form.totalTickets);
 
+      const externalTicketUrl = form.externalTicketUrl?.trim() ?? "";
       const data = {
         title: form.title,
         edition: form.title,
@@ -186,7 +187,7 @@ export default function AdminEventsPage() {
         totalTickets,
         status: form.status,
         imageUrl: form.imageUrl,
-        ...(form.externalTicketUrl?.trim() && { externalTicketUrl: form.externalTicketUrl.trim() }),
+        ...(externalTicketUrl && { externalTicketUrl }),
         highlights: form.highlights
           .split("\n")
           .map((s) => s.trim())
@@ -197,7 +198,8 @@ export default function AdminEventsPage() {
       };
 
       if (editing?.id) {
-        await updateEvent(editing.id, data);
+        // Always send the link on update: "" tells updateEvent to remove the stored value
+        await updateEvent(editing.id, { ...data, externalTicketUrl });
         await logAdminAction("UPDATE_EVENT", `Updated event "${data.title}"`, {
           type: "event",
           id: editing.id,
@@ -222,7 +224,9 @@ export default function AdminEventsPage() {
   const handleDelete = async (id: string) => {
     const ev = events.find((e) => e.id === id);
     if (!ev) return;
-    await deleteEvent(id);
+    // Archive instead of hard-delete: tickets (payment records) are kept intact
+    const admin = currentAdmin();
+    await archiveAndDeleteEvent(ev, ev.soldTickets ?? 0, revenueByEvent[id] ?? 0, admin.email, admin.name);
     await logAdminAction("DELETE_EVENT", `Deleted event "${ev.title}"`, {
       type: "event",
       id,
@@ -964,7 +968,7 @@ export default function AdminEventsPage() {
                       <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
                         External Ticket Link
                         <span className="ml-1.5 text-gray-700 normal-case">
-                          (optional — redirects buy button to this URL)
+                          (optional — saved only; buy buttons currently use the site&apos;s own checkout)
                         </span>
                       </label>
                       <input

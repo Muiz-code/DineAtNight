@@ -1,32 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { generateUnsubscribeUrl } from "@/lib/resend";
+import { getAdminEmail } from "@/lib/session";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? "hello@dineatnight.com";
 const FROM = `Dine At Night <${FROM_EMAIL}>`;
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "https://dineatnight.com").replace(/\/$/, "");
-const SESSION_SECRET = process.env.SESSION_SECRET ?? "";
 const BATCH_SIZE = 50;
-
-async function verifyAdmin(req: NextRequest): Promise<boolean> {
-  if (!SESSION_SECRET) return false;
-  const cookieValue = req.cookies.get("dan_admin")?.value;
-  if (!cookieValue) return false;
-  const lastColon = cookieValue.lastIndexOf(":");
-  if (lastColon === -1) return false;
-  const payload = cookieValue.slice(0, lastColon);
-  const signature = cookieValue.slice(lastColon + 1);
-  const secondColon = payload.indexOf(":");
-  if (secondColon === -1) return false;
-  const expiry = Number(payload.slice(secondColon + 1));
-  if (!expiry || Date.now() / 1000 > expiry) return false;
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey("raw", enc.encode(SESSION_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(payload));
-  const expected = Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
-  return expected === signature;
-}
 
 function buildHtml(subject: string, body: string, unsubscribeUrl: string, linkUrl?: string, linkLabel?: string): string {
   const bodyHtml = body
@@ -74,7 +55,7 @@ function buildHtml(subject: string, body: string, unsubscribeUrl: string, linkUr
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await verifyAdmin(req))) {
+  if (!(await getAdminEmail(req))) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
 
@@ -108,9 +89,10 @@ export async function POST(req: NextRequest) {
     const text = `${sub}\n\n${msg}${linkUrl ? `\n\n${linkLabel ?? "View"}: ${linkUrl}` : ""}\n\nStay hungry. Stay out late.\n— Dine At Night\n\n---\nDine At Night · ${APP_URL}`;
 
     let sent = 0;
+    let failed = 0;
     for (let i = 0; i < emailData.length; i += BATCH_SIZE) {
       const batch = emailData.slice(i, i + BATCH_SIZE);
-      await resend.batch.send(
+      const { error } = await resend.batch.send(
         batch.map(({ to, html, unsubUrl }) => ({
           from: FROM,
           to,
@@ -123,10 +105,18 @@ export async function POST(req: NextRequest) {
           },
         }))
       );
-      sent += batch.length;
+      if (error) {
+        console.error(`[newsletter] batch starting at ${i} failed:`, error);
+        failed += batch.length;
+      } else {
+        sent += batch.length;
+      }
     }
 
-    return NextResponse.json({ ok: true, sent, recipients: validEmails });
+    if (sent === 0) {
+      return NextResponse.json({ error: "Email provider rejected the send. Nothing was delivered." }, { status: 502 });
+    }
+    return NextResponse.json({ ok: true, sent, failed, recipients: validEmails });
   } catch (err) {
     console.error("[newsletter]", err);
     return NextResponse.json({ error: "Failed to send newsletter" }, { status: 500 });

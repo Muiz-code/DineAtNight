@@ -23,7 +23,6 @@ import {
   reapplyOrderSoldCount,
   type DanMerchOrder,
 } from "@/lib/firestore";
-import { sendOrderStatusEmail } from "@/lib/resend";
 import { logAdminAction } from "@/lib/adminLog";
 type DeliveryStatus = DanMerchOrder["deliveryStatus"];
 type Tab = "all" | DeliveryStatus;
@@ -102,13 +101,14 @@ export default function AdminOrdersPage() {
       // Send email for all meaningful status changes (not "pending")
       if (status === "dispatched" || status === "delivered" || status === "returned") {
         if (order?.email) {
-          sendOrderStatusEmail({
-            name: order.name,
-            email: order.email,
-            reference: order.reference,
-            deliveryStatus: status,
-            note,
-          }).catch((err) => console.warn("[orders] Status email failed:", err));
+          // Sent server-side — the Resend key never reaches the browser
+          fetch("/api/emails/order-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reference: order.reference, deliveryStatus: status, note }),
+          })
+            .then((res) => { if (!res.ok) console.warn("[orders] Status email failed:", res.status); })
+            .catch((err) => console.warn("[orders] Status email failed:", err));
         }
       }
     } catch (err) {

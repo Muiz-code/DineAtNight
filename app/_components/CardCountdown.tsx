@@ -1,28 +1,44 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 
-export const useCountdown = (target: Date | null) => {
-  const calc = useCallback(() => {
-    if (!target) return { days: 0, hours: 0, minutes: 0, seconds: 0 };
-    const diff = target.getTime() - Date.now();
-    if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0 };
-    return {
-      days: Math.floor(diff / 86400000),
-      hours: Math.floor((diff % 86400000) / 3600000),
-      minutes: Math.floor((diff % 3600000) / 60000),
-      seconds: Math.floor((diff % 60000) / 1000),
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target?.getTime()]);
+type Countdown = { days: number; hours: number; minutes: number; seconds: number };
+const ZERO: Countdown = { days: 0, hours: 0, minutes: 0, seconds: 0 };
 
-  const [time, setTime] = useState(calc);
+function timeLeft(target: Date): Countdown | null {
+  const diff = target.getTime() - Date.now();
+  if (diff <= 0) return null;
+  return {
+    days: Math.floor(diff / 86400000),
+    hours: Math.floor((diff % 86400000) / 3600000),
+    minutes: Math.floor((diff % 3600000) / 60000),
+    seconds: Math.floor((diff % 60000) / 1000),
+  };
+}
+
+/**
+ * Time left until `target`. Starts at zero and only ticks after mount, so the
+ * server-rendered HTML matches the first client render (no hydration mismatch).
+ * `ended` is null until mounted, then true once the target has passed.
+ */
+export const useCountdown = (target: Date | null): Countdown & { ended: boolean | null } => {
+  const [state, setState] = useState<{ time: Countdown; ended: boolean | null }>({ time: ZERO, ended: null });
+  const targetMs = target?.getTime() ?? null;
+
   useEffect(() => {
-    setTime(calc()); // sync immediately when target changes
-    const id = setInterval(() => setTime(calc()), 1000);
-    return () => clearInterval(id);
-  }, [calc]);
-  return time;
+    const tick = () => {
+      const left = targetMs === null ? null : timeLeft(new Date(targetMs));
+      setState({ time: left ?? ZERO, ended: left === null });
+    };
+    const first = setTimeout(tick, 0); // first tick right after mount
+    const id = targetMs === null ? undefined : setInterval(tick, 1000);
+    return () => {
+      clearTimeout(first);
+      if (id) clearInterval(id);
+    };
+  }, [targetMs]);
+
+  return { ...state.time, ended: state.ended };
 };
 
 export default function CardCountdown({
@@ -34,7 +50,8 @@ export default function CardCountdown({
 }) {
   const cd = useCountdown(targetDate);
 
-  if (targetDate.getTime() <= Date.now()) return null;
+  // Hidden until mounted (ended === null) and once the date has passed
+  if (cd.ended !== false) return null;
 
   const units = [
     { v: cd.days, l: "D" },

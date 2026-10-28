@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { logAdminAction } from "@/lib/adminLog";
 import ImageUpload from "@/app/_components/ImageUpload";
+import MultiImageUpload from "@/app/_components/MultiImageUpload";
 import {
   getAllVendors,
   getAllEvents,
@@ -25,12 +26,13 @@ import {
   Trash2,
   Store,
   ChevronRight,
+  Pin,
+  PinOff,
   Mail,
   Phone,
   Instagram,
   Tag,
   FileText,
-  ShoppingBag,
   Calendar,
   BookOpen,
   Pencil,
@@ -57,6 +59,8 @@ const EMPTY_FORM = {
   imageUrl: "",
   imageUrls: [] as string[],
   menu: [] as VendorMenuCategory[],
+  menuImages: [] as string[],
+  productImages: [] as string[],
   status: "approved" as DanVendor["status"],
 };
 
@@ -174,7 +178,6 @@ export default function AdminVendorsPage() {
   const [editTarget, setEditTarget] = useState<DanVendor | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
-  const [addPhotoKey, setAddPhotoKey] = useState(0);
 
   // Decline reason modal
   const [declineTarget, setDeclineTarget] = useState<DanVendor | null>(null);
@@ -368,6 +371,19 @@ export default function AdminVendorsPage() {
     setActiveTab("pending");
   };
 
+  /** Pinned vendors always show first on the public site (until unpinned or deleted). */
+  const togglePin = async (v: DanVendor) => {
+    const pinned = !v.pinned;
+    await updateVendor(v.id!, { pinned });
+    await logAdminAction(
+      pinned ? "PIN_VENDOR" : "UNPIN_VENDOR",
+      `${pinned ? "Pinned" : "Unpinned"} vendor "${v.brandName}"`,
+      { type: "vendor", id: v.id, name: v.brandName },
+    );
+    setVendors((prev) => prev.map((x) => (x.id === v.id ? { ...x, pinned } : x)));
+    if (detailVendor?.id === v.id) setDetailVendor({ ...v, pinned });
+  };
+
   const openRevoke = (v: DanVendor) => {
     setRevokeTarget(v);
     setRevokeReason("");
@@ -451,27 +467,38 @@ export default function AdminVendorsPage() {
       imageUrl: v.imageUrl,
       imageUrls: v.imageUrls ?? (v.imageUrl ? [v.imageUrl] : []),
       menu: v.menu ?? [],
+      menuImages: v.menuImages ?? [],
+      productImages: v.productImages ?? [],
       status: v.status,
     });
-    setAddPhotoKey((k) => k + 1);
     setFormOpen(true);
   };
 
   const handleAddVendor = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    // Main (card) picture: falls back to the logo, the same way logos uploaded
+    // through the vendor application become the main picture.
+    const main = form.imageUrl || form.logoUrl;
+    const payload: FormState = {
+      ...form,
+      imageUrl: main,
+      imageUrls: main
+        ? [main, ...form.imageUrls.filter((u) => u && u !== main && u !== form.logoUrl)]
+        : form.imageUrls.filter(Boolean),
+    };
     try {
       if (editTarget) {
         // Edit mode
-        await updateVendor(editTarget.id!, form);
+        await updateVendor(editTarget.id!, payload);
         await logAdminAction("UPDATE_VENDOR", `Updated vendor "${form.brandName}"`, { type: "vendor", id: editTarget.id, name: form.brandName });
-        const updated = { ...editTarget, ...form };
+        const updated = { ...editTarget, ...payload };
         setVendors((prev) => prev.map((x) => (x.id === editTarget.id ? updated : x)));
         if (detailVendor?.id === editTarget.id) setDetailVendor(updated);
         setEditTarget(null);
       } else {
         // Add mode
-        await createVendorDirect(form);
+        await createVendorDirect(payload);
         await logAdminAction("CREATE_VENDOR", `Added vendor "${form.brandName}" directly`, { type: "vendor", name: form.brandName });
         await load();
         setActiveTab(form.status === "approved" ? "approved" : "pending");
@@ -491,7 +518,6 @@ export default function AdminVendorsPage() {
           visibilityFilter === "live" ? v.published : !v.published,
         )
       : byTab[activeTab];
-  const currentAccent = TAB_CONFIG.find((t) => t.key === activeTab)!.accent;
 
   // Bulk actions only touch selected vendors that are still in view
   const selectedInView = currentList.filter((v) => selectedIds.includes(v.id!));
@@ -760,10 +786,10 @@ export default function AdminVendorsPage() {
                 )}
                 {/* Thumbnail — logo circle overlaid on food photo */}
                 <div className="relative flex-shrink-0">
-                  {v.imageUrl ? (
+                  {v.imageUrl || v.logoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={v.imageUrl}
+                      src={v.imageUrl || v.logoUrl}
                       alt={v.brandName}
                       className="w-14 h-14 rounded-lg object-cover"
                       onError={(e) => {
@@ -775,7 +801,7 @@ export default function AdminVendorsPage() {
                       <Store className="w-6 h-6 text-gray-700" />
                     </div>
                   )}
-                  {v.logoUrl && (
+                  {v.logoUrl && v.imageUrl && v.logoUrl !== v.imageUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={v.logoUrl}
@@ -801,6 +827,11 @@ export default function AdminVendorsPage() {
                       {v.brandName}
                     </span>
                     <StatusBadge status={v.status} />
+                    {v.pinned && (
+                      <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-[#FFFF00]/40 text-[#FFFF00] uppercase tracking-widest font-bold">
+                        <Pin className="w-3 h-3" /> Pinned
+                      </span>
+                    )}
                     {v.status === "approved" && <VisibilityBadge live={!!v.published} />}
                     {(v.reapplyCount ?? 0) > 0 && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#FFFF00]/40 text-[#FFFF00] uppercase tracking-widest font-bold">
@@ -844,6 +875,22 @@ export default function AdminVendorsPage() {
                       : (activeTab as DanVendor["status"]);
                   return (
                     <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-shrink-0">
+                      {/* Pin to top of the public list (approved vendors only) */}
+                      {v.status === "approved" && (
+                        <button
+                          onClick={() => togglePin(v)}
+                          title={v.pinned ? "Unpin — stop showing first" : "Pin — always show first on the site"}
+                          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border transition-all ${
+                            v.pinned
+                              ? "border-[#FFFF00]/50 text-[#FFFF00] hover:border-[#FFFF00]"
+                              : "border-white/10 text-gray-400 hover:text-white hover:border-white/25"
+                          }`}
+                        >
+                          {v.pinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
+                          {v.pinned ? "Unpin" : "Pin"}
+                        </button>
+                      )}
+
                       {/* View details */}
                       <button
                         onClick={() => setDetailVendor(v)}
@@ -1212,16 +1259,26 @@ export default function AdminVendorsPage() {
                       {detailVendor.description}
                     </p>
                   </div>
-                  {detailVendor.products && (
-                    <div>
-                      <div className="flex items-center gap-1.5 text-gray-600 text-[10px] uppercase tracking-widest mb-1.5">
-                        <ShoppingBag className="w-3 h-3" /> Products / Menu
+                  {[
+                    { label: "Menu Pictures", urls: detailVendor.menuImages ?? [] },
+                    { label: "Product Pictures", urls: detailVendor.productImages ?? [] },
+                  ]
+                    .filter((g) => g.urls.length > 0)
+                    .map((g) => (
+                      <div key={g.label}>
+                        <div className="flex items-center gap-1.5 text-gray-600 text-[10px] uppercase tracking-widest mb-2">
+                          <BookOpen className="w-3 h-3" /> {g.label}
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          {g.urls.map((url, i) => (
+                            <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block aspect-[3/4] rounded-lg overflow-hidden border border-white/10">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={url} alt={`${g.label} ${i + 1}`} loading="lazy" className="w-full h-full object-cover" />
+                            </a>
+                          ))}
+                        </div>
                       </div>
-                      <p className="text-gray-300 text-sm leading-relaxed">
-                        {detailVendor.products}
-                      </p>
-                    </div>
-                  )}
+                    ))}
                   {(detailVendor.menu?.length ?? 0) > 0 && (
                     <div>
                       <div className="flex items-center gap-1.5 text-gray-600 text-[10px] uppercase tracking-widest mb-2">
@@ -1748,21 +1805,6 @@ export default function AdminVendorsPage() {
                     className={`${inputCls} resize-none`}
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
-                    Products / Menu{" "}
-                    <span className="text-gray-700 normal-case">(short summary)</span>
-                  </label>
-                  <textarea
-                    name="products"
-                    value={form.products}
-                    onChange={handleChange}
-                    rows={2}
-                    placeholder="e.g. Suya, Chicken Wings, Peppered Fish"
-                    className={`${inputCls} resize-none`}
-                  />
-                </div>
-
                 {/* ── Structured Menu ── */}
                 <div className="space-y-3">
                   <label className="block text-[10px] text-gray-500 uppercase tracking-widest">
@@ -1923,6 +1965,51 @@ export default function AdminVendorsPage() {
                   >
                     <Plus className="w-3.5 h-3.5" /> Add New Category
                   </button>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
+                    Main Picture{" "}
+                    <span className="text-gray-700 normal-case">(shown on the vendor card — uses the logo if empty)</span>
+                  </label>
+                  <div className="w-48">
+                    <ImageUpload
+                      value={form.imageUrl}
+                      onChange={(url) => setForm((p) => ({ ...p, imageUrl: url }))}
+                      folder="vendors/photos"
+                      hint="Food photo or brand image."
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
+                    Menu Pictures{" "}
+                    <span className="text-gray-700 normal-case">(optional — shown on the site exactly as uploaded)</span>
+                  </label>
+                  <MultiImageUpload
+                    value={form.menuImages}
+                    onChange={(urls) => setForm((p) => ({ ...p, menuImages: urls }))}
+                    folder="vendors/menus"
+                    addLabel="Add menu pictures"
+                    hint="Photo or screenshot of the menu"
+                    itemLabel="Menu page"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
+                    Product Pictures{" "}
+                    <span className="text-gray-700 normal-case">(optional)</span>
+                  </label>
+                  <MultiImageUpload
+                    value={form.productImages}
+                    onChange={(urls) => setForm((p) => ({ ...p, productImages: urls }))}
+                    folder="vendors/products"
+                    addLabel="Add product pictures"
+                    hint="Photos of dishes or drinks"
+                    itemLabel="Product picture"
+                  />
                 </div>
 
                 <div>

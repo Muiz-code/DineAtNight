@@ -10,6 +10,7 @@
 
 import { Resend } from "resend";
 import { VENDOR_APPROVAL_DEFAULTS } from "./constants";
+import { hmacHex } from "./session";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? "hello@dineatnight.com";
@@ -18,16 +19,34 @@ const ADMIN_TO = process.env.RESEND_ADMIN_EMAIL ?? "hello@dineatnight.com";
 const APP_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? "https://www.dineatnight.com"
 ).replace(/\/$/, "");
-const SESSION_SECRET = process.env.SESSION_SECRET ?? "";
-
 // ── Unsubscribe token (HMAC-SHA256 of email) ──────────────────────────────────
 export async function generateUnsubscribeUrl(email: string): Promise<string> {
-  if (!SESSION_SECRET) return `${APP_URL}/unsubscribe`;
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey("raw", enc.encode(SESSION_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(email.toLowerCase()));
-  const token = Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
-  return `${APP_URL}/api/unsubscribe?email=${encodeURIComponent(email.toLowerCase())}&token=${token}`;
+  const normalized = email.toLowerCase().trim();
+  const token = await hmacHex(normalized);
+  if (!token) return `${APP_URL}/unsubscribe`;
+  return `${APP_URL}/api/unsubscribe?email=${encodeURIComponent(normalized)}&token=${token}`;
+}
+
+// ── HTML escaping ─────────────────────────────────────────────────────────────
+// Every user-supplied value must pass through here before going into email HTML.
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Shallow copy of `data` with every string (and string-array entry) HTML-escaped. */
+function escapeFields<T extends object>(data: T): T {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(data)) {
+    out[k] = typeof v === "string" ? escapeHtml(v)
+      : Array.isArray(v) ? v.map((x) => (typeof x === "string" ? escapeHtml(x) : x))
+      : v;
+  }
+  return out as T;
 }
 
 // ── Base HTML wrapper ─────────────────────────────────────────────────────────
@@ -176,19 +195,20 @@ export async function notifyAdminContact(data: {
   topic: string;
   message: string;
 }): Promise<void> {
+  const h = escapeFields(data);
   const html = baseEmail("#FFFF00", `
     ${heading("New Contact Message", "#FFFF00")}
     <p style="margin:0 0 24px;color:#666;font-size:13px;">Received via dineatnight.com</p>
     <table width="100%" cellpadding="0" cellspacing="0" border="0">
-      ${detailRow("From", data.name)}
-      ${detailRow("Email", data.email)}
-      ${detailRow("Topic", data.topic)}
+      ${detailRow("From", h.name)}
+      ${detailRow("Email", h.email)}
+      ${detailRow("Topic", h.topic)}
     </table>
     <div style="margin-top:20px;padding:16px;background:#0d0d0d;border-left:3px solid #FFFF0040;border-radius:4px;">
       <p style="margin:0 0 6px;color:#444;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;">Message</p>
-      <p style="margin:0;color:#bbb;font-size:13px;line-height:1.7;">${data.message.replace(/\n/g, "<br/>")}</p>
+      <p style="margin:0;color:#bbb;font-size:13px;line-height:1.7;">${h.message.replace(/\n/g, "<br/>")}</p>
     </div>
-    ${ctaButton(`mailto:${data.email}`, "Reply to " + data.name, "#FFFF00")}
+    ${ctaButton(`mailto:${encodeURIComponent(data.email)}`, "Reply to " + h.name, "#FFFF00")}
   `);
 
   await send({
@@ -208,21 +228,22 @@ export async function notifyAdminVendorApplied(data: {
   categories?: string[];
   description?: string;
 }): Promise<void> {
+  const h = escapeFields(data);
   const html = baseEmail("#FF3333", `
     ${heading("New Vendor Application", "#FF3333")}
     <p style="margin:0 0 24px;color:#666;font-size:13px;">A new vendor has applied to Dine At Night.</p>
     <table width="100%" cellpadding="0" cellspacing="0" border="0">
-      ${detailRow("Brand", data.brandName)}
-      ${detailRow("Owner", data.ownerName)}
-      ${detailRow("Email", data.email)}
-      ${data.phone ? detailRow("Phone", data.phone) : ""}
-      ${data.instagram ? detailRow("Instagram", data.instagram) : ""}
-      ${data.categories?.length ? detailRow("Categories", data.categories.join(", ")) : ""}
+      ${detailRow("Brand", h.brandName)}
+      ${detailRow("Owner", h.ownerName)}
+      ${detailRow("Email", h.email)}
+      ${h.phone ? detailRow("Phone", h.phone) : ""}
+      ${h.instagram ? detailRow("Instagram", h.instagram) : ""}
+      ${h.categories?.length ? detailRow("Categories", h.categories.join(", ")) : ""}
     </table>
-    ${data.description ? `
+    ${h.description ? `
     <div style="margin-top:20px;padding:16px;background:#0d0d0d;border-left:3px solid #FF333340;border-radius:4px;">
       <p style="margin:0 0 6px;color:#444;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;">Description</p>
-      <p style="margin:0;color:#bbb;font-size:13px;line-height:1.7;">${data.description}</p>
+      <p style="margin:0;color:#bbb;font-size:13px;line-height:1.7;">${h.description}</p>
     </div>` : ""}
     ${ctaButton(`${APP_URL}/admin/vendors`, "Review Application", "#FF3333")}
   `);
@@ -241,17 +262,18 @@ export async function notifyAdminTestimonial(data: {
   quote: string;
   eventTitle?: string;
 }): Promise<void> {
+  const h = escapeFields(data);
   const html = baseEmail("#00FF41", `
     ${heading("New Testimonial", "#00FF41")}
     <p style="margin:0 0 24px;color:#666;font-size:13px;">Pending your approval before going live.</p>
     <table width="100%" cellpadding="0" cellspacing="0" border="0">
-      ${detailRow("Name", data.name)}
-      ${detailRow("Type", data.type === "vendor" ? "Vendor" : "Event Attendee")}
-      ${data.eventTitle ? detailRow("Event", data.eventTitle) : ""}
+      ${detailRow("Name", h.name)}
+      ${detailRow("Type", h.type === "vendor" ? "Vendor" : "Event Attendee")}
+      ${h.eventTitle ? detailRow("Event", h.eventTitle) : ""}
     </table>
     <div style="margin-top:20px;padding:20px;background:#0d0d0d;border-left:3px solid #00FF4140;border-radius:4px;">
       <p style="margin:0 0 8px;color:#00FF41;font-size:18px;opacity:0.4;">&ldquo;</p>
-      <p style="margin:0;color:#ccc;font-size:14px;line-height:1.8;font-style:italic;">${data.quote}</p>
+      <p style="margin:0;color:#ccc;font-size:14px;line-height:1.8;font-style:italic;">${h.quote}</p>
     </div>
     ${ctaButton(`${APP_URL}/admin/testimonials`, "Approve or Reject", "#00FF41")}
   `);
@@ -273,10 +295,11 @@ export async function sendContactConfirmationEmail(data: {
   email: string;
   topic: string;
 }): Promise<void> {
+  const h = escapeFields(data);
   const html = baseEmail("#FFFF00", `
     ${heading("We got your message", "#FFFF00")}
     <p style="margin:0 0 24px;color:#888;font-size:14px;line-height:1.7;">
-      Hi ${data.name}, thanks for reaching out about <strong style="color:#ccc;">"${data.topic}"</strong>.<br/>
+      Hi ${h.name}, thanks for reaching out about <strong style="color:#ccc;">"${h.topic}"</strong>.<br/>
       We'll get back to you within 24–48 hours.
     </p>
     <div style="padding:16px 20px;background:#0d0d0d;border:1px solid #FFFF0018;border-radius:8px;">
@@ -304,7 +327,8 @@ export async function sendTicketConfirmationEmail(data: {
   amount: number;
   reference: string;
 }): Promise<void> {
-  const amountNaira = (data.amount / 100).toLocaleString("en-NG", {
+  const h = escapeFields(data);
+  const amountNaira = (h.amount / 100).toLocaleString("en-NG", {
     style: "currency",
     currency: "NGN",
     maximumFractionDigits: 0,
@@ -318,7 +342,7 @@ export async function sendTicketConfirmationEmail(data: {
 
     <div style="text-align:center;margin-bottom:32px;">
       ${heading("You're in!", "#00FF41")}
-      <p style="margin:6px 0 0;color:#555;font-size:13px;letter-spacing:0.1em;text-transform:uppercase;">${data.eventTitle}</p>
+      <p style="margin:6px 0 0;color:#555;font-size:13px;letter-spacing:0.1em;text-transform:uppercase;">${h.eventTitle}</p>
     </div>
 
     <!-- Ticket card -->
@@ -327,17 +351,17 @@ export async function sendTicketConfirmationEmail(data: {
       <div style="height:3px;background:linear-gradient(90deg,transparent,#00FF41,transparent);"></div>
       <div style="padding:24px 28px;">
         <table width="100%" cellpadding="0" cellspacing="0" border="0">
-          ${detailRow("Name", data.name)}
-          ${data.eventDate ? detailRow("Date", data.eventDate.toDateString()) : ""}
-          ${detailRow("Tickets", `${data.quantity}×`)}
+          ${detailRow("Name", h.name)}
+          ${h.eventDate ? detailRow("Date", h.eventDate.toDateString()) : ""}
+          ${detailRow("Tickets", `${h.quantity}×`)}
           ${detailRow("Amount Paid", amountNaira)}
-          ${detailRow("Reference", data.reference)}
+          ${detailRow("Reference", h.reference)}
         </table>
       </div>
     </div>
 
     <p style="margin:0 0 8px;color:#444;font-size:11px;text-align:center;text-transform:uppercase;letter-spacing:0.2em;">Your e-ticket with QR code</p>
-    ${ctaButton(`${APP_URL}/tickets/${data.reference}`, "View My Ticket →", "#00FF41")}
+    ${ctaButton(`${APP_URL}/tickets/${h.reference}`, "View My Ticket →", "#00FF41")}
 
     <p style="margin:24px 0 0;color:#333;font-size:11px;text-align:center;line-height:1.7;">
       Screenshot or save your ticket. Present the QR code at the entrance.<br/>
@@ -359,10 +383,11 @@ export async function sendVendorAppliedEmail(data: {
   email: string;
   categories?: string[];
 }): Promise<void> {
+  const h = escapeFields(data);
   const html = baseEmail("#FFFF00", `
     ${heading("Application Received", "#FFFF00")}
     <p style="margin:0 0 24px;color:#888;font-size:14px;line-height:1.7;">
-      Hi ${data.ownerName}, your application for <strong style="color:#ccc;">${data.brandName}</strong> has been received.
+      Hi ${h.ownerName}, your application for <strong style="color:#ccc;">${h.brandName}</strong> has been received.
     </p>
 
     <!-- Steps -->
@@ -407,14 +432,19 @@ export async function sendVendorStatusEmail(data: {
   eventDate?: string; // ISO date string
   venue?: string;
 }): Promise<void> {
-  const isApproved = data.status === "approved";
-  const isDeclined = data.status === "declined";
+  const h = escapeFields(data);
+  const isApproved = h.status === "approved";
+  const isDeclined = h.status === "declined";
   const accent = isApproved ? "#00FF41" : isDeclined ? "#FF3333" : "#FFFF00";
   const statusLabel = isApproved ? "You've Been Selected!" : isDeclined ? "Application Update" : "Approval Revoked";
 
+  // Raw values for the subject / plain-text body; HTML uses the escaped `h` copies
   const eventTitle = data.eventTitle || VENDOR_APPROVAL_DEFAULTS.eventTitle;
   const eventDate = formatOrdinalDate(data.eventDate || VENDOR_APPROVAL_DEFAULTS.eventDate);
   const venue = data.venue || VENDOR_APPROVAL_DEFAULTS.venue;
+  const hEventTitle = h.eventTitle || escapeHtml(VENDOR_APPROVAL_DEFAULTS.eventTitle);
+  const hEventDate = escapeHtml(eventDate);
+  const hVenue = h.venue || escapeHtml(VENDOR_APPROVAL_DEFAULTS.venue);
   const { stallFee, acceptanceDeadline, paymentDeadline } = VENDOR_APPROVAL_DEFAULTS;
   const p = (html: string) =>
     `<p style="margin:0 0 16px;color:#888;font-size:14px;line-height:1.7;">${html}</p>`;
@@ -422,9 +452,9 @@ export async function sendVendorStatusEmail(data: {
     `<p style="margin:28px 0 10px;color:#00FF41;font-size:11px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;">${title}</p>`;
 
   const bodyContent = isApproved ? `
-    ${p(`Hi ${data.ownerName},`)}
+    ${p(`Hi ${h.ownerName},`)}
     ${p(`Congratulations! 🎉`)}
-    ${p(`We’re excited to let you know that you’ve been selected as a vendor for <strong style="color:#ccc;">${eventTitle}</strong>, taking place on <strong style="color:#ccc;">${eventDate}</strong> at <strong style="color:#ccc;">${venue}</strong>!`)}
+    ${p(`We’re excited to let you know that you’ve been selected as a vendor for <strong style="color:#ccc;">${hEventTitle}</strong>, taking place on <strong style="color:#ccc;">${hEventDate}</strong> at <strong style="color:#ccc;">${hVenue}</strong>!`)}
     ${p(`We’re looking forward to having you be part of this year’s experience.`)}
 
     ${section("Stall Fee &amp; Confirmation")}
@@ -441,19 +471,19 @@ export async function sendVendorStatusEmail(data: {
     ${p(`Kindly reply by <strong style="color:#ccc;">${acceptanceDeadline}</strong> confirming your acceptance of the stall fee and acknowledging the potential sponsor requirements.`)}
     ${p(`Once we receive your confirmation, we’ll share the payment details. Full payment must be completed by <strong style="color:#ccc;">${paymentDeadline}</strong> to officially secure your spot.`)}
     ${p(`Following payment confirmation, our team will be in touch with stall allocations, setup requirements and further event logistics.`)}
-    ${p(`We can’t wait to bring ${eventTitle} to life with you!`)}
+    ${p(`We can’t wait to bring ${hEventTitle} to life with you!`)}
     <p style="margin:24px 0 0;color:#888;font-size:14px;line-height:1.7;">Warm regards,<br/><strong style="color:#ccc;">The Dine At Night Team</strong></p>
   ` : isDeclined ? `
     <p style="margin:0 0 20px;color:#888;font-size:14px;line-height:1.7;">
-      Hi ${data.ownerName}, thank you for your interest in vending at Dine At Night.
+      Hi ${h.ownerName}, thank you for your interest in vending at Dine At Night.
     </p>
     <p style="margin:0 0 20px;color:#888;font-size:14px;line-height:1.7;">
-      After carefully reviewing your application for <strong style="color:#ccc;">${data.brandName}</strong>, we're unable to offer a vendor spot at this edition.
+      After carefully reviewing your application for <strong style="color:#ccc;">${h.brandName}</strong>, we're unable to offer a vendor spot at this edition.
     </p>
-    ${data.reason ? `
+    ${h.reason ? `
     <div style="padding:16px 20px;background:#0d0d0d;border-left:3px solid #FF333330;border-radius:4px;margin-bottom:20px;">
       <p style="margin:0 0 6px;color:#444;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;">Reason</p>
-      <p style="margin:0;color:#888;font-size:13px;line-height:1.7;">${data.reason}</p>
+      <p style="margin:0;color:#888;font-size:13px;line-height:1.7;">${h.reason}</p>
     </div>` : ""}
     <p style="margin:0 0 24px;color:#666;font-size:13px;line-height:1.7;">
       We run multiple editions a year — you're welcome to reapply for a future edition.
@@ -461,12 +491,12 @@ export async function sendVendorStatusEmail(data: {
     ${ctaButton(`${APP_URL}/vendors`, "Learn About Future Editions", "#FF3333")}
   ` : `
     <p style="margin:0 0 20px;color:#888;font-size:14px;line-height:1.7;">
-      Hi ${data.ownerName}, the previously granted approval for <strong style="color:#ccc;">${data.brandName}</strong> has been revoked.
+      Hi ${h.ownerName}, the previously granted approval for <strong style="color:#ccc;">${h.brandName}</strong> has been revoked.
     </p>
-    ${data.reason ? `
+    ${h.reason ? `
     <div style="padding:16px 20px;background:#0d0d0d;border-left:3px solid #FFFF0030;border-radius:4px;margin-bottom:20px;">
       <p style="margin:0 0 6px;color:#444;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;">Reason</p>
-      <p style="margin:0;color:#888;font-size:13px;line-height:1.7;">${data.reason}</p>
+      <p style="margin:0;color:#888;font-size:13px;line-height:1.7;">${h.reason}</p>
     </div>` : ""}
     <p style="margin:0 0 24px;color:#666;font-size:13px;line-height:1.7;">
       Your spot for this edition is no longer reserved. If circumstances change, you're welcome to reapply for a future edition.
@@ -555,6 +585,7 @@ export async function sendOrderStatusEmail(data: {
   deliveryStatus: "dispatched" | "delivered" | "returned";
   note?: string;
 }): Promise<void> {
+  const h = escapeFields(data);
   const configs = {
     dispatched: {
       accent: "#FFFF00" as const,
@@ -576,7 +607,7 @@ export async function sendOrderStatusEmail(data: {
     },
   };
 
-  const cfg = configs[data.deliveryStatus];
+  const cfg = configs[h.deliveryStatus];
 
   const html = baseEmail(cfg.accent, `
     <div style="text-align:center;margin-bottom:24px;">
@@ -585,18 +616,18 @@ export async function sendOrderStatusEmail(data: {
     </div>
 
     <p style="margin:0 0 24px;color:#777;font-size:14px;line-height:1.7;text-align:center;">
-      Hi ${data.name}, ${cfg.message}
+      Hi ${h.name}, ${cfg.message}
     </p>
 
     <div style="background:#0a0a0a;border:1px solid ${cfg.accent}20;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
-        ${detailRow("Reference", data.reference)}
+        ${detailRow("Reference", h.reference)}
         ${detailRow("Status", cfg.title)}
-        ${data.note ? detailRow("Note", data.note) : ""}
+        ${h.note ? detailRow("Note", h.note) : ""}
       </table>
     </div>
 
-    ${data.deliveryStatus === "returned"
+    ${h.deliveryStatus === "returned"
       ? ctaButton(`${APP_URL}/contact`, "Contact Support", cfg.accent)
       : ctaButton(`${APP_URL}/shop`, "Shop More →", cfg.accent)}
   `);

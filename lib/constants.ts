@@ -14,7 +14,7 @@ export const CACHE_TTL_MS = 10 * 60 * 1_000;
  * Bump this whenever the shape of a cached Firestore type changes.
  * Stale entries without a matching version are treated as expired.
  */
-export const CACHE_VERSION = 2;
+export const CACHE_VERSION = 3; // v3: vendor cache now holds the /api/vendors public shape — evicts old entries
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 /** Standard sliding-window duration for all public-facing API routes. */
@@ -31,6 +31,9 @@ export const VENDOR_APPLY_RATE_LIMIT = 5;
 
 /** Max testimonial-notification calls per IP per window. */
 export const TESTIMONIAL_RATE_LIMIT = 5;
+
+/** Max ticket/merch checkout initialisations per IP per window. */
+export const CHECKOUT_RATE_LIMIT = 30;
 
 // ── Tickets ───────────────────────────────────────────────────────────────────
 /** Minimum number of tickets a customer can purchase in one order. */

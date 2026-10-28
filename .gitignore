@@ -37,8 +37,8 @@ yarn-error.log*
 # vercel
 .vercel
 
-# firebase
-firestore.rules
+# firebase (firestore.rules / storage.rules ARE committed — rules are not secret,
+# and keeping them in git is how we review and reproduce what is deployed)
 firebase.json
 .firebaserc
 

@@ -203,3 +203,15 @@ h6 {
     display: none;
   }
 }
+
+/* Dropdown options: <select>s use white text on a dark field, and option lists
+   inherit that colour — on Windows the list is drawn on white, so options
+   were white-on-white (invisible). Give every option a dark background. */
+select option,
+select optgroup {
+  background-color: #111111;
+  color: #ffffff;
+}
+select option:disabled {
+  color: #6b7280;
+}

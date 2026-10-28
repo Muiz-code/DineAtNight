@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendVendorStatusEmail } from "@/lib/resend";
+import { getAdminEmail } from "@/lib/session";
 
 /**
  * POST /api/emails/vendor-status
  * Sends a vendor approval/decline/revocation email.
- * Requires the admin session cookie — only callable from the admin panel.
+ * Requires a valid (signed, unexpired, allowlisted) admin session cookie.
  */
 export async function POST(req: NextRequest) {
-  // Guard: must have a valid admin session cookie
-  const session = req.cookies.get("dan_admin")?.value;
-  if (!session) {
+  if (!(await getAdminEmail(req))) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
 

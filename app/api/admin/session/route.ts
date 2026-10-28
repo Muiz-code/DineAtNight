@@ -1,80 +1,86 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyFirebaseIdToken } from "@/lib/firebase-admin";
+import { setAdminClaim, setDisplayName, verifyFirebaseIdToken, type VerifiedUser } from "@/lib/firebase-admin";
+import {
+  ADMIN_COOKIE,
+  ADMIN_SESSION_MAX_AGE,
+  createSessionValue,
+  adminNameFor,
+  isAllowedAdmin,
+} from "@/lib/session";
 
 /**
  * POST /api/admin/session
- * Called after successful Firebase login. Verifies the Firebase ID token
- * (via Admin SDK if configured, otherwise via Firebase REST API),
- * checks the email against the server-side ADMIN_EMAILS list, and sets an
- * httpOnly session cookie containing a signed token that middleware verifies.
- *
- * The cookie value is: `email:expiry:hmac`
- * where hmac = HMAC-SHA256(email + ":" + expiry, SESSION_SECRET).
- * This lets proxy.ts cryptographically verify the session without a database lookup.
+ * Called after Firebase login (and by the admin layout to self-heal). Verifies
+ * the Firebase ID token with the Admin SDK and checks the email against
+ * ADMIN_EMAILS — the single admin list (empty = nobody). Then:
+ *  - syncs the `admin` custom claim that firestore.rules/storage.rules check
+ *    (granted for listed admins, revoked for anyone no longer listed),
+ *  - syncs the display name from ADMIN_EMAILS (`Name <email>` entries),
+ *  - sets the httpOnly signed session cookie that proxy.ts and admin API
+ *    routes verify (see lib/session.ts).
+ * Returns `refreshToken: true` when claims changed, so the client must call
+ * getIdToken(true) before using Firestore as an admin.
  */
-
-// Server-side only — NOT prefixed with NEXT_PUBLIC_ so it stays out of the browser bundle
-const ADMIN_EMAILS = process.env.ADMIN_EMAILS ?? "";
-const SESSION_SECRET = process.env.SESSION_SECRET ?? "";
-
-/** Returns an HMAC-SHA256 hex digest of `data` using `secret`. */
-async function hmacSign(data: string, secret: string): Promise<string> {
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(data));
-  return Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
 export async function POST(req: NextRequest) {
-  if (!SESSION_SECRET) {
-    console.error("[session] SESSION_SECRET env var is not set — admin login is disabled.");
-    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+  // Name the missing env vars (names only, never values) so the login page can say what to fix
+  const missing = ["SESSION_SECRET", "ADMIN_EMAILS", "FIREBASE_SERVICE_ACCOUNT"].filter((k) => !process.env[k]);
+  if (missing.length) {
+    console.error(`[session] Missing env vars: ${missing.join(", ")} — admin login is disabled.`);
+    return NextResponse.json({ error: "Server misconfiguration", missing }, { status: 500 });
   }
 
-  const { idToken } = await req.json();
-
+  let idToken: unknown;
+  try {
+    ({ idToken } = await req.json());
+  } catch {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
   if (!idToken || typeof idToken !== "string") {
     return NextResponse.json({ error: "Missing idToken" }, { status: 400 });
   }
 
-  // Verify the Firebase ID token. Uses Admin SDK when FIREBASE_SERVICE_ACCOUNT is
-  // set (local JWT verification), otherwise falls back to the Firebase REST API.
-  const email = await verifyFirebaseIdToken(idToken);
-  if (!email) {
+  let user: VerifiedUser | null;
+  try {
+    user = await verifyFirebaseIdToken(idToken);
+  } catch (err) {
+    // Usually a malformed FIREBASE_SERVICE_ACCOUNT (not valid one-line JSON)
+    console.error("[session] Firebase Admin SDK failed to initialise:", err);
+    return NextResponse.json({ error: "Server misconfiguration", missing: ["FIREBASE_SERVICE_ACCOUNT (invalid JSON)"] }, { status: 500 });
+  }
+  if (!user) {
     return NextResponse.json({ error: "Invalid token" }, { status: 401 });
   }
+  const email = user.email.toLowerCase();
 
-  // Check email against server-side allowlist
-  if (ADMIN_EMAILS) {
-    const allowed = ADMIN_EMAILS.split(",").map((e) => e.trim().toLowerCase());
-    if (!allowed.includes(email.toLowerCase())) {
-      return NextResponse.json({ error: "Not authorised" }, { status: 403 });
-    }
+  if (!isAllowedAdmin(email)) {
+    // Removed from ADMIN_EMAILS: take away database access too
+    if (user.isAdminClaim) await setAdminClaim(user.uid, false).catch((err) => console.error("[session] revoke claim:", err));
+    return NextResponse.json({ error: "Not authorised" }, { status: 403 });
   }
 
-  // Build a signed cookie value: `email:expiry:signature`
-  // The expiry matches the cookie maxAge so they expire together.
-  const maxAge = 60 * 60 * 24; // 24 hours in seconds
-  const expiry = Math.floor(Date.now() / 1000) + maxAge;
-  const payload = `${email}:${expiry}`;
-  const signature = await hmacSign(payload, SESSION_SECRET);
-  const cookieValue = `${payload}:${signature}`;
+  let refreshToken = false;
+  try {
+    if (!user.isAdminClaim) {
+      await setAdminClaim(user.uid, true);
+      refreshToken = true;
+    }
+    const name = adminNameFor(email);
+    if (name && name !== user.name) {
+      await setDisplayName(user.uid, name);
+      refreshToken = true;
+    }
+  } catch (err) {
+    console.error("[session] Failed to sync admin claim/name:", err);
+    return NextResponse.json({ error: "Server misconfiguration", missing: ["Firebase Auth admin permission"] }, { status: 500 });
+  }
 
   // Set an httpOnly session cookie — cannot be read or forged by browser JS
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set("dan_admin", cookieValue, {
+  const res = NextResponse.json({ ok: true, refreshToken });
+  res.cookies.set(ADMIN_COOKIE, await createSessionValue(email), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    maxAge,
+    maxAge: ADMIN_SESSION_MAX_AGE,
     path: "/",
   });
   return res;
@@ -86,6 +92,6 @@ export async function POST(req: NextRequest) {
  */
 export async function DELETE() {
   const res = NextResponse.json({ ok: true });
-  res.cookies.delete("dan_admin");
+  res.cookies.delete(ADMIN_COOKIE);
   return res;
 }
