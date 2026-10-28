@@ -480,11 +480,6 @@ export async function sendVendorStatusEmail(data: {
     <p style="margin:0 0 20px;color:#888;font-size:14px;line-height:1.7;">
       After carefully reviewing your application for <strong style="color:#ccc;">${h.brandName}</strong>, we're unable to offer a vendor spot at this edition.
     </p>
-    ${h.reason ? `
-    <div style="padding:16px 20px;background:#0d0d0d;border-left:3px solid #FF333330;border-radius:4px;margin-bottom:20px;">
-      <p style="margin:0 0 6px;color:#808080;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;">Reason</p>
-      <p style="margin:0;color:#888;font-size:13px;line-height:1.7;">${h.reason}</p>
-    </div>` : ""}
     <p style="margin:0 0 24px;color:#666;font-size:13px;line-height:1.7;">
       We run multiple editions a year — you're welcome to reapply for a future edition.
     </p>
@@ -520,7 +515,7 @@ export async function sendVendorStatusEmail(data: {
     text: isApproved
       ? `Hi ${data.ownerName}, congratulations! You've been selected as a vendor for ${eventTitle}, taking place on ${eventDate} at ${venue}. The stall fee is a flat ${stallFee} with zero commission on sales. Please reply confirming your acceptance (and that you're comfortable in principle with potential sponsor requirements, such as a designated POS system) by ${acceptanceDeadline}. Full payment must be completed by ${paymentDeadline}. Warm regards, The Dine At Night Team`
       : isDeclined
-        ? `Hi ${data.ownerName}, unfortunately ${data.brandName} was not selected for this edition.${data.reason ? " Reason: " + data.reason : ""}`
+        ? `Hi ${data.ownerName}, unfortunately ${data.brandName} was not selected for this edition.`
         : `Hi ${data.ownerName}, the approval for ${data.brandName} has been revoked.${data.reason ? " Reason: " + data.reason : ""}`,
   });
 }

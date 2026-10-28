@@ -1446,7 +1446,7 @@ export default function AdminVendorsPage() {
                 Decline Vendor
               </h3>
               <p className="text-gray-500 text-sm mb-4">
-                {declineTarget.brandName} — provide a reason (optional)
+                {declineTarget.brandName} — add an internal note (optional, not sent to the vendor)
               </p>
               <textarea
                 rows={3}
@@ -1504,8 +1504,8 @@ export default function AdminVendorsPage() {
                 Revoke Approval
               </h3>
               <p className="text-gray-500 text-sm mb-4">
-                {revokeTarget.brandName} — provide a reason to send to the
-                vendor
+                {revokeTarget.brandName} — add an internal note (optional, not sent
+                to the vendor)
               </p>
               <textarea
                 rows={3}
