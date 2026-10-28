@@ -68,32 +68,32 @@ function baseEmail(accent: string, body: string): string {
 <body style="margin:0;padding:0;background:#000000;font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;">
   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#000000;min-height:100vh;">
     <tr>
-      <td align="center" style="padding:40px 16px;">
+      <td align="center" style="padding:1px;">
 
         <!-- Card -->
         <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:#080808;border:1px solid ${accent}30;border-radius:16px;overflow:hidden;">
 
           <!-- Header -->
           <tr>
-            <td align="center" style="padding:32px 40px 28px;border-bottom:1px solid ${accent}18;">
+            <td align="center" style="padding:24px 16px 20px;border-bottom:1px solid ${accent}18;">
               <p style="margin:0 0 6px;color:${accent};font-size:11px;font-weight:700;letter-spacing:0.35em;text-transform:uppercase;text-shadow:0 0 12px ${glow};">DINE AT NIGHT</p>
-              <p style="margin:0;color:#333;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;">Nigeria's First Night Food Market</p>
+              <p style="margin:0;color:#808080;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;">Nigeria's First Night Food Market</p>
             </td>
           </tr>
 
           <!-- Body -->
           <tr>
-            <td style="padding:36px 40px;">
+            <td style="padding:24px 16px;">
               ${body}
             </td>
           </tr>
 
           <!-- Footer -->
           <tr>
-            <td align="center" style="padding:24px 40px;border-top:1px solid ${accent}12;background:#050505;">
-              <p style="margin:0 0 6px;color:#2a2a2a;font-size:11px;">© Dine At Night · Lagos, Nigeria</p>
-              <p style="margin:0;color:#222;font-size:10px;">
-                <a href="${APP_URL}" style="color:#333;text-decoration:none;">${APP_URL.replace("https://", "")}</a>
+            <td align="center" style="padding:20px 16px;border-top:1px solid ${accent}12;background:#050505;">
+              <p style="margin:0 0 6px;color:#808080;font-size:11px;">© Dine At Night · Lagos, Nigeria</p>
+              <p style="margin:0;color:#808080;font-size:10px;">
+                <a href="${APP_URL}" style="color:#808080;text-decoration:none;">${APP_URL.replace("https://", "")}</a>
               </p>
             </td>
           </tr>
@@ -115,7 +115,7 @@ function detailRow(label: string, value: string): string {
     <td style="padding:7px 0;border-bottom:1px solid #111;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td style="color:#444;font-size:10px;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;width:40%;">${label}</td>
+          <td style="color:#808080;font-size:10px;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;width:40%;">${label}</td>
           <td align="right" style="color:#ccc;font-size:13px;font-weight:600;">${value}</td>
         </tr>
       </table>
@@ -205,7 +205,7 @@ export async function notifyAdminContact(data: {
       ${detailRow("Topic", h.topic)}
     </table>
     <div style="margin-top:20px;padding:16px;background:#0d0d0d;border-left:3px solid #FFFF0040;border-radius:4px;">
-      <p style="margin:0 0 6px;color:#444;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;">Message</p>
+      <p style="margin:0 0 6px;color:#808080;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;">Message</p>
       <p style="margin:0;color:#bbb;font-size:13px;line-height:1.7;">${h.message.replace(/\n/g, "<br/>")}</p>
     </div>
     ${ctaButton(`mailto:${encodeURIComponent(data.email)}`, "Reply to " + h.name, "#FFFF00")}
@@ -242,7 +242,7 @@ export async function notifyAdminVendorApplied(data: {
     </table>
     ${h.description ? `
     <div style="margin-top:20px;padding:16px;background:#0d0d0d;border-left:3px solid #FF333340;border-radius:4px;">
-      <p style="margin:0 0 6px;color:#444;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;">Description</p>
+      <p style="margin:0 0 6px;color:#808080;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;">Description</p>
       <p style="margin:0;color:#bbb;font-size:13px;line-height:1.7;">${h.description}</p>
     </div>` : ""}
     ${ctaButton(`${APP_URL}/admin/vendors`, "Review Application", "#FF3333")}
@@ -360,10 +360,10 @@ export async function sendTicketConfirmationEmail(data: {
       </div>
     </div>
 
-    <p style="margin:0 0 8px;color:#444;font-size:11px;text-align:center;text-transform:uppercase;letter-spacing:0.2em;">Your e-ticket with QR code</p>
+    <p style="margin:0 0 8px;color:#808080;font-size:11px;text-align:center;text-transform:uppercase;letter-spacing:0.2em;">Your e-ticket with QR code</p>
     ${ctaButton(`${APP_URL}/tickets/${h.reference}`, "View My Ticket →", "#00FF41")}
 
-    <p style="margin:24px 0 0;color:#333;font-size:11px;text-align:center;line-height:1.7;">
+    <p style="margin:24px 0 0;color:#808080;font-size:11px;text-align:center;line-height:1.7;">
       Screenshot or save your ticket. Present the QR code at the entrance.<br/>
       See you under the neon lights!
     </p>
@@ -408,7 +408,7 @@ export async function sendVendorAppliedEmail(data: {
       </div>`).join("")}
     </div>
 
-    <p style="margin:24px 0 0;color:#444;font-size:12px;text-align:center;">
+    <p style="margin:24px 0 0;color:#808080;font-size:12px;text-align:center;">
       Follow us for updates: <a href="https://instagram.com/dineatnight" style="color:#FFFF00;text-decoration:none;">@dineatnight</a>
     </p>
   `);
@@ -482,7 +482,7 @@ export async function sendVendorStatusEmail(data: {
     </p>
     ${h.reason ? `
     <div style="padding:16px 20px;background:#0d0d0d;border-left:3px solid #FF333330;border-radius:4px;margin-bottom:20px;">
-      <p style="margin:0 0 6px;color:#444;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;">Reason</p>
+      <p style="margin:0 0 6px;color:#808080;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;">Reason</p>
       <p style="margin:0;color:#888;font-size:13px;line-height:1.7;">${h.reason}</p>
     </div>` : ""}
     <p style="margin:0 0 24px;color:#666;font-size:13px;line-height:1.7;">
@@ -495,7 +495,7 @@ export async function sendVendorStatusEmail(data: {
     </p>
     ${h.reason ? `
     <div style="padding:16px 20px;background:#0d0d0d;border-left:3px solid #FFFF0030;border-radius:4px;margin-bottom:20px;">
-      <p style="margin:0 0 6px;color:#444;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;">Reason</p>
+      <p style="margin:0 0 6px;color:#808080;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;">Reason</p>
       <p style="margin:0;color:#888;font-size:13px;line-height:1.7;">${h.reason}</p>
     </div>` : ""}
     <p style="margin:0 0 24px;color:#666;font-size:13px;line-height:1.7;">
@@ -562,7 +562,7 @@ export async function sendNewsletterWelcomeEmail(email: string): Promise<void> {
     </p>
 
     <p style="margin:0;text-align:center;">
-      <a href="${unsubUrl}" style="color:#333;font-size:10px;text-decoration:underline;">Unsubscribe</a>
+      <a href="${unsubUrl}" style="color:#808080;font-size:10px;text-decoration:underline;">Unsubscribe</a>
     </p>
   `);
 
