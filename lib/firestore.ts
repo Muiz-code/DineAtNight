@@ -328,6 +328,7 @@ export interface DanVendor {
   imageUrl: string;
   imageUrls?: string[]; // all images accumulated from re-applications (slideshow)
   status: "pending" | "approved" | "declined";
+  published?: boolean; // shown on the public site — only when approved AND published
   declineReason?: string;
   menu?: VendorMenuCategory[]; // structured menu (optional)
   reapplyCount?: number; // how many times this vendor has re-applied
@@ -495,10 +496,29 @@ export async function updateVendorStatus(
 ): Promise<void> {
   await updateDoc(doc(db, "vendors", id), {
     status,
+    // Any status change takes the vendor off the public site — newly approved
+    // vendors stay hidden until an admin publishes them.
+    published: false,
     declineReason: declineReason ?? null,
     reviewedAt: serverTimestamp(),
   });
-  // Bust the public home page cache so approved vendors appear immediately
+  // Bust the public home page cache so changes show immediately
+  clearCache("dan_approved_vendors");
+}
+
+/** Show or hide approved vendors on the public site (home + vendors page). */
+export async function setVendorsPublished(
+  ids: string[],
+  published: boolean,
+): Promise<void> {
+  // Firestore batches are capped at 500 writes
+  for (let i = 0; i < ids.length; i += 500) {
+    const batch = writeBatch(db);
+    ids
+      .slice(i, i + 500)
+      .forEach((id) => batch.update(doc(db, "vendors", id), { published }));
+    await batch.commit();
+  }
   clearCache("dan_approved_vendors");
 }
 
@@ -513,6 +533,7 @@ export async function createVendorDirect(
       : data.imageUrl
         ? [data.imageUrl]
         : [],
+    published: false, // hidden from the public site until an admin publishes it
     submittedAt: serverTimestamp(),
     reviewedAt: null, // not yet reviewed — admin created directly but still needs review
   });
@@ -544,10 +565,10 @@ export function getVendorCategories(v: DanVendor): string[] {
   return v.categories?.length ? v.categories : v.category ? [v.category] : [];
 }
 
-/** Real-time: approved vendors (public home + vendors page). */
+/** Real-time: approved vendors an admin has published (public home + vendors page). */
 export const subscribeApprovedVendors = createSubscription<DanVendor>(
   "vendors",
-  [where("status", "==", "approved")],
+  [where("status", "==", "approved"), where("published", "==", true)],
 );
 
 /* ═══════════════════════════════════════════════

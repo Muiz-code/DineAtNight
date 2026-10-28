@@ -39,6 +39,21 @@ export const MIN_TICKET_QUANTITY = 1;
 /** Maximum number of tickets a customer can purchase in one order. */
 export const MAX_TICKET_QUANTITY = 20;
 
+// ── Vendor approval email ─────────────────────────────────────────────────────
+/**
+ * Details quoted in the vendor approval email. The event title, date and venue
+ * are taken from the vendor's upcoming event when it exists in admin — these
+ * are only the fallbacks used before that event has been created.
+ */
+export const VENDOR_APPROVAL_DEFAULTS = {
+  eventTitle: "Dine At Night 2026",
+  eventDate: "2026-12-17", // YYYY-MM-DD
+  venue: "Federal Palace, Victoria Island, Lagos",
+  stallFee: "₦180,000",
+  acceptanceDeadline: "Friday, 6th November 2026",
+  paymentDeadline: "Sunday, 15th November 2026",
+};
+
 // ── Admin logs ────────────────────────────────────────────────────────────────
 /** Admin-log entries older than this are eligible for manual deletion. */
 export const ADMIN_LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000; // 30 days

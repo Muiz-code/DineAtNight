@@ -8,6 +8,7 @@ import {
   getAllVendors,
   getAllEvents,
   updateVendorStatus,
+  setVendorsPublished,
   createVendorDirect,
   updateVendor,
   deleteVendor,
@@ -33,6 +34,8 @@ import {
   Calendar,
   BookOpen,
   Pencil,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 const inputCls =
@@ -59,6 +62,8 @@ const EMPTY_FORM = {
 
 type FormState = typeof EMPTY_FORM;
 type TabKey = "pending" | "approved" | "declined" | "reapplying";
+type RegFilter = "all" | "new" | "old";
+type VisibilityFilter = "all" | "live" | "hidden";
 
 const TAB_CONFIG: { key: TabKey; label: string; accent: string }[] = [
   { key: "pending", label: "Pending", accent: "#FFFF00" },
@@ -185,6 +190,36 @@ export default function AdminVendorsPage() {
   const [deleteTarget, setDeleteTarget] = useState<DanVendor | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Filters
+  const [regFilter, setRegFilter] = useState<RegFilter>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [visibilityFilter, setVisibilityFilter] =
+    useState<VisibilityFilter>("all");
+
+  // Bulk publish selection (approved tab)
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [publishing, setPublishing] = useState(false);
+
+  const [allEvents, setAllEvents] = useState<DanEvent[]>([]);
+  // Registrations after the most recent past event count as "new" (this season)
+  const [seasonStart, setSeasonStart] = useState(0);
+
+  useEffect(() => {
+    getAllEvents()
+      .then((evs) => {
+        setAllEvents(evs);
+        const now = Date.now();
+        setSeasonStart(
+          evs
+            .map((e) => (e.date?.seconds ?? 0) * 1000)
+            .filter((t) => t > 0 && t < now)
+            .reduce((max, t) => Math.max(max, t), 0),
+        );
+      })
+      .catch(() => {});
+  }, []);
+
   const load = async () => {
     setLoading(true);
     try {
@@ -198,11 +233,44 @@ export default function AdminVendorsPage() {
     load();
   }, []);
 
+  /* ── Filters: registration season + date range ── */
+  const fromMs = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
+  const toMs = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : null;
+  const matchesFilters = (v: DanVendor) => {
+    const t = (v.submittedAt?.seconds ?? 0) * 1000;
+    if (regFilter === "new" && t <= seasonStart) return false;
+    if (regFilter === "old" && t > seasonStart) return false;
+    if (fromMs !== null && t < fromMs) return false;
+    if (toMs !== null && t > toMs) return false;
+    return true;
+  };
+  const filtersActive = regFilter !== "all" || !!dateFrom || !!dateTo;
+  const filteredVendors = vendors.filter(matchesFilters);
+
   const byTab = {
-    pending: vendors.filter((v) => v.status === "pending"),
-    approved: vendors.filter((v) => v.status === "approved"),
-    declined: vendors.filter((v) => v.status === "declined"),
-    reapplying: vendors.filter((v) => (v.reapplyCount ?? 0) > 0),
+    pending: filteredVendors.filter((v) => v.status === "pending"),
+    approved: filteredVendors.filter((v) => v.status === "approved"),
+    declined: filteredVendors.filter((v) => v.status === "declined"),
+    reapplying: filteredVendors.filter((v) => (v.reapplyCount ?? 0) > 0),
+  };
+  const liveCount = vendors.filter(
+    (v) => v.status === "approved" && v.published,
+  ).length;
+
+  /**
+   * The event quoted in the approval email: the vendor's own upcoming event,
+   * else the next upcoming event. Null → the email uses VENDOR_APPROVAL_DEFAULTS.
+   */
+  const findApprovalEvent = (v: DanVendor): DanEvent | null => {
+    const now = Date.now();
+    const upcoming = allEvents
+      .filter((e) => (e.date?.seconds ?? 0) * 1000 >= now && !e.isPast)
+      .sort((a, b) => a.date.seconds - b.date.seconds);
+    return (
+      upcoming.find((e) => v.events?.includes(e.title)) ??
+      upcoming.find((e) => e.status === "active") ??
+      null
+    );
   };
 
   /* ── Email helper (server-side via /api/emails/vendor-status) ── */
@@ -211,6 +279,7 @@ export default function AdminVendorsPage() {
     v: DanVendor,
     declineReason?: string,
   ) => {
+    const ev = status === "approved" ? findApprovalEvent(v) : null;
     fetch("/api/emails/vendor-status", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -220,15 +289,47 @@ export default function AdminVendorsPage() {
         email: v.email,
         status,
         reason: declineReason,
+        ...(ev
+          ? {
+              eventTitle: ev.title,
+              eventDate: new Date(ev.date.seconds * 1000).toISOString(),
+              venue: ev.venue,
+            }
+          : {}),
       }),
     }).catch(() => {});
   };
 
   /* ── Actions ── */
+  const handlePublish = async (targets: DanVendor[], published: boolean) => {
+    if (targets.length === 0) return;
+    setPublishing(true);
+    try {
+      const ids = targets.map((v) => v.id!);
+      await setVendorsPublished(ids, published);
+      const names = targets.map((v) => v.brandName).join(", ");
+      await logAdminAction(
+        published ? "PUBLISH_VENDOR" : "UNPUBLISH_VENDOR",
+        `${published ? "Published" : "Hid"} ${targets.length} vendor${targets.length > 1 ? "s" : ""} ${published ? "on" : "from"} the public site: ${names}`,
+        targets.length === 1
+          ? { type: "vendor", id: targets[0].id, name: targets[0].brandName }
+          : { type: "vendor" },
+      );
+      setVendors((prev) =>
+        prev.map((x) => (ids.includes(x.id!) ? { ...x, published } : x)),
+      );
+      if (detailVendor && ids.includes(detailVendor.id!))
+        setDetailVendor({ ...detailVendor, published });
+      setSelectedIds([]);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const handleApprove = async (v: DanVendor) => {
     await updateVendorStatus(v.id!, "approved");
     await logAdminAction("APPROVE_VENDOR", `Approved vendor "${v.brandName}"`, { type: "vendor", id: v.id, name: v.brandName });
-    const updated = { ...v, status: "approved" as const };
+    const updated = { ...v, status: "approved" as const, published: false };
     setVendors((prev) => prev.map((x) => (x.id === v.id ? updated : x)));
     if (detailVendor?.id === v.id) setDetailVendor(updated);
     sendVendorEmail("approved", v);
@@ -247,6 +348,7 @@ export default function AdminVendorsPage() {
     const updated = {
       ...declineTarget,
       status: "declined" as const,
+      published: false,
       declineReason,
     };
     setVendors((prev) =>
@@ -260,7 +362,7 @@ export default function AdminVendorsPage() {
 
   const handleResubmit = async (v: DanVendor) => {
     await updateVendorStatus(v.id!, "pending");
-    const updated = { ...v, status: "pending" as const, declineReason: "" };
+    const updated = { ...v, status: "pending" as const, published: false, declineReason: "" };
     setVendors((prev) => prev.map((x) => (x.id === v.id ? updated : x)));
     if (detailVendor?.id === v.id) setDetailVendor(updated);
     setActiveTab("pending");
@@ -281,6 +383,7 @@ export default function AdminVendorsPage() {
     const updated = {
       ...revokeTarget,
       status: "declined" as const,
+      published: false,
       declineReason: reason,
     };
     setVendors((prev) =>
@@ -321,13 +424,8 @@ export default function AdminVendorsPage() {
     });
   };
 
-  const [allEvents, setAllEvents] = useState<DanEvent[]>([]);
   const [eventInput, setEventInput] = useState("");
   const [showOtherInput, setShowOtherInput] = useState(false);
-
-  useEffect(() => {
-    getAllEvents().then(setAllEvents).catch(() => {});
-  }, []);
 
   const addFormEvent = (title: string) => {
     const ev = title.trim();
@@ -387,8 +485,22 @@ export default function AdminVendorsPage() {
     }
   };
 
-  const currentList = byTab[activeTab];
+  const currentList =
+    activeTab === "approved" && visibilityFilter !== "all"
+      ? byTab.approved.filter((v) =>
+          visibilityFilter === "live" ? v.published : !v.published,
+        )
+      : byTab[activeTab];
   const currentAccent = TAB_CONFIG.find((t) => t.key === activeTab)!.accent;
+
+  // Bulk actions only touch selected vendors that are still in view
+  const selectedInView = currentList.filter((v) => selectedIds.includes(v.id!));
+  const allInViewSelected =
+    currentList.length > 0 && selectedInView.length === currentList.length;
+  const toggleSelected = (id: string) =>
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
 
   if (loading) {
     return (
@@ -412,7 +524,7 @@ export default function AdminVendorsPage() {
           <p className="text-gray-600 text-sm mt-1">
             {byTab.pending.length} pending · {byTab.approved.length} approved ·{" "}
             {byTab.declined.length} declined · {byTab.reapplying.length}{" "}
-            re-applying
+            re-applying · <span className="text-[#00FF41]">{liveCount} live on site</span>
           </p>
         </div>
         <button
@@ -440,7 +552,10 @@ export default function AdminVendorsPage() {
             return (
               <button
                 key={key}
-                onClick={() => setActiveTab(key)}
+                onClick={() => {
+                  setActiveTab(key);
+                  setSelectedIds([]);
+                }}
                 className="relative flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold uppercase tracking-widest transition-all duration-200"
                 style={{
                   color: active ? accent : "rgba(255,255,255,0.3)",
@@ -475,6 +590,133 @@ export default function AdminVendorsPage() {
         </div>
       </div>
 
+      {/* ── Filters: registration season + date registered ── */}
+      <div className="flex flex-col lg:flex-row lg:items-end gap-3 px-4 py-3 rounded-xl border border-white/8 bg-white/[0.02]">
+        <div>
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
+            Registrations
+          </p>
+          <div className="flex gap-1 flex-wrap">
+            {(
+              [
+                ["all", "All"],
+                ["new", "New (this season)"],
+                ["old", "Older"],
+              ] as [RegFilter, string][]
+            ).map(([key, label]) => (
+              <FilterChip
+                key={key}
+                active={regFilter === key}
+                onClick={() => setRegFilter(key)}
+                label={label}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-3 flex-wrap items-end">
+          <div>
+            <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
+              Registered from
+            </label>
+            <input
+              type="date"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className={`${inputCls} !py-1.5 [color-scheme:dark]`}
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
+              To
+            </label>
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(e) => setDateTo(e.target.value)}
+              className={`${inputCls} !py-1.5 [color-scheme:dark]`}
+            />
+          </div>
+          {filtersActive && (
+            <button
+              onClick={() => {
+                setRegFilter("all");
+                setDateFrom("");
+                setDateTo("");
+              }}
+              className="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest border border-white/10 text-gray-400 hover:text-white hover:border-white/25 transition-all"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+        <p className="text-gray-700 text-[11px] lg:ml-auto lg:text-right">
+          {seasonStart
+            ? `"New" = registered after ${new Date(seasonStart).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })} (last event)`
+            : `"New" = all registrations (no past event yet)`}
+        </p>
+      </div>
+
+      {/* ── Approved tab: site visibility + bulk publish ── */}
+      {activeTab === "approved" && byTab.approved.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 rounded-xl border border-[#00FF41]/15 bg-[#00FF41]/[0.03]">
+          <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={allInViewSelected}
+              disabled={currentList.length === 0}
+              onChange={() =>
+                setSelectedIds(
+                  allInViewSelected ? [] : currentList.map((v) => v.id!),
+                )
+              }
+              className="w-4 h-4 accent-[#00FF41] cursor-pointer"
+            />
+            Select all
+            <span className="text-gray-600">
+              ({selectedInView.length}/{currentList.length})
+            </span>
+          </label>
+          <div className="flex gap-1">
+            {(
+              [
+                ["all", "All"],
+                ["live", "Live"],
+                ["hidden", "Hidden"],
+              ] as [VisibilityFilter, string][]
+            ).map(([key, label]) => (
+              <FilterChip
+                key={key}
+                active={visibilityFilter === key}
+                onClick={() => {
+                  setVisibilityFilter(key);
+                  setSelectedIds([]);
+                }}
+                label={label}
+              />
+            ))}
+          </div>
+          <div className="flex gap-2 sm:ml-auto">
+            <button
+              onClick={() => handlePublish(selectedInView, true)}
+              disabled={publishing || selectedInView.length === 0}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border transition-all disabled:opacity-30"
+              style={{ borderColor: "rgba(0,255,65,0.4)", color: "#00FF41" }}
+            >
+              <Eye className="w-3.5 h-3.5" /> Publish to site
+            </button>
+            <button
+              onClick={() => handlePublish(selectedInView, false)}
+              disabled={publishing || selectedInView.length === 0}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border transition-all border-white/10 text-gray-400 hover:text-white disabled:opacity-30"
+            >
+              <EyeOff className="w-3.5 h-3.5" /> Hide
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Tab Content ── */}
       <AnimatePresence mode="wait">
         <motion.div
@@ -489,7 +731,9 @@ export default function AdminVendorsPage() {
             <div className="flex items-center gap-3 px-5 py-10 rounded-xl border border-white/5 text-gray-700 text-sm justify-center flex-col">
               <Store className="w-8 h-8 opacity-30" />
               <span>
-                {activeTab === "pending"
+                {filtersActive || (activeTab === "approved" && visibilityFilter !== "all")
+                  ? "No vendors match these filters"
+                  : activeTab === "pending"
                   ? "No pending applications"
                   : activeTab === "approved"
                     ? "No approved vendors yet"
@@ -504,6 +748,16 @@ export default function AdminVendorsPage() {
                 key={v.id}
                 className="flex flex-col sm:flex-row sm:items-center gap-4 px-5 py-4 rounded-xl border border-white/8 bg-white/[0.02] group"
               >
+                <div className="flex items-center gap-4 flex-shrink-0">
+                {activeTab === "approved" && (
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(v.id!)}
+                    onChange={() => toggleSelected(v.id!)}
+                    className="w-4 h-4 accent-[#00FF41] cursor-pointer flex-shrink-0"
+                    aria-label={`Select ${v.brandName}`}
+                  />
+                )}
                 {/* Thumbnail — logo circle overlaid on food photo */}
                 <div className="relative flex-shrink-0">
                   {v.imageUrl ? (
@@ -538,6 +792,7 @@ export default function AdminVendorsPage() {
                     </span>
                   )}
                 </div>
+                </div>
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
@@ -546,6 +801,7 @@ export default function AdminVendorsPage() {
                       {v.brandName}
                     </span>
                     <StatusBadge status={v.status} />
+                    {v.status === "approved" && <VisibilityBadge live={!!v.published} />}
                     {(v.reapplyCount ?? 0) > 0 && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#FFFF00]/40 text-[#FFFF00] uppercase tracking-widest font-bold">
                         ↩ Re-applicant
@@ -619,6 +875,14 @@ export default function AdminVendorsPage() {
                             <X className="w-3.5 h-3.5" /> Decline
                           </button>
                         </>
+                      )}
+
+                      {effectiveStatus === "approved" && (
+                        <PublishToggle
+                          live={!!v.published}
+                          disabled={publishing}
+                          onToggle={() => handlePublish([v], !v.published)}
+                        />
                       )}
 
                       {effectiveStatus === "approved" && (
@@ -699,6 +963,9 @@ export default function AdminVendorsPage() {
                     Vendor Details
                   </h2>
                   <StatusBadge status={detailVendor.status} />
+                  {detailVendor.status === "approved" && (
+                    <VisibilityBadge live={!!detailVendor.published} />
+                  )}
                 </div>
                 <button
                   onClick={() => {
@@ -1047,6 +1314,15 @@ export default function AdminVendorsPage() {
                   >
                     <X className="w-4 h-4" /> Decline
                   </button>
+                )}
+                {detailVendor.status === "approved" && (
+                  <PublishToggle
+                    live={!!detailVendor.published}
+                    disabled={publishing}
+                    onToggle={() =>
+                      handlePublish([detailVendor], !detailVendor.published)
+                    }
+                  />
                 )}
                 {detailVendor.status === "approved" && (
                   <button
@@ -1769,6 +2045,83 @@ export default function AdminVendorsPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function FilterChip({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide border transition-all"
+      style={{
+        borderColor: active ? "#FFFF00" : "rgba(255,255,255,0.1)",
+        color: active ? "#FFFF00" : "rgba(255,255,255,0.45)",
+        background: active ? "rgba(255,255,0,0.08)" : "transparent",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function VisibilityBadge({ live }: { live: boolean }) {
+  return (
+    <span
+      className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border"
+      style={
+        live
+          ? { color: "#00FF41", borderColor: "rgba(0,255,65,0.3)" }
+          : { color: "rgba(255,255,255,0.4)", borderColor: "rgba(255,255,255,0.12)" }
+      }
+    >
+      {live ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+      {live ? "Live" : "Hidden"}
+    </span>
+  );
+}
+
+/** Switch that shows / hides an approved vendor on the public site. */
+function PublishToggle({
+  live,
+  disabled,
+  onToggle,
+}: {
+  live: boolean;
+  disabled?: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      role="switch"
+      aria-checked={live}
+      onClick={onToggle}
+      disabled={disabled}
+      title={live ? "Hide from public site" : "Publish to public site"}
+      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border transition-all disabled:opacity-50"
+      style={{
+        borderColor: live ? "rgba(0,255,65,0.4)" : "rgba(255,255,255,0.1)",
+        color: live ? "#00FF41" : "rgba(255,255,255,0.45)",
+      }}
+    >
+      <span
+        className="relative w-7 h-4 rounded-full transition-colors"
+        style={{ background: live ? "#00FF41" : "rgba(255,255,255,0.15)" }}
+      >
+        <span
+          className="absolute top-0.5 w-3 h-3 rounded-full bg-black transition-all"
+          style={{ left: live ? "14px" : "2px" }}
+        />
+      </span>
+      On site
+    </button>
   );
 }
 

@@ -20,7 +20,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
-  const { ownerName, brandName, email, status, reason } = body as Record<string, string>;
+  const { ownerName, brandName, email, status, reason, eventTitle, eventDate, venue } =
+    body as Record<string, string>;
 
   if (!ownerName || !brandName || !email || !status) {
     return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
@@ -38,6 +39,9 @@ export async function POST(req: NextRequest) {
     email,
     status: status as "approved" | "declined" | "revoked",
     reason,
+    eventTitle,
+    eventDate,
+    venue,
   });
 
   return NextResponse.json({ ok: true });

@@ -9,6 +9,7 @@
  */
 
 import { Resend } from "resend";
+import { VENDOR_APPROVAL_DEFAULTS } from "./constants";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? "hello@dineatnight.com";
@@ -121,6 +122,25 @@ function heading(text: string, accent: string): string {
       ? "rgba(255,51,51,0.5)"
       : "rgba(255,255,0,0.5)";
   return `<h1 style="margin:0 0 8px;color:${accent};font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;text-shadow:0 0 20px ${glow};">${text}</h1>`;
+}
+
+/** "2026-12-17" → "17th December" (Lagos time). Returns the input if unparseable. */
+function formatOrdinalDate(iso: string): string {
+  // Date-only strings parse as UTC midnight — pin them to Lagos so the day doesn't shift
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00+01:00` : iso);
+  if (isNaN(d.getTime())) return iso;
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    timeZone: "Africa/Lagos",
+  }).formatToParts(d);
+  const day = Number(parts.find((x) => x.type === "day")?.value);
+  const month = parts.find((x) => x.type === "month")?.value;
+  const suffix =
+    day % 100 >= 11 && day % 100 <= 13
+      ? "th"
+      : (["th", "st", "nd", "rd"][day % 10] ?? "th");
+  return `${day}${suffix} ${month}`;
 }
 
 // ── send helper ───────────────────────────────────────────────────────────────
@@ -382,23 +402,47 @@ export async function sendVendorStatusEmail(data: {
   email: string;
   status: "approved" | "declined" | "revoked";
   reason?: string;
+  /** Approval only — the vendor's event. Falls back to VENDOR_APPROVAL_DEFAULTS. */
+  eventTitle?: string;
+  eventDate?: string; // ISO date string
+  venue?: string;
 }): Promise<void> {
   const isApproved = data.status === "approved";
   const isDeclined = data.status === "declined";
   const accent = isApproved ? "#00FF41" : isDeclined ? "#FF3333" : "#FFFF00";
-  const statusLabel = isApproved ? "You're Approved!" : isDeclined ? "Application Update" : "Approval Revoked";
+  const statusLabel = isApproved ? "You've Been Selected!" : isDeclined ? "Application Update" : "Approval Revoked";
+
+  const eventTitle = data.eventTitle || VENDOR_APPROVAL_DEFAULTS.eventTitle;
+  const eventDate = formatOrdinalDate(data.eventDate || VENDOR_APPROVAL_DEFAULTS.eventDate);
+  const venue = data.venue || VENDOR_APPROVAL_DEFAULTS.venue;
+  const { stallFee, acceptanceDeadline, paymentDeadline } = VENDOR_APPROVAL_DEFAULTS;
+  const p = (html: string) =>
+    `<p style="margin:0 0 16px;color:#888;font-size:14px;line-height:1.7;">${html}</p>`;
+  const section = (title: string) =>
+    `<p style="margin:28px 0 10px;color:#00FF41;font-size:11px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;">${title}</p>`;
 
   const bodyContent = isApproved ? `
-    <p style="margin:0 0 20px;color:#888;font-size:14px;line-height:1.7;">
-      Hi ${data.ownerName}, great news! <strong style="color:#ccc;">${data.brandName}</strong> has been approved to vend at Dine At Night.
-    </p>
-    <div style="padding:20px;background:#0d0d0d;border:1px solid #00FF4120;border-radius:8px;margin-bottom:24px;">
-      <p style="margin:0;color:#555;font-size:13px;line-height:1.7;">
-        Our team will reach out with your <strong style="color:#aaa;">spot assignment</strong>, setup time, and logistics details as the event date approaches. Keep an eye on your inbox and Instagram DMs.
-      </p>
-    </div>
-    ${ctaButton(`${APP_URL}/event`, "View Upcoming Events", "#00FF41")}
-    <p style="margin:20px 0 0;color:#333;font-size:12px;text-align:center;">See you on the floor! 🎉</p>
+    ${p(`Hi ${data.ownerName},`)}
+    ${p(`Congratulations! 🎉`)}
+    ${p(`We’re excited to let you know that you’ve been selected as a vendor for <strong style="color:#ccc;">${eventTitle}</strong>, taking place on <strong style="color:#ccc;">${eventDate}</strong> at <strong style="color:#ccc;">${venue}</strong>!`)}
+    ${p(`We’re looking forward to having you be part of this year’s experience.`)}
+
+    ${section("Stall Fee &amp; Confirmation")}
+    ${p(`Our vendor participation fee is a flat rate of <strong style="color:#ccc;">${stallFee}</strong>, with zero commission on sales. All revenue generated from your stall is entirely yours!`)}
+    ${p(`If you’re happy to proceed, kindly reply to this email confirming your acceptance by <strong style="color:#ccc;">${acceptanceDeadline}</strong>, and we’ll share the payment details to secure your spot.`)}
+    ${p(`Please note that the payment deadline is <strong style="color:#ccc;">${paymentDeadline}</strong>.`)}
+
+    ${section("Event Sponsorships")}
+    ${p(`As we finalise partnerships for this year’s event, we wanted to make you aware that some of our official sponsors, including a potential financial partner, may have certain requirements for participating vendors. These could include a simple onboarding process or the use of a designated POS system during the event.`)}
+    ${p(`Nothing has been finalised at this stage, and we want to assure you that any requirements will be reasonable, clearly communicated in advance and designed to minimise disruption to your operations.`)}
+    ${p(`Please also confirm that you’re comfortable with this in principle, subject to the specific requirements being shared with you.`)}
+
+    ${section("Next Steps")}
+    ${p(`Kindly reply by <strong style="color:#ccc;">${acceptanceDeadline}</strong> confirming your acceptance of the stall fee and acknowledging the potential sponsor requirements.`)}
+    ${p(`Once we receive your confirmation, we’ll share the payment details. Full payment must be completed by <strong style="color:#ccc;">${paymentDeadline}</strong> to officially secure your spot.`)}
+    ${p(`Following payment confirmation, our team will be in touch with stall allocations, setup requirements and further event logistics.`)}
+    ${p(`We can’t wait to bring ${eventTitle} to life with you!`)}
+    <p style="margin:24px 0 0;color:#888;font-size:14px;line-height:1.7;">Warm regards,<br/><strong style="color:#ccc;">The Dine At Night Team</strong></p>
   ` : isDeclined ? `
     <p style="margin:0 0 20px;color:#888;font-size:14px;line-height:1.7;">
       Hi ${data.ownerName}, thank you for your interest in vending at Dine At Night.
@@ -438,13 +482,13 @@ export async function sendVendorStatusEmail(data: {
   await send({
     to: data.email,
     subject: isApproved
-      ? `You're approved — ${data.brandName} | Dine At Night`
+      ? `Congratulations — you've been selected for ${eventTitle}!`
       : isDeclined
         ? `Application update — ${data.brandName} | Dine At Night`
         : `Approval revoked — ${data.brandName} | Dine At Night`,
     html,
     text: isApproved
-      ? `Hi ${data.ownerName}, ${data.brandName} has been approved to vend at Dine At Night! We'll be in touch with logistics.`
+      ? `Hi ${data.ownerName}, congratulations! You've been selected as a vendor for ${eventTitle}, taking place on ${eventDate} at ${venue}. The stall fee is a flat ${stallFee} with zero commission on sales. Please reply confirming your acceptance (and that you're comfortable in principle with potential sponsor requirements, such as a designated POS system) by ${acceptanceDeadline}. Full payment must be completed by ${paymentDeadline}. Warm regards, The Dine At Night Team`
       : isDeclined
         ? `Hi ${data.ownerName}, unfortunately ${data.brandName} was not selected for this edition.${data.reason ? " Reason: " + data.reason : ""}`
         : `Hi ${data.ownerName}, the approval for ${data.brandName} has been revoked.${data.reason ? " Reason: " + data.reason : ""}`,

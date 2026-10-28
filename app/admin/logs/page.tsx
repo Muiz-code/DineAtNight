@@ -21,6 +21,8 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   APPROVE_VENDOR:      { label: "Approve Vendor",     color: "#00FF41" },
   DECLINE_VENDOR:      { label: "Decline Vendor",     color: "#FF3333" },
   REVOKE_VENDOR:       { label: "Revoke Vendor",      color: "#FF3333" },
+  PUBLISH_VENDOR:      { label: "Publish Vendor",     color: "#00FF41" },
+  UNPUBLISH_VENDOR:    { label: "Unpublish Vendor",   color: "#FFB800" },
   CREATE_VENDOR:       { label: "Add Vendor",         color: "#FFFF00" },
   DELETE_VENDOR:       { label: "Delete Vendor",      color: "#FF3333" },
   CREATE_PRODUCT:      { label: "Add Product",        color: "#FFFF00" },

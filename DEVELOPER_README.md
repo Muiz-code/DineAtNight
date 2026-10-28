@@ -389,7 +389,7 @@ useEffect(() => {
 Available subscriptions:
 - `subscribeActiveEvents(cb)` — events where status = "active" and !isPast
 - `subscribePastEvents(cb)` — events where isPast = true, ordered by date desc
-- `subscribeApprovedVendors(cb)` — vendors where status = "approved"
+- `subscribeApprovedVendors(cb)` — vendors where status = "approved" AND published = true (admin toggles `published` via `setVendorsPublished`; any status change resets it to false)
 - `subscribeGalleryItems(cb)` — all gallery items, ordered by createdAt desc
 - `subscribeAllProducts(cb)` — all products, ordered by createdAt desc
 - `subscribeMerchOrders(cb)` — all merch orders, ordered by createdAt desc
