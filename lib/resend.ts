@@ -50,7 +50,8 @@ function escapeFields<T extends object>(data: T): T {
 }
 
 // ── Base HTML wrapper ─────────────────────────────────────────────────────────
-function baseEmail(accent: string, body: string): string {
+/** `preheader` is the inbox preview line shown after the subject (hidden in the email itself). */
+function baseEmail(accent: string, body: string, preheader?: string): string {
   const glow = accent === "#00FF41"
     ? "rgba(0,255,65,0.4)"
     : accent === "#FF3333"
@@ -66,7 +67,8 @@ function baseEmail(accent: string, body: string): string {
   <title>Dine At Night</title>
 </head>
 <body style="margin:0;padding:0;background:#000000;font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;">
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#000000;min-height:100vh;">
+${preheader ? `  <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${preheader}</div>
+` : ""}  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#000000;min-height:100vh;">
     <tr>
       <td align="center" style="padding:1px;">
 
@@ -169,7 +171,7 @@ async function send(opts: {
   html: string;
   text: string;
   headers?: Record<string, string>;
-}): Promise<void> {
+}): Promise<boolean> {
   try {
     const { error } = await resend.emails.send({
       from: FROM,
@@ -179,9 +181,14 @@ async function send(opts: {
       text: opts.text,
       ...(opts.headers ? { headers: opts.headers } : {}),
     });
-    if (error) console.error("[resend] send error:", error);
+    if (error) {
+      console.error("[resend] send error:", error);
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error("[resend] unexpected error:", err);
+    return false;
   }
 }
 
@@ -194,7 +201,7 @@ export async function notifyAdminContact(data: {
   email: string;
   topic: string;
   message: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const h = escapeFields(data);
   const html = baseEmail("#FFFF00", `
     ${heading("New Contact Message", "#FFFF00")}
@@ -211,7 +218,7 @@ export async function notifyAdminContact(data: {
     ${ctaButton(`mailto:${encodeURIComponent(data.email)}`, "Reply to " + h.name, "#FFFF00")}
   `);
 
-  await send({
+  return send({
     to: ADMIN_TO,
     subject: `New Contact: ${data.topic} — ${data.name}`,
     html,
@@ -227,7 +234,7 @@ export async function notifyAdminVendorApplied(data: {
   instagram?: string;
   categories?: string[];
   description?: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const h = escapeFields(data);
   const html = baseEmail("#FF3333", `
     ${heading("New Vendor Application", "#FF3333")}
@@ -248,7 +255,7 @@ export async function notifyAdminVendorApplied(data: {
     ${ctaButton(`${APP_URL}/admin/vendors`, "Review Application", "#FF3333")}
   `);
 
-  await send({
+  return send({
     to: ADMIN_TO,
     subject: `New Vendor Application — ${data.brandName}`,
     html,
@@ -261,7 +268,7 @@ export async function notifyAdminTestimonial(data: {
   type: "vendor" | "user";
   quote: string;
   eventTitle?: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const h = escapeFields(data);
   const html = baseEmail("#00FF41", `
     ${heading("New Testimonial", "#00FF41")}
@@ -278,7 +285,7 @@ export async function notifyAdminTestimonial(data: {
     ${ctaButton(`${APP_URL}/admin/testimonials`, "Approve or Reject", "#00FF41")}
   `);
 
-  await send({
+  return send({
     to: ADMIN_TO,
     subject: `New Testimonial — ${data.name}`,
     html,
@@ -294,7 +301,7 @@ export async function sendContactConfirmationEmail(data: {
   name: string;
   email: string;
   topic: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const h = escapeFields(data);
   const html = baseEmail("#FFFF00", `
     ${heading("We got your message", "#FFFF00")}
@@ -310,7 +317,7 @@ export async function sendContactConfirmationEmail(data: {
     ${ctaButton(`${APP_URL}`, "Visit Dine At Night", "#FFFF00")}
   `);
 
-  await send({
+  return send({
     to: data.email,
     subject: `We got your message — Dine At Night`,
     html,
@@ -326,7 +333,7 @@ export async function sendTicketConfirmationEmail(data: {
   quantity: number;
   amount: number;
   reference: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const h = escapeFields(data);
   const amountNaira = (h.amount / 100).toLocaleString("en-NG", {
     style: "currency",
@@ -369,7 +376,7 @@ export async function sendTicketConfirmationEmail(data: {
     </p>
   `);
 
-  await send({
+  return send({
     to: data.email,
     subject: `Your Ticket — ${data.eventTitle} | Dine At Night`,
     html,
@@ -382,7 +389,7 @@ export async function sendVendorAppliedEmail(data: {
   brandName: string;
   email: string;
   categories?: string[];
-}): Promise<void> {
+}): Promise<boolean> {
   const h = escapeFields(data);
   const html = baseEmail("#FFFF00", `
     ${heading("Application Received", "#FFFF00")}
@@ -413,7 +420,7 @@ export async function sendVendorAppliedEmail(data: {
     </p>
   `);
 
-  await send({
+  return send({
     to: data.email,
     subject: `Application Received — ${data.brandName} | Dine At Night`,
     html,
@@ -431,7 +438,7 @@ export async function sendVendorStatusEmail(data: {
   eventTitle?: string;
   eventDate?: string; // ISO date string
   venue?: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const h = escapeFields(data);
   const isApproved = h.status === "approved";
   const isDeclined = h.status === "declined";
@@ -473,6 +480,7 @@ export async function sendVendorStatusEmail(data: {
     ${p(`Following payment confirmation, our team will be in touch with stall allocations, setup requirements and further event logistics.`)}
     ${p(`We can’t wait to bring ${hEventTitle} to life with you!`)}
     <p style="margin:24px 0 0;color:#888;font-size:14px;line-height:1.7;">Warm regards,<br/><strong style="color:#ccc;">The Dine At Night Team</strong></p>
+    <p style="margin:24px 0 0;color:#808080;font-size:11px;line-height:1.6;">To make sure our emails reach you, please add ${escapeHtml(FROM_EMAIL)} to your contacts. If this landed in spam or promotions, mark it “Not spam”.</p>
   ` : isDeclined ? `
     <p style="margin:0 0 20px;color:#888;font-size:14px;line-height:1.7;">
       Hi ${h.ownerName}, thank you for your interest in vending at Dine At Night.
@@ -499,15 +507,23 @@ export async function sendVendorStatusEmail(data: {
     ${ctaButton(`${APP_URL}/vendors`, "View Vendor Page", "#FFFF00")}
   `;
 
-  const html = baseEmail(accent, `
+  const html = baseEmail(
+    accent,
+    `
     ${heading(statusLabel, accent)}
     ${bodyContent}
-  `);
+  `,
+    isApproved
+      ? `Your stall at ${hEventTitle}, ${hEventDate}, ${hVenue}. Please reply by ${acceptanceDeadline}.`
+      : undefined,
+  );
 
-  await send({
+  return send({
     to: data.email,
+    // Plain, business-like subject — "Congratulations, you've been selected"
+    // next to a ₦ amount reads as lottery spam to filters
     subject: isApproved
-      ? `Congratulations — you've been selected for ${eventTitle}!`
+      ? `${eventTitle}: your vendor application (${data.brandName})`
       : isDeclined
         ? `Application update — ${data.brandName} | Dine At Night`
         : `Approval revoked — ${data.brandName} | Dine At Night`,
@@ -520,7 +536,7 @@ export async function sendVendorStatusEmail(data: {
   });
 }
 
-export async function sendNewsletterWelcomeEmail(email: string): Promise<void> {
+export async function sendNewsletterWelcomeEmail(email: string): Promise<boolean> {
   const unsubUrl = await generateUnsubscribeUrl(email);
 
   const html = baseEmail("#FFFF00", `
@@ -561,7 +577,7 @@ export async function sendNewsletterWelcomeEmail(email: string): Promise<void> {
     </p>
   `);
 
-  await send({
+  return send({
     to: email,
     subject: `Welcome to Dine At Night`,
     html,
@@ -579,7 +595,7 @@ export async function sendOrderStatusEmail(data: {
   reference: string;
   deliveryStatus: "dispatched" | "delivered" | "returned";
   note?: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const h = escapeFields(data);
   const configs = {
     dispatched: {
@@ -627,7 +643,7 @@ export async function sendOrderStatusEmail(data: {
       : ctaButton(`${APP_URL}/shop`, "Shop More →", cfg.accent)}
   `);
 
-  await send({
+  return send({
     to: data.email,
     subject: `Order ${cfg.title} — ${data.reference} | Dine At Night`,
     html,

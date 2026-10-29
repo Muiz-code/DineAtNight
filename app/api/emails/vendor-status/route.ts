@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid email." }, { status: 400 });
   }
 
-  await sendVendorStatusEmail({
+  const sent = await sendVendorStatusEmail({
     ownerName,
     brandName,
     email,
@@ -42,6 +42,9 @@ export async function POST(req: NextRequest) {
     eventDate,
     venue,
   });
+  if (!sent) {
+    return NextResponse.json({ error: "Email could not be sent." }, { status: 502 });
+  }
 
   return NextResponse.json({ ok: true });
 }

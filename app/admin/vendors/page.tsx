@@ -204,6 +204,11 @@ export default function AdminVendorsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [publishing, setPublishing] = useState(false);
 
+  // Re-send approval email: per-vendor status of the last attempt
+  const [resendStatus, setResendStatus] = useState<
+    Record<string, "sending" | "sent" | "failed">
+  >({});
+
   const [allEvents, setAllEvents] = useState<DanEvent[]>([]);
   // Registrations after the most recent past event count as "new" (this season)
   const [seasonStart, setSeasonStart] = useState(0);
@@ -281,9 +286,9 @@ export default function AdminVendorsPage() {
     status: "approved" | "declined" | "revoked",
     v: DanVendor,
     declineReason?: string,
-  ) => {
+  ): Promise<boolean> => {
     const ev = status === "approved" ? findApprovalEvent(v) : null;
-    fetch("/api/emails/vendor-status", {
+    return fetch("/api/emails/vendor-status", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -300,10 +305,21 @@ export default function AdminVendorsPage() {
             }
           : {}),
       }),
-    }).catch(() => {});
+    })
+      .then((res) => res.ok)
+      .catch(() => false);
   };
 
   /* ── Actions ── */
+  const handleResendApproval = async (v: DanVendor) => {
+    if (!window.confirm(`Re-send the "selected" email to ${v.brandName} (${v.email})?`)) return;
+    setResendStatus((p) => ({ ...p, [v.id!]: "sending" }));
+    const ok = await sendVendorEmail("approved", v);
+    setResendStatus((p) => ({ ...p, [v.id!]: ok ? "sent" : "failed" }));
+    if (ok)
+      await logAdminAction("RESEND_VENDOR_EMAIL", `Re-sent approval email to "${v.brandName}" (${v.email})`, { type: "vendor", id: v.id, name: v.brandName });
+  };
+
   const handlePublish = async (targets: DanVendor[], published: boolean) => {
     if (targets.length === 0) return;
     setPublishing(true);
@@ -933,6 +949,13 @@ export default function AdminVendorsPage() {
                       )}
 
                       {effectiveStatus === "approved" && (
+                        <ResendEmailButton
+                          status={resendStatus[v.id!]}
+                          onClick={() => handleResendApproval(v)}
+                        />
+                      )}
+
+                      {effectiveStatus === "approved" && (
                         <button
                           onClick={() => openRevoke(v)}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border transition-all"
@@ -1379,6 +1402,12 @@ export default function AdminVendorsPage() {
                     onToggle={() =>
                       handlePublish([detailVendor], !detailVendor.published)
                     }
+                  />
+                )}
+                {detailVendor.status === "approved" && (
+                  <ResendEmailButton
+                    status={resendStatus[detailVendor.id!]}
+                    onClick={() => handleResendApproval(detailVendor)}
                   />
                 )}
                 {detailVendor.status === "approved" && (
@@ -2172,6 +2201,42 @@ function VisibilityBadge({ live }: { live: boolean }) {
       {live ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
       {live ? "Live" : "Hidden"}
     </span>
+  );
+}
+
+/** Re-sends the "selected" approval email; shows the result of the last attempt. */
+function ResendEmailButton({
+  status,
+  onClick,
+}: {
+  status?: "sending" | "sent" | "failed";
+  onClick: () => void;
+}) {
+  const color =
+    status === "sent" ? "#00FF41" : status === "failed" ? "#FF3333" : "rgba(255,255,255,0.45)";
+  return (
+    <button
+      onClick={onClick}
+      disabled={status === "sending"}
+      title="Re-send the approval email to this vendor"
+      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border transition-all border-white/10 hover:border-white/25 disabled:opacity-50"
+      style={{ color }}
+    >
+      {status === "sending" ? (
+        <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+      ) : status === "sent" ? (
+        <Check className="w-3.5 h-3.5" />
+      ) : (
+        <Mail className="w-3.5 h-3.5" />
+      )}
+      {status === "sending"
+        ? "Sending…"
+        : status === "sent"
+          ? "Sent"
+          : status === "failed"
+            ? "Failed — retry"
+            : "Resend email"}
+    </button>
   );
 }
 
