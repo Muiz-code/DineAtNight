@@ -1,4 +1,7 @@
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
+import { adminDb } from "@/lib/firebase-admin";
 import { getAdminEmail } from "@/lib/session";
 import { getPublicEvents } from "@/lib/publicData";
 import {
@@ -20,6 +23,9 @@ const SAMPLE = {
   reference: "TEST-0000",
 };
 
+/** Placeholder event id for test tickets — no real event has this id. */
+const TEST_EVENT_ID = "test-event";
+
 /** The next upcoming event, as a real approval would use — null falls back to the email defaults. */
 async function nextEvent() {
   try {
@@ -29,6 +35,31 @@ async function nextEvent() {
   } catch {
     return null;
   }
+}
+
+/**
+ * A real, paid ticket so the test email's "View My Ticket" link and QR code
+ * work and can be scanned at /scan. It belongs to a placeholder event, so it
+ * never counts towards real sales or check-in progress, and costs ₦0.
+ */
+async function createTestTicket(email: string, eventTitle: string) {
+  const ticket = {
+    reference: `TEST-${crypto.randomBytes(4).toString("hex").toUpperCase()}`,
+    eventId: TEST_EVENT_ID,
+    eventTitle: `[TEST] ${eventTitle}`.slice(0, 200),
+    name: SAMPLE.customerName,
+    email,
+    phone: "",
+    quantity: 2,
+    amount: 0,
+    status: "paid" as const,
+    test: true,
+  };
+  await adminDb()
+    .collection("tickets")
+    .doc(ticket.reference)
+    .create({ ...ticket, purchasedAt: FieldValue.serverTimestamp(), paidAt: FieldValue.serverTimestamp() });
+  return ticket;
 }
 
 async function sendTemplate(template: Template, to: string): Promise<boolean> {
@@ -67,14 +98,15 @@ async function sendTemplate(template: Template, to: string): Promise<boolean> {
       });
     case "ticket-confirmation": {
       const ev = await nextEvent();
+      const ticket = await createTestTicket(to, ev?.title ?? "Dine At Night 2026");
       return sendTicketConfirmationEmail({
-        name: SAMPLE.customerName,
+        name: ticket.name,
         email: to,
-        eventTitle: ev?.title ?? "Dine At Night 2026",
+        eventTitle: ticket.eventTitle,
         eventDate: ev?.date ? new Date(ev.date.seconds * 1000) : undefined,
-        quantity: 2,
-        amount: 20000,
-        reference: SAMPLE.reference,
+        quantity: ticket.quantity,
+        amount: 0,
+        reference: ticket.reference,
       });
     }
     case "contact-confirmation":

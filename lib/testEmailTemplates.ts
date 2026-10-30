@@ -7,7 +7,7 @@ export const TEST_EMAIL_TEMPLATES = [
   { key: "vendor-declined", label: "Vendor — not selected (decline / revoke)", group: "Vendors" },
   { key: "vendor-revoked", label: "Vendor — approval revoked (old template)", group: "Vendors" },
   { key: "vendor-applied", label: "Vendor — application received", group: "Vendors" },
-  { key: "ticket-confirmation", label: "Ticket — purchase confirmation", group: "Tickets & shop" },
+  { key: "ticket-confirmation", label: "Ticket — confirmation (creates a scannable test ticket)", group: "Tickets & shop" },
   { key: "order-dispatched", label: "Shop order — dispatched", group: "Tickets & shop" },
   { key: "order-delivered", label: "Shop order — delivered", group: "Tickets & shop" },
   { key: "order-returned", label: "Shop order — returned", group: "Tickets & shop" },
