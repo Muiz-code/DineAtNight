@@ -1,13 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminNameFor, getAdminEmail } from "@/lib/session";
-import { createScanner, issueNewCode, listScanners, revokeScanner } from "@/lib/scanners";
+import { createScanner, getCheckinProgress, issueNewCode, listScanners, revokeScanner } from "@/lib/scanners";
 
-/** GET /api/admin/scanners — every scanner account (and admins who have scanned) with counts. */
+/**
+ * GET /api/admin/scanners — every scanner account (and admins who have
+ * scanned) with counts, plus check-in progress for the upcoming event.
+ */
 export async function GET(req: NextRequest) {
   if (!(await getAdminEmail(req))) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
-  return NextResponse.json({ scanners: await listScanners() });
+  const [scanners, progress] = await Promise.all([
+    listScanners(),
+    // Progress is a nice-to-have — never let it break the accounts list
+    getCheckinProgress().catch((err) => {
+      console.error("[admin/scanners] check-in progress failed:", err);
+      return null;
+    }),
+  ]);
+  return NextResponse.json({ scanners, progress });
 }
 
 /**

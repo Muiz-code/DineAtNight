@@ -17,7 +17,7 @@
 
 import crypto from "crypto";
 import type { NextRequest } from "next/server";
-import { FieldValue, type Timestamp } from "firebase-admin/firestore";
+import { AggregateField, FieldValue, type Timestamp } from "firebase-admin/firestore";
 import { adminDb } from "./firebase-admin";
 import { adminNameFor, getAdminEmail, hmacHex, verifyHmacHex } from "./session";
 import type { DanTicket } from "./firestore";
@@ -180,6 +180,48 @@ export async function listScanners(): Promise<ScannerSummary[]> {
       };
     })
     .sort((a, b) => b.scanCount - a.scanCount || (b.createdAt ?? 0) - (a.createdAt ?? 0));
+}
+
+export type CheckinProgress = {
+  eventTitle: string;
+  ticketsCheckedIn: number;
+  ticketsSold: number; // paid + checked in
+  peopleCheckedIn: number;
+  peopleSold: number;
+};
+
+/**
+ * Gate progress for the next upcoming active event (or null if there is none).
+ * Uses count/sum aggregations, so it reads no ticket documents.
+ */
+export async function getCheckinProgress(): Promise<CheckinProgress | null> {
+  const db = adminDb();
+  const events = await db.collection("events").where("status", "==", "active").get();
+  const now = Date.now();
+  const next = events.docs
+    .map((d) => ({ id: d.id, title: d.get("title") as string, at: millis(d.get("date")) ?? 0, past: d.get("isPast") === true }))
+    .filter((e) => !e.past && e.at >= now - 24 * 60 * 60 * 1000) // still "upcoming" on the night itself
+    .sort((a, b) => a.at - b.at)[0];
+  if (!next) return null;
+
+  const totals = async (status: "paid" | "confirmed") => {
+    const snap = await db
+      .collection("tickets")
+      .where("eventId", "==", next.id)
+      .where("status", "==", status)
+      .aggregate({ tickets: AggregateField.count(), people: AggregateField.sum("quantity") })
+      .get();
+    const { tickets, people } = snap.data();
+    return { tickets: tickets ?? 0, people: people ?? 0 };
+  };
+  const [paid, confirmed] = await Promise.all([totals("paid"), totals("confirmed")]);
+  return {
+    eventTitle: next.title,
+    ticketsCheckedIn: confirmed.tickets,
+    ticketsSold: paid.tickets + confirmed.tickets,
+    peopleCheckedIn: confirmed.people,
+    peopleSold: paid.people + confirmed.people,
+  };
 }
 
 /* ── Staff: log in / out ─────────────────────────────────────────────────── */
