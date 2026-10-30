@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { logAdminAction } from "@/lib/adminLog";
 import ImageUpload from "@/app/_components/ImageUpload";
+import { useConfirm } from "@/app/_components/ConfirmDialog";
 import MultiImageUpload from "@/app/_components/MultiImageUpload";
 import {
   getAllVendors,
@@ -205,6 +206,7 @@ export default function AdminVendorsPage() {
   const [publishing, setPublishing] = useState(false);
 
   // Re-send approval email: per-vendor status of the last attempt
+  const { confirm, dialog } = useConfirm();
   const [resendStatus, setResendStatus] = useState<
     Record<string, "sending" | "sent" | "failed">
   >({});
@@ -312,7 +314,17 @@ export default function AdminVendorsPage() {
 
   /* ── Actions ── */
   const handleResendApproval = async (v: DanVendor) => {
-    if (!window.confirm(`Re-send the "selected" email to ${v.brandName} (${v.email})?`)) return;
+    const proceed = await confirm({
+      title: "Resend email?",
+      message: (
+        <>
+          Send the &ldquo;selected&rdquo; email to <span className="text-white font-bold">{v.brandName}</span> again at{" "}
+          <span className="text-white">{v.email}</span>?
+        </>
+      ),
+      confirmLabel: "Send",
+    });
+    if (!proceed) return;
     setResendStatus((p) => ({ ...p, [v.id!]: "sending" }));
     const ok = await sendVendorEmail("approved", v);
     setResendStatus((p) => ({ ...p, [v.id!]: ok ? "sent" : "failed" }));
@@ -2101,6 +2113,8 @@ export default function AdminVendorsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {dialog}
 
       {/* ── DELETE CONFIRM MODAL ── */}
       <AnimatePresence>

@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { KeyRound, LogOut, QrCode } from "lucide-react";
 import TicketScanner from "@/app/_components/TicketScanner";
+import { useConfirm } from "@/app/_components/ConfirmDialog";
 
 type Me = {
   kind: "staff" | "admin";
@@ -151,6 +152,7 @@ function ScanContent() {
   const [checking, setChecking] = useState(true);
   const [notice, setNotice] = useState("");
   const [loggingOut, setLoggingOut] = useState(false);
+  const { confirm, dialog } = useConfirm();
 
   const loadMe = useCallback(async () => {
     try {
@@ -168,7 +170,14 @@ function ScanContent() {
   }, [loadMe]);
 
   const handleLogout = async () => {
-    if (!window.confirm("Log out? Your code only works once — you'll need a new one from an admin to scan again.")) return;
+    const ok = await confirm({
+      title: "Log out?",
+      message: "Your code only works once. To scan again you'll need a new code from an admin.",
+      confirmLabel: "Log out",
+      cancelLabel: "Keep scanning",
+      danger: true,
+    });
+    if (!ok) return;
     setLoggingOut(true);
     try {
       await fetch("/api/scan/logout", { method: "POST" });
@@ -202,6 +211,7 @@ function ScanContent() {
 
   return (
     <div className="max-w-lg mx-auto space-y-6">
+      {dialog}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-bold text-white uppercase tracking-widest">Scan Tickets</h1>

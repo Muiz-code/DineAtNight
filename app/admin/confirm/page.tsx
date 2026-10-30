@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy, KeyRound, Plus, RefreshCw, ShieldOff, Ticket, UserCheck, Users, X, Activity } from "lucide-react";
 import TicketScanner from "@/app/_components/TicketScanner";
+import { useConfirm } from "@/app/_components/ConfirmDialog";
 import { logAdminAction } from "@/lib/adminLog";
 import type { CheckinProgress, ScannerSummary } from "@/lib/scanners";
 
@@ -124,6 +125,7 @@ function ScannersPanel({
   const [actionError, setActionError] = useState("");
   const [issued, setIssued] = useState<{ name: string; code: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const { confirm, dialog } = useConfirm();
 
   const act = async (body: Record<string, string>, key: string, log: { action: string; details: string; name: string }) => {
     setBusy(key);
@@ -157,8 +159,14 @@ function ScannersPanel({
       details: `Issued a new scanner code for "${s.name}"`,
       name: s.name,
     });
-  const revoke = (s: ScannerSummary) => {
-    if (!window.confirm(`Revoke ${s.name}? They'll be signed out and their code will stop working.`)) return;
+  const revoke = async (s: ScannerSummary) => {
+    const ok = await confirm({
+      title: `Revoke ${s.name}?`,
+      message: "They'll be signed out straight away and their code will stop working. Their scan history is kept.",
+      confirmLabel: "Revoke",
+      danger: true,
+    });
+    if (!ok) return;
     act({ action: "revoke", id: s.id }, s.id, {
       action: "REVOKE_SCANNER",
       details: `Revoked ticket scanner "${s.name}"`,
@@ -344,6 +352,8 @@ function ScannersPanel({
           </div>
         </>
       )}
+
+      {dialog}
 
       {/* One-time code — shown once */}
       <AnimatePresence>
