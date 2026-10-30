@@ -35,6 +35,15 @@ export const TESTIMONIAL_RATE_LIMIT = 5;
 /** Max ticket/merch checkout initialisations per IP per window. */
 export const CHECKOUT_RATE_LIMIT = 30;
 
+/**
+ * Max ticket-scanner code attempts per IP per window. Generous because gate
+ * staff often share one venue network; codes have ~850 billion combinations.
+ */
+export const SCANNER_LOGIN_RATE_LIMIT = 30;
+
+/** Max "request a new code" taps per IP per window. */
+export const SCANNER_CODE_REQUEST_RATE_LIMIT = 10;
+
 // ── Tickets ───────────────────────────────────────────────────────────────────
 /** Minimum number of tickets a customer can purchase in one order. */
 export const MIN_TICKET_QUANTITY = 1;

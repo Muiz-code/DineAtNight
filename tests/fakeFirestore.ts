@@ -1,7 +1,8 @@
 /**
  * Minimal in-memory stand-in for the Firebase Admin Firestore API, covering
- * only what lib/payments.ts uses: collection().doc().get/create/update,
- * getAll(), and runTransaction() with tx.get/tx.update.
+ * only what lib/payments.ts and lib/scanners.ts use: collection().get(),
+ * collection().doc().get/create/set/update/delete, getAll(), and
+ * runTransaction() with tx.get/tx.set/tx.update/tx.delete.
  *
  * Plain field values are merged into the store; FieldValue sentinels
  * (increment, serverTimestamp) are recorded in `updates` for assertions.
@@ -22,6 +23,14 @@ export function createFakeFirestore(seed: Record<string, Data> = {}) {
     get: (key: string) => data?.[key],
   });
 
+  const plain = (data: Data) =>
+    Object.fromEntries(Object.entries(data).filter(([, v]) => !(v instanceof FieldValue)));
+
+  const applySet = (path: string, data: Data, merge = false) => {
+    updates.push({ path, data });
+    store.set(path, merge ? { ...(store.get(path) ?? {}), ...plain(data) } : plain(data));
+  };
+
   const applyUpdate = (path: string, data: Data) => {
     updates.push({ path, data });
     const current = store.get(path);
@@ -41,6 +50,7 @@ export function createFakeFirestore(seed: Record<string, Data> = {}) {
         if (store.has(path)) throw Object.assign(new Error("ALREADY_EXISTS"), { code: 6 });
         store.set(path, { ...data });
       },
+      set: async (data: Data, opts?: { merge?: boolean }) => applySet(path, data, opts?.merge),
       update: async (data: Data) => applyUpdate(path, data),
       delete: async () => void store.delete(path),
     };
@@ -48,17 +58,27 @@ export function createFakeFirestore(seed: Record<string, Data> = {}) {
   type DocRef = ReturnType<typeof docRef>;
 
   const db = {
-    collection: (collection: string) => ({ doc: (id: string) => docRef(collection, id) }),
+    collection: (collection: string) => ({
+      doc: (id: string) => docRef(collection, id),
+      get: async () => ({
+        docs: [...store.entries()]
+          .filter(([path]) => path.startsWith(`${collection}/`))
+          .map(([path, data]) => snapshot(path.slice(collection.length + 1), data)),
+      }),
+    }),
     getAll: (...refs: DocRef[]) => Promise.all(refs.map((r) => r.get())),
     runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => {
       // Writes are buffered and applied only if the callback succeeds, like Firestore
-      const pending: [DocRef, Data][] = [];
+      const pending: (() => void)[] = [];
       const tx = {
         get: (ref: DocRef) => ref.get(),
-        update: (ref: DocRef, data: Data) => void pending.push([ref, data]),
+        update: (ref: DocRef, data: Data) => void pending.push(() => applyUpdate(ref.path, data)),
+        set: (ref: DocRef, data: Data, opts?: { merge?: boolean }) =>
+          void pending.push(() => applySet(ref.path, data, opts?.merge)),
+        delete: (ref: DocRef) => void pending.push(() => void store.delete(ref.path)),
       };
       const result = await fn(tx);
-      for (const [ref, data] of pending) applyUpdate(ref.path, data);
+      for (const apply of pending) apply();
       return result;
     },
   };

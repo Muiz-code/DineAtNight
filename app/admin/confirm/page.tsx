@@ -2,247 +2,316 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { confirmTicket, type DanTicket } from "@/lib/firestore";
-import { logAdminAction } from "@/lib/adminLog";
-import { QrCode, Search, Camera } from "lucide-react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
-import dynamicImport from "next/dynamic";
-import LordIcon from "@/app/_components/LordIcon";
+import { motion, AnimatePresence } from "framer-motion";
+import { Copy, KeyRound, Plus, RefreshCw, ShieldOff, Users, X } from "lucide-react";
+import TicketScanner from "@/app/_components/TicketScanner";
+import { logAdminAction } from "@/lib/adminLog";
+import type { ScannerSummary } from "@/lib/scanners";
 
-const CameraScanner = dynamicImport(() => import("@/app/_components/CameraScanner"), { ssr: false });
+const inputCls =
+  "w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700";
 
-type ConfirmState = "idle" | "loading" | "success" | "already" | "error";
+const STATUS: Record<ScannerSummary["status"], { label: string; color: string }> = {
+  code_issued: { label: "Code not used yet", color: "#FFFF00" },
+  logged_in: { label: "Logged in", color: "#00FF41" },
+  logged_out: { label: "Logged out", color: "rgba(255,255,255,0.4)" },
+  revoked: { label: "Revoked", color: "#FF3333" },
+};
 
-function TicketResult({ ticket, state }: { ticket: DanTicket | null; state: ConfirmState }) {
-  if (!ticket) return null;
+const timeOf = (ms: number | null) =>
+  ms
+    ? new Date(ms).toLocaleString("en-NG", { hour: "numeric", minute: "2-digit", day: "numeric", month: "short" })
+    : "—";
 
-  const colors: Record<ConfirmState, string> = {
-    idle: "#888", loading: "#888", success: "#00FF41", already: "#FFFF00", error: "#FF3333",
-  };
-  const labels: Record<ConfirmState, string> = {
-    idle: "", loading: "", success: "Confirmed!", already: "⚠️ Already Confirmed", error: "❌ Error",
-  };
+/* ── Scanner accounts: add people, issue one-time codes, see counts ── */
+function ScannerAccounts() {
+  const [list, setList] = useState<ScannerSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState<string | null>(null); // "create" or a scanner id
+  const [actionError, setActionError] = useState("");
+  const [issued, setIssued] = useState<{ name: string; code: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const color = colors[state];
-
-  return (
-    <motion.div
-      className="rounded-xl border p-6 space-y-3"
-      style={{ borderColor: `${color}30`, background: "#0a0a0a", boxShadow: `0 0 25px ${color}15` }}
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-    >
-      {state === "success" && (
-        <div className="flex justify-center">
-          <LordIcon size={80} colors="primary:#00FF41,secondary:#00FF41" trigger="in" />
-        </div>
-      )}
-      <div className="flex items-center justify-between">
-        <p
-          className="text-sm font-bold uppercase tracking-widest"
-          style={{ color, textShadow: `0 0 12px ${color}70` }}
-        >
-          {labels[state]}
-        </p>
-        <span
-          className="text-[10px] uppercase font-bold tracking-widest px-2.5 py-1 rounded-full"
-          style={{ background: `${color}15`, color }}
-        >
-          {ticket.status}
-        </span>
-      </div>
-
-      <div className="border-t border-white/5 pt-4 space-y-2">
-        {[
-          { label: "Name", value: ticket.name },
-          { label: "Event", value: ticket.eventTitle },
-          { label: "Tickets", value: `${ticket.quantity}x` },
-          { label: "Email", value: ticket.email },
-          { label: "Reference", value: ticket.reference },
-        ].map((row) => (
-          <div key={row.label} className="flex justify-between text-sm">
-            <span className="text-gray-600 text-xs uppercase tracking-widest">{row.label}</span>
-            <span className="text-gray-200 text-xs text-right ml-4 truncate max-w-[60%]">{row.value}</span>
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
-
-function ConfirmContent() {
-  const searchParams = useSearchParams();
-  const prefill = searchParams.get("ref") ?? "";
-
-  const [reference, setReference] = useState(prefill);
-  const [state, setState] = useState<ConfirmState>(prefill ? "loading" : "idle");
-  const [ticket, setTicket] = useState<DanTicket | null>(null);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [showCamera, setShowCamera] = useState(false);
-  const ranPrefill = useRef(false);
-
-  const handleCameraScan = (scannedRef: string) => {
-    setShowCamera(false);
-    setReference(scannedRef);
-    handleConfirm(scannedRef);
-  };
-
-  const handleConfirm = async (ref?: string) => {
-    const r = (ref ?? reference).trim();
-    if (!r) return;
-    setState("loading");
-    setTicket(null);
-    setErrorMsg("");
-
+  const load = useCallback(async () => {
     try {
-      const { ok, already, ticket: t } = await confirmTicket(r);
-      setTicket(t);
-      if (!t) { setState("error"); setErrorMsg("Ticket not found."); return; }
-      if (ok) {
-        await logAdminAction("CONFIRM_TICKET", `Confirmed ticket ${r} for "${t.name}" — ${t.eventTitle}`, { type: "ticket", id: r, name: t.name });
-        setState("success"); return;
-      }
-      if (already) { setState("already"); return; }
-      if (t.status === "pending") {
-        setState("error");
-        setErrorMsg("Payment not verified. This ticket has not been paid for.");
+      const res = await fetch("/api/admin/scanners");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setList(data.scanners);
+      setLoadError("");
+    } catch {
+      setLoadError("Could not load scanner accounts.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Refresh every 30s so counts and code requests stay current during the event
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 30_000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  const act = async (
+    body: Record<string, string>,
+    key: string,
+    logAs: { action: string; details: string; name: string },
+  ) => {
+    setBusy(key);
+    setActionError("");
+    try {
+      const res = await fetch("/api/admin/scanners", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setActionError(data.error ?? "Something went wrong.");
         return;
       }
-      setState("error");
-      setErrorMsg("Could not confirm ticket.");
-    } catch {
-      setState("error");
-      setErrorMsg("Network error.");
+      if (data.code) {
+        setIssued({ name: logAs.name, code: data.code });
+        setCopied(false);
+      }
+      await logAdminAction(logAs.action, logAs.details, { type: "scanner", id: data.id ?? body.id, name: logAs.name });
+      await load();
+      if (body.action === "create") setName("");
+    } finally {
+      setBusy(null);
     }
   };
 
-  // Auto-confirm if ref is in URL
-  useEffect(() => {
-    if (prefill && !ranPrefill.current) {
-      ranPrefill.current = true;
-      handleConfirm(prefill);
-    }
-  }, [prefill]);
+  const scanUrl = `${(process.env.NEXT_PUBLIC_APP_URL ?? "https://www.dineatnight.com").replace(/\/$/, "")}/scan`;
+  const totals = list.reduce(
+    (t, s) => ({ scans: t.scans + s.scanCount, admitted: t.admitted + s.admittedCount }),
+    { scans: 0, admitted: 0 },
+  );
+  const requests = list.filter((s) => s.newCodeRequestedAt && s.status !== "revoked");
 
   return (
-    <div className="max-w-lg mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white uppercase tracking-widest">Confirm Tickets</h1>
-        <p className="text-gray-600 text-sm mt-0.5">
-          Scan or enter a ticket reference to verify and admit the attendee.
-        </p>
+    <div className="rounded-xl border p-6 space-y-5" style={{ borderColor: "rgba(255,255,255,0.08)", background: "#0a0a0a" }}>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <div className="flex items-center gap-2 text-[#FFFF00]">
+            <Users className="w-5 h-5" />
+            <span className="text-sm font-bold uppercase tracking-widest">Ticket Scanners</span>
+          </div>
+          <p className="text-gray-600 text-xs mt-1 leading-relaxed">
+            Add someone by name to get a one-time code. They open{" "}
+            <span className="text-gray-400 font-mono">{scanUrl}</span> on their phone and enter it. The code works
+            once — if they log out, give them a new one.
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-white font-bold text-lg leading-none">{totals.admitted}</p>
+          <p className="text-gray-600 text-[10px] uppercase tracking-widest mt-1">
+            admitted · {totals.scans} tickets
+          </p>
+        </div>
       </div>
 
-      {/* Input */}
-      <div className="rounded-xl border p-6 space-y-4" style={{ borderColor: "rgba(255,255,0,0.15)", background: "#0a0a0a" }}>
-        <div className="flex items-center gap-3 text-[#FFFF00] mb-2">
-          <QrCode className="w-5 h-5" />
-          <span className="text-sm font-bold uppercase tracking-widest">Scan or Enter Reference</span>
-        </div>
-
-        <p className="text-gray-600 text-xs leading-relaxed">
-          Use your camera, a USB QR scanner, or type the reference manually to verify and admit the attendee.
-        </p>
-
-        {/* Camera scan button */}
-        <motion.button
-          onClick={() => setShowCamera(true)}
-          className="w-full flex items-center justify-center gap-3 py-4 rounded-xl border-2 border-dashed font-bold text-sm uppercase tracking-widest transition-all"
-          style={{ borderColor: "rgba(255,255,0,0.3)", color: "#FFFF00" }}
-          whileHover={{ borderColor: "rgba(255,255,0,0.7)", backgroundColor: "rgba(255,255,0,0.05)" }}
-          whileTap={{ scale: 0.98 }}
+      {/* Add a scanner */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          act({ action: "create", name }, "create", {
+            action: "CREATE_SCANNER",
+            details: `Added ticket scanner "${name.trim()}"`,
+            name: name.trim(),
+          });
+        }}
+        className="flex gap-2"
+      >
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Person's name, e.g. Tunde (Gate A)"
+          maxLength={60}
+          className={inputCls}
+        />
+        <button
+          type="submit"
+          disabled={busy === "create" || name.trim().length < 2}
+          className="flex items-center gap-1.5 px-4 rounded-lg font-bold text-xs uppercase tracking-widest text-black flex-shrink-0 disabled:opacity-40"
+          style={{ background: "#FFFF00" }}
         >
-          <Camera className="w-5 h-5" />
-          Scan with Camera
-        </motion.button>
+          <Plus className="w-4 h-4" /> Get code
+        </button>
+      </form>
+      {actionError && <p className="text-[#FF3333] text-xs">{actionError}</p>}
 
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-px bg-white/5" />
-          <span className="text-gray-700 text-xs uppercase tracking-widest">or enter manually</span>
-          <div className="flex-1 h-px bg-white/5" />
+      {requests.length > 0 && (
+        <div className="rounded-lg border border-[#FFFF00]/30 bg-[#FFFF00]/5 px-4 py-3 text-xs text-[#FFFF00]">
+          New code requested by: {requests.map((s) => s.name).join(", ")}
         </div>
+      )}
 
-        <div className="flex gap-2">
-          <input
-            value={reference}
-            onChange={(e) => setReference(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleConfirm(); }}
-            placeholder="e.g. paystack_ref_abc123"
-            className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700 font-mono"
-            autoFocus
-          />
-          <motion.button
-            onClick={() => handleConfirm()}
-            disabled={state === "loading" || !reference.trim()}
-            className="px-5 py-3 rounded-lg font-bold text-sm text-black flex items-center gap-2"
-            style={{
-              background: state === "loading" || !reference.trim() ? "rgba(255,255,0,0.3)" : "#FFFF00",
-              boxShadow: state === "loading" || !reference.trim() ? "none" : "0 0 20px rgba(255,255,0,0.4)",
-            }}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
+      {/* Accounts */}
+      {loading ? (
+        <p className="text-gray-700 text-xs">Loading…</p>
+      ) : loadError ? (
+        <p className="text-[#FF3333] text-xs">{loadError}</p>
+      ) : list.length === 0 ? (
+        <p className="text-gray-700 text-xs">No scanners yet. Scans you make here are counted under your name.</p>
+      ) : (
+        <div className="space-y-2">
+          {list.map((s) => {
+            const st = STATUS[s.status];
+            return (
+              <div
+                key={s.id}
+                className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 rounded-lg border border-white/8 bg-white/[0.02]"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-white text-sm font-bold">{s.name}</span>
+                    <span
+                      className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border"
+                      style={{ color: st.color, borderColor: `${st.color}55` }}
+                    >
+                      {s.kind === "admin" ? "Admin" : st.label}
+                    </span>
+                    {s.newCodeRequestedAt && s.status !== "revoked" && (
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-[#FFFF00]">
+                        • wants a new code
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-gray-500 text-xs mt-0.5">
+                    <span className="text-gray-300 font-bold">{s.scanCount}</span> tickets ·{" "}
+                    <span className="text-gray-300 font-bold">{s.admittedCount}</span> people admitted · last scan{" "}
+                    {timeOf(s.lastScanAt)}
+                  </p>
+                </div>
+                {s.kind === "staff" && (
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      onClick={() =>
+                        act({ action: "new-code", id: s.id }, s.id, {
+                          action: "SCANNER_NEW_CODE",
+                          details: `Issued a new scanner code for "${s.name}"`,
+                          name: s.name,
+                        })
+                      }
+                      disabled={busy === s.id}
+                      title="Issue a new one-time code (signs out their current session)"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-white/10 text-gray-300 hover:text-[#FFFF00] hover:border-yellow-400/30 transition-all disabled:opacity-40"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" /> New code
+                    </button>
+                    {s.status !== "revoked" && (
+                      <button
+                        onClick={() => {
+                          if (!window.confirm(`Revoke ${s.name}? They'll be signed out and their code will stop working.`)) return;
+                          act({ action: "revoke", id: s.id }, s.id, {
+                            action: "REVOKE_SCANNER",
+                            details: `Revoked ticket scanner "${s.name}"`,
+                            name: s.name,
+                          });
+                        }}
+                        disabled={busy === s.id}
+                        title="Sign out and block this scanner"
+                        className="w-9 h-9 rounded-lg border border-white/10 flex items-center justify-center text-gray-500 hover:text-[#FF3333] hover:border-red-400/25 transition-all disabled:opacity-40"
+                      >
+                        <ShieldOff className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* One-time code — shown once */}
+      <AnimatePresence>
+        {issued && (
+          <motion.div
+            className="fixed inset-0 z-[400] flex items-center justify-center px-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
           >
-            {state === "loading" ? (
-              <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Search className="w-4 h-4" />
-            )}
-          </motion.button>
-        </div>
-      </div>
-
-      {/* Result */}
-      <AnimatePresence mode="wait">
-        {state !== "idle" && state !== "loading" && (
-          <TicketResult key="ticket-result" ticket={ticket} state={state} />
-        )}
-        {state !== "idle" && state !== "loading" && (
-          <motion.div key="confirm-another" className="text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <button
-              onClick={() => { setState("idle"); setTicket(null); setReference(""); setErrorMsg(""); }}
-              className="text-gray-600 hover:text-gray-400 text-xs uppercase tracking-widest transition-colors"
+            <div className="absolute inset-0 bg-black/80" onClick={() => setIssued(null)} />
+            <motion.div
+              className="relative w-full max-w-sm rounded-2xl border border-[#FFFF00]/30 bg-[#0a0a0a] p-6 space-y-4 text-center"
+              initial={{ scale: 0.94, y: 16 }}
+              animate={{ scale: 1, y: 0 }}
             >
-              Confirm Another Ticket →
-            </button>
+              <button onClick={() => setIssued(null)} className="absolute top-4 right-4 text-gray-600 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+              <KeyRound className="w-6 h-6 text-[#FFFF00] mx-auto" />
+              <p className="text-gray-400 text-sm">One-time code for <span className="text-white font-bold">{issued.name}</span></p>
+              <p className="font-mono text-3xl font-bold tracking-[0.2em] text-[#FFFF00]">{issued.code}</p>
+              <button
+                onClick={() => {
+                  navigator.clipboard
+                    ?.writeText(`Your Dine At Night ticket scanner code: ${issued.code}\nOpen ${scanUrl} and enter it. It works once — don't log out until your shift ends.`)
+                    .then(() => setCopied(true))
+                    .catch(() => {});
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest border border-white/15 text-gray-300 hover:text-white"
+              >
+                <Copy className="w-3.5 h-3.5" /> {copied ? "Copied" : "Copy message"}
+              </button>
+              <p className="text-gray-600 text-xs leading-relaxed">
+                Share it with them now — it won&apos;t be shown again. It works once, on one phone, at{" "}
+                <span className="font-mono text-gray-400">{scanUrl}</span>.
+              </p>
+            </motion.div>
           </motion.div>
         )}
-        {state === "error" && (
-          <motion.p key="error-msg" className="text-center text-[#FF3333] text-xs" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            {errorMsg}
-          </motion.p>
-        )}
       </AnimatePresence>
-
-      {/* Pro tip */}
-      <div className="rounded-lg border p-4 bg-[#0a0a0a]" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-        <p className="text-gray-600 text-xs uppercase tracking-widest mb-1">💡 Pro tip</p>
-        <p className="text-gray-600 text-xs leading-relaxed">
-          Tap <strong className="text-gray-400">Scan with Camera</strong> to use your phone or laptop camera. For gate speed, a USB or Bluetooth QR scanner auto-fills and submits instantly.
-        </p>
-      </div>
-
-      {/* Camera scanner modal */}
-      {showCamera && (
-        <CameraScanner
-          onScan={handleCameraScan}
-          onClose={() => setShowCamera(false)}
-        />
-      )}
     </div>
   );
 }
 
-export default function AdminConfirmPage() {
+function ScanContent() {
+  const prefill = useSearchParams().get("ref") ?? "";
+
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center h-48">
-        <div className="w-8 h-8 border-4 border-[#FFFF00] border-t-transparent rounded-full animate-spin" />
+    <div className="max-w-lg mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-white uppercase tracking-widest">Scan Tickets</h1>
+        <p className="text-gray-600 text-sm mt-0.5">
+          Scan or enter a ticket reference to verify and admit the attendee. Your scans are counted under your name.
+        </p>
       </div>
-    }>
-      <ConfirmContent />
+
+      <TicketScanner
+        prefillRef={prefill}
+        onAdmitted={(t) =>
+          logAdminAction("CONFIRM_TICKET", `Confirmed ticket ${t.reference} for "${t.name}" — ${t.eventTitle}`, {
+            type: "ticket",
+            id: t.reference,
+            name: t.name,
+          })
+        }
+      />
+
+      <ScannerAccounts />
+    </div>
+  );
+}
+
+export default function AdminScanPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-48">
+          <div className="w-8 h-8 border-4 border-[#FFFF00] border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <ScanContent />
     </Suspense>
   );
 }

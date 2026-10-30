@@ -43,7 +43,7 @@ export default function CameraScanner({ onScan, onClose }: CameraScannerProps) {
           (decodedText) => {
             if (unmounted) return;
             // Extract reference from URL if the QR encodes the full confirm URL
-            // e.g. https://dineatnight.com/admin/confirm?ref=PAYSTACK_REF
+            // e.g. https://dineatnight.com/scan?ref=PAYSTACK_REF (older tickets: /admin/confirm?ref=…)
             let ref = decodedText.trim();
             try {
               const url = new URL(decodedText);

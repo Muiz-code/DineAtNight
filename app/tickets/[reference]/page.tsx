@@ -235,7 +235,7 @@ export default function TicketPage() {
           {/* QR Code */}
           <div className="flex flex-col items-center py-7 gap-3">
             <QRCode
-              value={`${process.env.NEXT_PUBLIC_APP_URL ?? ""}/admin/confirm?ref=${ticket.reference}`}
+              value={`${process.env.NEXT_PUBLIC_APP_URL ?? ""}/scan?ref=${ticket.reference}`}
               size={180}
             />
             <p className="text-gray-700 text-[10px] tracking-widest uppercase">

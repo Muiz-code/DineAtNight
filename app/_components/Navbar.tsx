@@ -31,7 +31,8 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
 
-  if (pathname.startsWith("/admin")) return null;
+  // Admin and the gate scanner are tools, not site pages
+  if (pathname.startsWith("/admin") || pathname.startsWith("/scan")) return null;
   const { logoText } = Images();
 
   const toggleMenu = () => {
