@@ -53,17 +53,15 @@ export const MAX_TICKET_QUANTITY = 20;
 
 // ── Vendor approval email ─────────────────────────────────────────────────────
 /**
- * Details quoted in the vendor approval email. The event title, date and venue
- * are taken from the vendor's upcoming event when it exists in admin — these
- * are only the fallbacks used before that event has been created.
+ * Fills {eventTitle}, {eventDate} and {venue} in vendor approval emails before
+ * the vendor's event exists in admin — once it does, its real details are used.
+ * Fees and deadlines are part of each email's wording, edited in admin
+ * (Admin → Events → Email Templates, see lib/vendorEmailTemplates.ts).
  */
 export const VENDOR_APPROVAL_DEFAULTS = {
   eventTitle: "Dine At Night 2026",
   eventDate: "2026-12-17", // YYYY-MM-DD
   venue: "Federal Palace, Victoria Island, Lagos",
-  stallFee: "₦180,000",
-  acceptanceDeadline: "Friday, 6th November 2026",
-  paymentDeadline: "Sunday, 15th November 2026",
 };
 
 // ── Admin logs ────────────────────────────────────────────────────────────────

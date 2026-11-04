@@ -10,8 +10,10 @@ import {
   sendOrderStatusEmail,
   sendTicketConfirmationEmail,
   sendVendorAppliedEmail,
+  sendVendorApprovalEmail,
   sendVendorStatusEmail,
 } from "@/lib/resend";
+import { getVendorTemplate } from "@/lib/emailTemplates";
 import { isTestEmailTemplate, type TestEmailTemplate } from "@/lib/testEmailTemplates";
 
 type Template = TestEmailTemplate;
@@ -64,13 +66,15 @@ async function createTestTicket(email: string, eventTitle: string) {
 
 async function sendTemplate(template: Template, to: string): Promise<boolean> {
   switch (template) {
-    case "vendor-approved": {
+    case "vendor-approved":
+    case "vendor-mini-market": {
+      // The saved wording, exactly as vendors get it ([gaps] included, so drafts can be checked)
       const ev = await nextEvent();
-      return sendVendorStatusEmail({
+      return sendVendorApprovalEmail({
         ownerName: SAMPLE.ownerName,
         brandName: SAMPLE.brandName,
         email: to,
-        status: "approved",
+        template: await getVendorTemplate(template === "vendor-approved" ? "standard" : "mini_market"),
         ...(ev
           ? {
               eventTitle: ev.title,

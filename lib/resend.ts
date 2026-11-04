@@ -10,6 +10,13 @@
 
 import { Resend } from "resend";
 import { VENDOR_APPROVAL_DEFAULTS } from "./constants";
+import {
+  renderBodyHtml,
+  renderBodyText,
+  renderLine,
+  type TemplateVars,
+  type VendorEmailTemplate,
+} from "./vendorEmailTemplates";
 import { hmacHex } from "./session";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -428,60 +435,66 @@ export async function sendVendorAppliedEmail(data: {
   });
 }
 
+type ApprovalEmailData = {
+  ownerName: string;
+  brandName: string;
+  email: string;
+  template: VendorEmailTemplate;
+  /** The vendor's event. Falls back to VENDOR_APPROVAL_DEFAULTS. */
+  eventTitle?: string;
+  eventDate?: string; // ISO date string
+  venue?: string;
+};
+
+/**
+ * Renders a vendor approval email from an editable template (see
+ * lib/vendorEmailTemplates.ts). Also used by the admin preview.
+ */
+export function renderVendorApprovalEmail(data: Omit<ApprovalEmailData, "email">): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const vars: TemplateVars = {
+    ownerName: data.ownerName,
+    brandName: data.brandName,
+    eventTitle: data.eventTitle || VENDOR_APPROVAL_DEFAULTS.eventTitle,
+    eventDate: formatOrdinalDate(data.eventDate || VENDOR_APPROVAL_DEFAULTS.eventDate),
+    venue: data.venue || VENDOR_APPROVAL_DEFAULTS.venue,
+  };
+  const accent = "#00FF41";
+  const preview = renderLine(data.template.preview, vars);
+  const html = baseEmail(
+    accent,
+    `
+    ${heading("You've Been Selected!", accent)}
+    ${renderBodyHtml(data.template.body, vars, accent)}
+    <p style="margin:24px 0 0;color:#808080;font-size:11px;line-height:1.6;">To make sure our emails reach you, please add ${escapeHtml(FROM_EMAIL)} to your contacts. If this landed in spam or promotions, mark it “Not spam”.</p>
+  `,
+    preview ? escapeHtml(preview) : undefined,
+  );
+  return { subject: renderLine(data.template.subject, vars), html, text: renderBodyText(data.template.body, vars) };
+}
+
+export async function sendVendorApprovalEmail(data: ApprovalEmailData): Promise<boolean> {
+  const { subject, html, text } = renderVendorApprovalEmail(data);
+  return send({ to: data.email, subject, html, text });
+}
+
+/** Decline / revoke emails. (Approvals use sendVendorApprovalEmail.) */
 export async function sendVendorStatusEmail(data: {
   ownerName: string;
   brandName: string;
   email: string;
-  status: "approved" | "declined" | "revoked";
+  status: "declined" | "revoked";
   reason?: string;
-  /** Approval only — the vendor's event. Falls back to VENDOR_APPROVAL_DEFAULTS. */
-  eventTitle?: string;
-  eventDate?: string; // ISO date string
-  venue?: string;
 }): Promise<boolean> {
   const h = escapeFields(data);
-  const isApproved = h.status === "approved";
   const isDeclined = h.status === "declined";
-  const accent = isApproved ? "#00FF41" : isDeclined ? "#FF3333" : "#FFFF00";
-  const statusLabel = isApproved ? "You've Been Selected!" : isDeclined ? "Application Update" : "Approval Revoked";
+  const accent = isDeclined ? "#FF3333" : "#FFFF00";
+  const statusLabel = isDeclined ? "Application Update" : "Approval Revoked";
 
-  // Raw values for the subject / plain-text body; HTML uses the escaped `h` copies
-  const eventTitle = data.eventTitle || VENDOR_APPROVAL_DEFAULTS.eventTitle;
-  const eventDate = formatOrdinalDate(data.eventDate || VENDOR_APPROVAL_DEFAULTS.eventDate);
-  const venue = data.venue || VENDOR_APPROVAL_DEFAULTS.venue;
-  const hEventTitle = h.eventTitle || escapeHtml(VENDOR_APPROVAL_DEFAULTS.eventTitle);
-  const hEventDate = escapeHtml(eventDate);
-  const hVenue = h.venue || escapeHtml(VENDOR_APPROVAL_DEFAULTS.venue);
-  const { stallFee, acceptanceDeadline, paymentDeadline } = VENDOR_APPROVAL_DEFAULTS;
-  const p = (html: string) =>
-    `<p style="margin:0 0 16px;color:#888;font-size:14px;line-height:1.7;">${html}</p>`;
-  const section = (title: string) =>
-    `<p style="margin:28px 0 10px;color:#00FF41;font-size:11px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;">${title}</p>`;
-
-  const bodyContent = isApproved ? `
-    ${p(`Hi ${h.ownerName},`)}
-    ${p(`Congratulations! 🎉`)}
-    ${p(`We’re excited to let you know that you’ve been selected as a vendor for <strong style="color:#ccc;">${hEventTitle}</strong>, taking place on <strong style="color:#ccc;">${hEventDate}</strong> at <strong style="color:#ccc;">${hVenue}</strong>!`)}
-    ${p(`We’re looking forward to having you be part of this year’s experience.`)}
-
-    ${section("Stall Fee &amp; Confirmation")}
-    ${p(`Our vendor participation fee is a flat rate of <strong style="color:#ccc;">${stallFee}</strong>, with zero commission on sales. All revenue generated from your stall is entirely yours!`)}
-    ${p(`If you’re happy to proceed, kindly reply to this email confirming your acceptance by <strong style="color:#ccc;">${acceptanceDeadline}</strong>, and we’ll share the payment details to secure your spot.`)}
-    ${p(`Please note that the payment deadline is <strong style="color:#ccc;">${paymentDeadline}</strong>.`)}
-
-    ${section("Event Sponsorships")}
-    ${p(`As we finalise partnerships for this year’s event, we wanted to make you aware that some of our official sponsors, including a potential financial partner, may have certain requirements for participating vendors. These could include a simple onboarding process or the use of a designated POS system during the event.`)}
-    ${p(`Nothing has been finalised at this stage, and we want to assure you that any requirements will be reasonable, clearly communicated in advance and designed to minimise disruption to your operations.`)}
-    ${p(`Please also confirm that you’re comfortable with this in principle, subject to the specific requirements being shared with you.`)}
-
-    ${section("Next Steps")}
-    ${p(`Kindly reply by <strong style="color:#ccc;">${acceptanceDeadline}</strong> confirming your acceptance of the stall fee and acknowledging the potential sponsor requirements.`)}
-    ${p(`Once we receive your confirmation, we’ll share the payment details. Full payment must be completed by <strong style="color:#ccc;">${paymentDeadline}</strong> to officially secure your spot.`)}
-    ${p(`Following payment confirmation, our team will be in touch with stall allocations, setup requirements and further event logistics.`)}
-    ${p(`We can’t wait to bring ${hEventTitle} to life with you!`)}
-    <p style="margin:24px 0 0;color:#888;font-size:14px;line-height:1.7;">Warm regards,<br/><strong style="color:#ccc;">The Dine At Night Team</strong></p>
-    <p style="margin:24px 0 0;color:#808080;font-size:11px;line-height:1.6;">To make sure our emails reach you, please add ${escapeHtml(FROM_EMAIL)} to your contacts. If this landed in spam or promotions, mark it “Not spam”.</p>
-  ` : isDeclined ? `
+  const bodyContent = isDeclined ? `
     <p style="margin:0 0 20px;color:#888;font-size:14px;line-height:1.7;">
       Hi ${h.ownerName}, thank you for your interest in vending at Dine At Night.
     </p>
@@ -507,32 +520,20 @@ export async function sendVendorStatusEmail(data: {
     ${ctaButton(`${APP_URL}/vendors`, "View Vendor Page", "#FFFF00")}
   `;
 
-  const html = baseEmail(
-    accent,
-    `
+  const html = baseEmail(accent, `
     ${heading(statusLabel, accent)}
     ${bodyContent}
-  `,
-    isApproved
-      ? `Your stall at ${hEventTitle}, ${hEventDate}, ${hVenue}. Please reply by ${acceptanceDeadline}.`
-      : undefined,
-  );
+  `);
 
   return send({
     to: data.email,
-    // Plain, business-like subject — "Congratulations, you've been selected"
-    // next to a ₦ amount reads as lottery spam to filters
-    subject: isApproved
-      ? `${eventTitle}: your vendor application (${data.brandName})`
-      : isDeclined
-        ? `Application update — ${data.brandName} | Dine At Night`
-        : `Approval revoked — ${data.brandName} | Dine At Night`,
+    subject: isDeclined
+      ? `Application update — ${data.brandName} | Dine At Night`
+      : `Approval revoked — ${data.brandName} | Dine At Night`,
     html,
-    text: isApproved
-      ? `Hi ${data.ownerName}, congratulations! You've been selected as a vendor for ${eventTitle}, taking place on ${eventDate} at ${venue}. The stall fee is a flat ${stallFee} with zero commission on sales. Please reply confirming your acceptance (and that you're comfortable in principle with potential sponsor requirements, such as a designated POS system) by ${acceptanceDeadline}. Full payment must be completed by ${paymentDeadline}. Warm regards, The Dine At Night Team`
-      : isDeclined
-        ? `Hi ${data.ownerName}, unfortunately ${data.brandName} was not selected for this edition.`
-        : `Hi ${data.ownerName}, the approval for ${data.brandName} has been revoked.${data.reason ? " Reason: " + data.reason : ""}`,
+    text: isDeclined
+      ? `Hi ${data.ownerName}, unfortunately ${data.brandName} was not selected for this edition.`
+      : `Hi ${data.ownerName}, the approval for ${data.brandName} has been revoked.${data.reason ? " Reason: " + data.reason : ""}`,
   });
 }
 

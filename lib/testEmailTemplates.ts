@@ -3,7 +3,8 @@
  * Shared by the page (labels) and POST /api/admin/test-email (validation).
  */
 export const TEST_EMAIL_TEMPLATES = [
-  { key: "vendor-approved", label: "Vendor — selected (approval)", group: "Vendors" },
+  { key: "vendor-approved", label: "Vendor — selected (Standard stall)", group: "Vendors" },
+  { key: "vendor-mini-market", label: "Vendor — selected (Mini Market)", group: "Vendors" },
   { key: "vendor-declined", label: "Vendor — not selected (decline / revoke)", group: "Vendors" },
   { key: "vendor-revoked", label: "Vendor — approval revoked (old template)", group: "Vendors" },
   { key: "vendor-applied", label: "Vendor — application received", group: "Vendors" },

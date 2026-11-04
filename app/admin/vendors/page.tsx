@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { logAdminAction } from "@/lib/adminLog";
 import ImageUpload from "@/app/_components/ImageUpload";
-import { useConfirm } from "@/app/_components/ConfirmDialog";
+import VendorEmailModal, {
+  type VendorEmailChoice,
+  type VendorEmailResult,
+} from "@/app/admin/_components/VendorEmailModal";
+import { PACKAGE_LABELS, type VendorPackage } from "@/lib/vendorEmailTemplates";
 import MultiImageUpload from "@/app/_components/MultiImageUpload";
 import {
   getAllVendors,
@@ -198,6 +202,7 @@ export default function AdminVendorsPage() {
   const [regFilter, setRegFilter] = useState<RegFilter>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [packageFilter, setPackageFilter] = useState<"all" | VendorPackage>("all");
   const [visibilityFilter, setVisibilityFilter] =
     useState<VisibilityFilter>("all");
 
@@ -206,7 +211,6 @@ export default function AdminVendorsPage() {
   const [publishing, setPublishing] = useState(false);
 
   // Re-send approval email: per-vendor status of the last attempt
-  const { confirm, dialog } = useConfirm();
   const [resendStatus, setResendStatus] = useState<
     Record<string, "sending" | "sent" | "failed">
   >({});
@@ -283,14 +287,22 @@ export default function AdminVendorsPage() {
     );
   };
 
+  /** The vendor's event details for the approval email ({eventTitle} etc). */
+  const eventInfoFor = (v: DanVendor) => {
+    const ev = findApprovalEvent(v);
+    return ev
+      ? { eventTitle: ev.title, eventDate: new Date(ev.date.seconds * 1000).toISOString(), venue: ev.venue }
+      : {};
+  };
+
   /* ── Email helper (server-side via /api/emails/vendor-status) ── */
   const sendVendorEmail = (
     status: "approved" | "declined" | "revoked",
     v: DanVendor,
     declineReason?: string,
-  ): Promise<boolean> => {
-    const ev = status === "approved" ? findApprovalEvent(v) : null;
-    return fetch("/api/emails/vendor-status", {
+    approval?: Pick<VendorEmailChoice, "pkg" | "emailType" | "custom">,
+  ): Promise<{ ok: boolean; error?: string }> =>
+    fetch("/api/emails/vendor-status", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -299,38 +311,69 @@ export default function AdminVendorsPage() {
         email: v.email,
         status,
         reason: declineReason,
-        ...(ev
+        ...(status === "approved"
           ? {
-              eventTitle: ev.title,
-              eventDate: new Date(ev.date.seconds * 1000).toISOString(),
-              venue: ev.venue,
+              ...eventInfoFor(v),
+              emailType: approval?.emailType === "custom" ? "custom" : approval?.pkg ?? v.package ?? "standard",
+              ...(approval?.emailType === "custom" ? { custom: approval.custom } : {}),
             }
           : {}),
       }),
     })
-      .then((res) => res.ok)
-      .catch(() => false);
+      .then(async (res) => (res.ok ? { ok: true } : { ok: false, error: (await res.json().catch(() => ({}))).error }))
+      .catch(() => ({ ok: false, error: "Network error" }));
+
+  /* ── Approve & email (single, resend, bulk) — see VendorEmailModal ── */
+  const [emailModal, setEmailModal] = useState<{ mode: "approve" | "email"; vendors: DanVendor[] } | null>(null);
+
+  const runVendorEmails = async (
+    mode: "approve" | "email",
+    targets: DanVendor[],
+    choice: VendorEmailChoice,
+    onProgress: (done: number) => void,
+  ): Promise<VendorEmailResult[]> => {
+    const results: VendorEmailResult[] = [];
+    for (const [i, v] of targets.entries()) {
+      let updated: DanVendor = { ...v, package: choice.pkg };
+      try {
+        if (mode === "approve") {
+          await updateVendorStatus(v.id!, "approved");
+          await logAdminAction("APPROVE_VENDOR", `Approved vendor "${v.brandName}" (${PACKAGE_LABELS[choice.pkg]})`, { type: "vendor", id: v.id, name: v.brandName });
+          updated = { ...updated, status: "approved", published: false };
+        }
+        if (v.package !== choice.pkg) await updateVendor(v.id!, { package: choice.pkg });
+      } catch {
+        results.push({ vendor: v, ok: false, error: "Could not update the vendor" });
+        onProgress(i + 1);
+        continue;
+      }
+      setVendors((prev) => prev.map((x) => (x.id === v.id ? updated : x)));
+      if (detailVendor?.id === v.id) setDetailVendor(updated);
+
+      if (choice.emailType === "none") {
+        results.push({ vendor: v, ok: true });
+      } else {
+        // Space sends out to stay under Resend's per-second limit
+        if (i > 0) await new Promise((r) => setTimeout(r, 600));
+        setResendStatus((p) => ({ ...p, [v.id!]: "sending" }));
+        const res = await sendVendorEmail("approved", v, undefined, choice);
+        setResendStatus((p) => ({ ...p, [v.id!]: res.ok ? "sent" : "failed" }));
+        results.push({ vendor: v, ...res });
+        if (res.ok)
+          await logAdminAction(
+            "SEND_VENDOR_EMAIL",
+            `Sent ${choice.emailType === "custom" ? "a custom" : `the ${PACKAGE_LABELS[choice.pkg]}`} approval email to "${v.brandName}" (${v.email})`,
+            { type: "vendor", id: v.id, name: v.brandName },
+          );
+      }
+      onProgress(i + 1);
+    }
+    if (mode === "email") setSelectedIds([]);
+    return results;
   };
 
   /* ── Actions ── */
-  const handleResendApproval = async (v: DanVendor) => {
-    const proceed = await confirm({
-      title: "Resend email?",
-      message: (
-        <>
-          Send the &ldquo;selected&rdquo; email to <span className="text-white font-bold">{v.brandName}</span> again at{" "}
-          <span className="text-white">{v.email}</span>?
-        </>
-      ),
-      confirmLabel: "Send",
-    });
-    if (!proceed) return;
-    setResendStatus((p) => ({ ...p, [v.id!]: "sending" }));
-    const ok = await sendVendorEmail("approved", v);
-    setResendStatus((p) => ({ ...p, [v.id!]: ok ? "sent" : "failed" }));
-    if (ok)
-      await logAdminAction("RESEND_VENDOR_EMAIL", `Re-sent approval email to "${v.brandName}" (${v.email})`, { type: "vendor", id: v.id, name: v.brandName });
-  };
+  const handleResendApproval = (v: DanVendor) => setEmailModal({ mode: "email", vendors: [v] });
 
   const handlePublish = async (targets: DanVendor[], published: boolean) => {
     if (targets.length === 0) return;
@@ -357,14 +400,8 @@ export default function AdminVendorsPage() {
     }
   };
 
-  const handleApprove = async (v: DanVendor) => {
-    await updateVendorStatus(v.id!, "approved");
-    await logAdminAction("APPROVE_VENDOR", `Approved vendor "${v.brandName}"`, { type: "vendor", id: v.id, name: v.brandName });
-    const updated = { ...v, status: "approved" as const, published: false };
-    setVendors((prev) => prev.map((x) => (x.id === v.id ? updated : x)));
-    if (detailVendor?.id === v.id) setDetailVendor(updated);
-    sendVendorEmail("approved", v);
-  };
+  // Approving opens the package + email picker (VendorEmailModal) instead of emailing straight away
+  const handleApprove = (v: DanVendor) => setEmailModal({ mode: "approve", vendors: [v] });
 
   const openDecline = (v: DanVendor) => {
     setDeclineTarget(v);
@@ -541,9 +578,11 @@ export default function AdminVendorsPage() {
   };
 
   const currentList =
-    activeTab === "approved" && visibilityFilter !== "all"
-      ? byTab.approved.filter((v) =>
-          visibilityFilter === "live" ? v.published : !v.published,
+    activeTab === "approved"
+      ? byTab.approved.filter(
+          (v) =>
+            (visibilityFilter === "all" || (visibilityFilter === "live" ? v.published : !v.published)) &&
+            (packageFilter === "all" || (v.package ?? "standard") === packageFilter),
         )
       : byTab[activeTab];
 
@@ -751,7 +790,34 @@ export default function AdminVendorsPage() {
               />
             ))}
           </div>
-          <div className="flex gap-2 sm:ml-auto">
+          <div className="flex gap-1">
+            {(
+              [
+                ["all", "All packages"],
+                ["standard", PACKAGE_LABELS.standard],
+                ["mini_market", PACKAGE_LABELS.mini_market],
+              ] as ["all" | VendorPackage, string][]
+            ).map(([key, label]) => (
+              <FilterChip
+                key={key}
+                active={packageFilter === key}
+                onClick={() => {
+                  setPackageFilter(key);
+                  setSelectedIds([]);
+                }}
+                label={label}
+              />
+            ))}
+          </div>
+          <div className="flex gap-2 sm:ml-auto flex-wrap">
+            <button
+              onClick={() => setEmailModal({ mode: "email", vendors: selectedInView })}
+              disabled={selectedInView.length === 0}
+              title="Set the package and send an approval email to the selected vendors"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border transition-all border-white/10 text-gray-300 hover:text-white disabled:opacity-30"
+            >
+              <Mail className="w-3.5 h-3.5" /> Email
+            </button>
             <button
               onClick={() => handlePublish(selectedInView, true)}
               disabled={publishing || selectedInView.length === 0}
@@ -785,7 +851,7 @@ export default function AdminVendorsPage() {
             <div className="flex items-center gap-3 px-5 py-10 rounded-xl border border-white/5 text-gray-700 text-sm justify-center flex-col">
               <Store className="w-8 h-8 opacity-30" />
               <span>
-                {filtersActive || (activeTab === "approved" && visibilityFilter !== "all")
+                {filtersActive || (activeTab === "approved" && (visibilityFilter !== "all" || packageFilter !== "all"))
                   ? "No vendors match these filters"
                   : activeTab === "pending"
                   ? "No pending applications"
@@ -861,6 +927,7 @@ export default function AdminVendorsPage() {
                       </span>
                     )}
                     {v.status === "approved" && <VisibilityBadge live={!!v.published} />}
+                    {v.package === "mini_market" && <PackageBadge />}
                     {(v.reapplyCount ?? 0) > 0 && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#FFFF00]/40 text-[#FFFF00] uppercase tracking-widest font-bold">
                         ↩ Re-applicant
@@ -1048,6 +1115,7 @@ export default function AdminVendorsPage() {
                   {detailVendor.status === "approved" && (
                     <VisibilityBadge live={!!detailVendor.published} />
                   )}
+                  {detailVendor.package === "mini_market" && <PackageBadge />}
                 </div>
                 <button
                   onClick={() => {
@@ -2114,7 +2182,15 @@ export default function AdminVendorsPage() {
         )}
       </AnimatePresence>
 
-      {dialog}
+      {emailModal && (
+        <VendorEmailModal
+          mode={emailModal.mode}
+          vendors={emailModal.vendors}
+          eventFor={eventInfoFor}
+          onRun={(choice, onProgress) => runVendorEmails(emailModal.mode, emailModal.vendors, choice, onProgress)}
+          onClose={() => setEmailModal(null)}
+        />
+      )}
 
       {/* ── DELETE CONFIRM MODAL ── */}
       <AnimatePresence>
@@ -2199,6 +2275,17 @@ function FilterChip({
     >
       {label}
     </button>
+  );
+}
+
+function PackageBadge() {
+  return (
+    <span
+      className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border"
+      style={{ color: "#C084FC", borderColor: "rgba(192,132,252,0.35)" }}
+    >
+      {PACKAGE_LABELS.mini_market}
+    </span>
   );
 }
 

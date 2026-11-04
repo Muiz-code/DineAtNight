@@ -27,6 +27,7 @@ import { clearCache } from "./cache";
 import { ADMIN_LOG_RETENTION_MS } from "./constants";
 import type { SerializedEvent, SerializedGalleryItem } from "./publicData";
 import { StaticImport } from "next/dist/shared/lib/get-img-props";
+import type { VendorPackage } from "./vendorEmailTemplates";
 
 /**
  * Cast a Firestore document snapshot to a typed model, injecting `id`.
@@ -306,6 +307,7 @@ export interface DanVendor {
   imageUrls?: string[]; // all images accumulated from re-applications (slideshow)
   status: "pending" | "approved" | "declined";
   published?: boolean; // shown on the public site — only when approved AND published
+  package?: VendorPackage; // which approval email / pricing: "standard" (default) or "mini_market"
   declineReason?: string;
   menu?: VendorMenuCategory[]; // structured menu (optional)
   menuImages?: string[]; // menu photos/screenshots, shown as-is (any menu style)
