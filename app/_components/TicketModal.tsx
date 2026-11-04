@@ -7,6 +7,7 @@ import { X } from "lucide-react";
 import { useScrollLock } from "@/lib/useScrollLock";
 import { type DanEvent } from "@/lib/firestore";
 import { track } from "@vercel/analytics";
+import { ageConfirmText, ageLimitLabel, allowedAgeRanges, hasAgeLimit } from "@/lib/ageLimits";
 
 const inputCls =
   "w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700";
@@ -47,8 +48,15 @@ export default function TicketModal({
     name: "",
     email: "",
     phone: "",
+    ageRange: "",
     quantity: 1,
   });
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
+
+  // The event's age limit (if any) narrows the age ranges and must be confirmed
+  const limited = hasAgeLimit(event);
+  const ageRanges = allowedAgeRanges(event);
+  const ageRange = ageRanges.includes(form.ageRange as (typeof ageRanges)[number]) ? form.ageRange : "";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -77,6 +85,8 @@ export default function TicketModal({
           eventId: event.id,
           eventTitle: event.title,
           ...form,
+          ageRange,
+          ageConfirmed: limited ? ageConfirmed : undefined,
           ticketPrice: activePrice,
           ticketType: hasTiers ? (selectedTier?.name ?? "") : undefined,
         }),
@@ -184,6 +194,7 @@ export default function TicketModal({
                     onChange={(e) => {
                       setSelectedId(e.target.value);
                       setForm((p) => ({ ...p, quantity: 1 }));
+                      setAgeConfirmed(false); // each event's limit is confirmed separately
                       setError("");
                     }}
                     className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all cursor-pointer"
@@ -312,6 +323,44 @@ export default function TicketModal({
                   className={inputCls}
                 />
               </div>
+              <div>
+                <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
+                  Age Range *
+                </label>
+                <select
+                  name="ageRange"
+                  value={ageRange}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all cursor-pointer invalid:text-gray-600"
+                >
+                  <option value="" disabled className="bg-[#0a0a0a]">
+                    Select your age range
+                  </option>
+                  {ageRanges.map((range) => (
+                    <option key={range} value={range} className="bg-[#0a0a0a] text-white">
+                      {range}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {limited && (
+                <div className="rounded-lg border border-[#FFFF00]/25 bg-[#FFFF00]/[0.04] p-4 space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-widest text-[#FFFF00]">
+                    Age limit: {ageLimitLabel(event)}
+                  </p>
+                  <label className="flex items-start gap-3 text-sm text-gray-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={ageConfirmed}
+                      onChange={(e) => setAgeConfirmed(e.target.checked)}
+                      required
+                      className="mt-0.5 w-4 h-4 accent-[#FFFF00] cursor-pointer flex-shrink-0"
+                    />
+                    <span>{ageConfirmText(event)}. ID may be checked at the entrance.</span>
+                  </label>
+                </div>
+              )}
               <div>
                 <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
                   Quantity

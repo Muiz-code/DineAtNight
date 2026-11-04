@@ -92,6 +92,8 @@ export interface DanEvent {
   highlights: string[];
   sponsors?: DanSponsor[];
   externalTicketUrl?: string;
+  minAge?: number | null; // optional age limit — see lib/ageLimits.ts
+  maxAge?: number | null;
   createdAt?: Timestamp;
 }
 
@@ -102,6 +104,8 @@ export interface DanTicket {
   name: string;
   email: string;
   phone: string;
+  ageRange?: string; // buyer's age range from checkout (TICKET_AGE_RANGES); missing on older tickets
+  ageConfirmed?: boolean; // buyer confirmed the event's age limit (only when the event has one)
   quantity: number;
   ticketType?: string; // e.g. "VIP", "VVIP", "General Admission" — undefined = legacy single-price
   amount: number; // in kobo (Paystack)

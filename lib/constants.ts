@@ -51,6 +51,10 @@ export const MIN_TICKET_QUANTITY = 1;
 /** Maximum number of tickets a customer can purchase in one order. */
 export const MAX_TICKET_QUANTITY = 20;
 
+/** Age ranges buyers pick from at checkout (required). Saved on the ticket as-is. */
+export const TICKET_AGE_RANGES = ["18–24", "25–34", "35–44", "45–54", "55+"] as const;
+export type TicketAgeRange = (typeof TICKET_AGE_RANGES)[number];
+
 // ── Vendor approval email ─────────────────────────────────────────────────────
 /**
  * Fills {eventTitle}, {eventDate} and {venue} in vendor approval emails before

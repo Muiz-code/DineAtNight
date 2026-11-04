@@ -109,6 +109,7 @@ export default function AdminTicketsPage() {
       Name: t.name,
       Email: t.email,
       Phone: (t as DanTicket & { phone?: string }).phone ?? "",
+      "Age Range": t.ageRange ?? "—",
       Reference: t.reference,
       "Ticket Type": t.ticketType ?? "—",
       Quantity: t.quantity,
@@ -406,7 +407,10 @@ export default function AdminTicketsPage() {
                                 <tr key={t.id} className="border-b hover:bg-white/[0.02] transition-colors" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
                                   <td className="px-5 py-3">
                                     <p className="text-white font-medium">{t.name}</p>
-                                    <p className="text-gray-600 text-xs">{t.email}</p>
+                                    <p className="text-gray-600 text-xs">
+                                      {t.email}
+                                      {t.ageRange && <span className="text-gray-500"> · {t.ageRange}</span>}
+                                    </p>
                                   </td>
                                   <td className="px-4 py-3 hidden sm:table-cell">
                                     <code className="text-gray-500 text-xs font-mono">{t.reference}</code>
@@ -496,7 +500,7 @@ export default function AdminTicketsPage() {
                         className="text-gray-600 text-[9px] uppercase tracking-widest border-b sticky top-0"
                         style={{ borderColor: "rgba(255,255,255,0.06)", background: "#0d0d0d" }}
                       >
-                        {["#", "Name", "Email", "Reference", "Type", "Qty", "Amount", "Status", "Purchased"].map((col) => (
+                        {["#", "Name", "Email", "Age", "Reference", "Type", "Qty", "Amount", "Status", "Purchased"].map((col) => (
                           <th key={col} className="text-left px-4 py-2.5 whitespace-nowrap font-bold">{col}</th>
                         ))}
                       </tr>
@@ -513,6 +517,7 @@ export default function AdminTicketsPage() {
                             <td className="px-4 py-2.5 text-gray-600">{i + 1}</td>
                             <td className="px-4 py-2.5 text-white font-medium whitespace-nowrap">{t.name}</td>
                             <td className="px-4 py-2.5 text-gray-500 whitespace-nowrap">{t.email}</td>
+                            <td className="px-4 py-2.5 text-gray-400 whitespace-nowrap">{t.ageRange ?? "—"}</td>
                             <td className="px-4 py-2.5 font-mono text-gray-500 text-[10px] whitespace-nowrap">{t.reference}</td>
                             <td className="px-4 py-2.5 text-gray-400 whitespace-nowrap">{t.ticketType ?? "—"}</td>
                             <td className="px-4 py-2.5 text-gray-300">{t.quantity}x</td>

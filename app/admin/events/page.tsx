@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { logAdminAction, currentAdmin } from "@/lib/adminLog";
 import ImageUpload from "@/app/_components/ImageUpload";
+import { ageLimitLabel, parseAgeLimit } from "@/lib/ageLimits";
 
 const inputCls =
   "w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700";
@@ -42,6 +43,8 @@ const EMPTY_FORM = {
   status: "draft" as DanEvent["status"],
   imageUrl: "",
   externalTicketUrl: "",
+  minAge: "",
+  maxAge: "",
   highlights: "",
   sponsors: [] as DanSponsor[],
   ticketTypes: [] as DanTicketType[],
@@ -67,6 +70,7 @@ export default function AdminEventsPage() {
   const [editing, setEditing] = useState<DanEvent | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [ageError, setAgeError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [togglingPast, setTogglingPast] = useState<string | null>(null);
   const [revenueByEvent, setRevenueByEvent] = useState<Record<string, number>>(
@@ -147,6 +151,8 @@ export default function AdminEventsPage() {
       status: ev.status,
       imageUrl: ev.imageUrl,
       externalTicketUrl: ev.externalTicketUrl ?? "",
+      minAge: ev.minAge ? String(ev.minAge) : "",
+      maxAge: ev.maxAge ? String(ev.maxAge) : "",
       highlights: (ev.highlights ?? []).join("\n"),
       sponsors: ev.sponsors ?? [],
       ticketTypes: ev.ticketTypes ?? [],
@@ -157,6 +163,12 @@ export default function AdminEventsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    const ageLimit = parseAgeLimit(form.minAge, form.maxAge);
+    if (typeof ageLimit === "string") {
+      setAgeError(ageLimit);
+      return;
+    }
+    setAgeError("");
     setSaving(true);
     try {
       const dateTime = new Date(`${form.date}T${form.time}:00`);
@@ -188,6 +200,9 @@ export default function AdminEventsPage() {
         status: form.status,
         imageUrl: form.imageUrl,
         ...(externalTicketUrl && { externalTicketUrl }),
+        // null clears a previously set limit
+        minAge: ageLimit.minAge ?? null,
+        maxAge: ageLimit.maxAge ?? null,
         highlights: form.highlights
           .split("\n")
           .map((s) => s.trim())
@@ -764,6 +779,47 @@ export default function AdminEventsPage() {
                         </div>
                       );
                     })()}
+
+                    {/* Age limit */}
+                    <div>
+                      <label className="block text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">
+                        Age Limit
+                        <span className="ml-1.5 text-gray-700 normal-case">
+                          (optional — buyers must confirm it at checkout)
+                        </span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <input
+                          type="number"
+                          min="1"
+                          max="120"
+                          value={form.minAge}
+                          onChange={(e) => setForm((p) => ({ ...p, minAge: e.target.value }))}
+                          placeholder="Minimum age, e.g. 18"
+                          className={inputCls}
+                        />
+                        <input
+                          type="number"
+                          min="1"
+                          max="120"
+                          value={form.maxAge}
+                          onChange={(e) => setForm((p) => ({ ...p, maxAge: e.target.value }))}
+                          placeholder="Maximum age (optional)"
+                          className={inputCls}
+                        />
+                      </div>
+                      {ageError ? (
+                        <p className="text-[#FF3333] text-xs mt-1.5">{ageError}</p>
+                      ) : (
+                        ageLimitLabel({ minAge: Number(form.minAge) || null, maxAge: Number(form.maxAge) || null }) && (
+                          <p className="text-gray-600 text-xs mt-1.5">
+                            Checkout will show &ldquo;Age limit:{" "}
+                            {ageLimitLabel({ minAge: Number(form.minAge) || null, maxAge: Number(form.maxAge) || null })}
+                            &rdquo; and ask buyers to confirm it.
+                          </p>
+                        )
+                      )}
+                    </div>
 
                     {/* Ticket Types */}
                     <div>

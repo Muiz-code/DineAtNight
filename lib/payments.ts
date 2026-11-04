@@ -39,6 +39,8 @@ export type TicketQuote = {
   eventTitle: string;
   ticketType?: string;
   unitPrice: number; // Naira
+  minAge?: number | null;
+  maxAge?: number | null;
 };
 
 /**
@@ -72,7 +74,7 @@ export async function quoteTicket(eventId: string, quantity: number, ticketType?
     throw new Error(cap <= 0 ? "This event is sold out." : `Only ${cap} ticket${cap === 1 ? "" : "s"} left.`);
   }
 
-  return { eventTitle: event.title, ticketType: tierName, unitPrice };
+  return { eventTitle: event.title, ticketType: tierName, unitPrice, minAge: event.minAge, maxAge: event.maxAge };
 }
 
 export async function createPendingTicket(

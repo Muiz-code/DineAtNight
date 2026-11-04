@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPendingTicket, quoteTicket } from "@/lib/payments";
 import { checkRateLimit, clientIp } from "@/lib/rateLimit";
-import { MIN_TICKET_QUANTITY, MAX_TICKET_QUANTITY, CHECKOUT_RATE_LIMIT, RATE_LIMIT_WINDOW_MS } from "@/lib/constants";
+import { allowedAgeRanges, hasAgeLimit } from "@/lib/ageLimits";
+import {
+  MIN_TICKET_QUANTITY,
+  MAX_TICKET_QUANTITY,
+  CHECKOUT_RATE_LIMIT,
+  RATE_LIMIT_WINDOW_MS,
+  TICKET_AGE_RANGES,
+  type TicketAgeRange,
+} from "@/lib/constants";
 
 export async function POST(req: NextRequest) {
   const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
@@ -15,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { eventId, name, email, phone, quantity, ticketType } = body;
+    const { eventId, name, email, phone, quantity, ticketType, ageRange, ageConfirmed } = body;
 
     // ── Input validation ───────────────────────────────────────────────────
     if (!eventId || typeof eventId !== "string" || eventId.includes("/")) {
@@ -26,6 +34,9 @@ export async function POST(req: NextRequest) {
     }
     if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: "Invalid email" }, { status: 400 });
+    }
+    if (!TICKET_AGE_RANGES.includes(ageRange as TicketAgeRange)) {
+      return NextResponse.json({ error: "Please select your age range" }, { status: 400 });
     }
     const qty = Number(quantity);
     if (!Number.isInteger(qty) || qty < MIN_TICKET_QUANTITY || qty > MAX_TICKET_QUANTITY) {
@@ -38,6 +49,14 @@ export async function POST(req: NextRequest) {
       quote = await quoteTicket(eventId, qty, typeof ticketType === "string" ? ticketType : undefined);
     } catch (err) {
       return NextResponse.json({ error: err instanceof Error ? err.message : "Invalid ticket request" }, { status: 400 });
+    }
+    // ── The event's age limit, if any ──
+    const limited = hasAgeLimit(quote);
+    if (limited && ageConfirmed !== true) {
+      return NextResponse.json({ error: "Please confirm the event's age limit" }, { status: 400 });
+    }
+    if (!allowedAgeRanges(quote).includes(ageRange)) {
+      return NextResponse.json({ error: "This event isn't open to your age range" }, { status: 400 });
     }
     // ──────────────────────────────────────────────────────────────────────
 
@@ -64,6 +83,7 @@ export async function POST(req: NextRequest) {
             eventTitle: quote.eventTitle.slice(0, 200),
             name: cleanName,
             phone: cleanPhone,
+            ageRange,
             quantity: qty,
             ticketType: quote.ticketType ?? "",
           },
@@ -87,6 +107,8 @@ export async function POST(req: NextRequest) {
       name: cleanName,
       email,
       phone: cleanPhone,
+      ageRange,
+      ...(limited ? { ageConfirmed: true } : {}),
       quantity: qty,
       ...(quote.ticketType ? { ticketType: quote.ticketType } : {}),
       amount: amountKobo,

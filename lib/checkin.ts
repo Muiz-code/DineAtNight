@@ -20,6 +20,7 @@ export type CheckinTicket = {
   name: string;
   email: string;
   phone: string;
+  ageRange: string | null;
   quantity: number;
   ticketType: string | null;
   amountNaira: number;
@@ -42,6 +43,7 @@ export function toCheckinTicket(reference: string, t: DanTicket & { paidAt?: unk
     name: t.name,
     email: t.email,
     phone: t.phone ?? "",
+    ageRange: t.ageRange ?? null,
     quantity: t.quantity,
     ticketType: t.ticketType ?? null,
     amountNaira: t.amount / 100,

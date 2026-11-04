@@ -52,6 +52,7 @@ async function createTestTicket(email: string, eventTitle: string) {
     name: SAMPLE.customerName,
     email,
     phone: "",
+    ageRange: "25–34",
     quantity: 2,
     amount: 0,
     status: "paid" as const,
