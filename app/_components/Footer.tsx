@@ -1,5 +1,6 @@
 "use client";
 
+import { PRIVACY_NOTICE_URL, TICKET_TERMS_URL } from "@/lib/constants";
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -268,16 +269,16 @@ export default function Footer() {
           </p>
           <div className="flex gap-6">
             <a
-              href="#"
+              href={PRIVACY_NOTICE_URL}
               className="text-gray-700 hover:text-gray-500 text-xs transition-colors"
             >
               Privacy Policy
             </a>
             <a
-              href="#"
+              href={TICKET_TERMS_URL}
               className="text-gray-700 hover:text-gray-500 text-xs transition-colors"
             >
-              Terms of Service
+              Terms &amp; Conditions
             </a>
           </div>
         </div>

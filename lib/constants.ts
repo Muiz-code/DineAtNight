@@ -57,12 +57,12 @@ export type TicketAgeRange = (typeof TICKET_AGE_RANGES)[number];
 
 // ── Ticket checkout consent ───────────────────────────────────────────────────
 /**
- * Linked from the "Before you check out" boxes at ticket checkout. Leave a URL
- * empty until the document exists — the wording then shows without a link.
- * (Can be a page on this site, e.g. "/terms", or a shared doc / PDF link.)
+ * Linked from the "Before you check out" boxes at ticket checkout and the
+ * footer. An empty URL shows the wording without a link. The Privacy Notice
+ * points at the T&Cs' data-protection section until a separate notice exists.
  */
-export const TICKET_TERMS_URL = "";
-export const PRIVACY_NOTICE_URL = "";
+export const TICKET_TERMS_URL = "/terms";
+export const PRIVACY_NOTICE_URL = "/terms#data-protection";
 
 // ── Vendor approval email ─────────────────────────────────────────────────────
 /**
