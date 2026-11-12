@@ -47,8 +47,10 @@ export default function AdminTestEmailsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ to, templates: selected, guestEmails }),
       });
-      const data = await res.json();
-      if (!res.ok) setError(data.error ?? "Failed to send.");
+      // A crashed server replies with an HTML error page, not JSON — say so instead of "network error"
+      const data = await res.json().catch(() => null);
+      if (!data) setError("Something went wrong sending the test emails. Please try again.");
+      else if (!res.ok) setError(data.error ?? "Failed to send.");
       else setResults(data.results);
     } catch {
       setError("Network error — please try again.");
@@ -207,7 +209,7 @@ export default function AdminTestEmailsPage() {
               )}
               <span className={r.ok ? "text-gray-300" : "text-[#FF3333]"}>
                 {labelFor(r.template)}
-                {r.ok ? "" : " — failed (check the Resend dashboard / server logs)"}
+                {r.ok ? "" : " — couldn't send. Try again in a minute."}
               </span>
             </p>
           ))}

@@ -3,7 +3,6 @@ import { Resend } from "resend";
 import { generateUnsubscribeUrl } from "@/lib/resend";
 import { getAdminEmail } from "@/lib/session";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? "hello@dineatnight.com";
 const FROM = `Dine At Night <${FROM_EMAIL}>`;
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "https://dineatnight.com").replace(/\/$/, "");
@@ -58,6 +57,12 @@ export async function POST(req: NextRequest) {
   if (!(await getAdminEmail(req))) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
+  // Created per request: the SDK throws on a missing key, which would crash the route
+  if (!process.env.RESEND_API_KEY) {
+    console.error("[newsletter] RESEND_API_KEY is not set");
+    return NextResponse.json({ error: "Emails can't be sent right now. Please contact the site developer." }, { status: 500 });
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
 
   try {
     const { emails, subject, body, linkUrl, linkLabel } = await req.json();

@@ -14,7 +14,8 @@ import {
 export async function POST(req: NextRequest) {
   const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
   if (!PAYSTACK_SECRET) {
-    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+    console.error("[paystack/initialize] PAYSTACK_SECRET_KEY is not set");
+    return NextResponse.json({ error: "Ticket sales are temporarily unavailable. Please try again shortly." }, { status: 500 });
   }
   if (!(await checkRateLimit(`checkout:${clientIp(req)}`, CHECKOUT_RATE_LIMIT, RATE_LIMIT_WINDOW_MS))) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });

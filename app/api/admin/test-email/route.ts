@@ -255,10 +255,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Check the guest email addresses." }, { status: 400 });
   }
 
+  if (!process.env.RESEND_API_KEY) {
+    console.error("[test-email] RESEND_API_KEY is not set");
+    return NextResponse.json(
+      { error: "Emails can't be sent right now. Please contact the site developer." },
+      { status: 500 },
+    );
+  }
+
   const results: { template: Template; ok: boolean }[] = [];
   for (const [i, template] of templates.entries()) {
     if (i > 0) await new Promise((r) => setTimeout(r, 600));
-    results.push({ template, ok: await sendTemplate(template, to, guestEmails) });
+    let ok = false;
+    try {
+      ok = await sendTemplate(template, to, guestEmails);
+    } catch (err) {
+      // One broken sample (e.g. a database error creating a test ticket) shouldn't hide the rest
+      console.error(`[test-email] ${template} failed:`, err);
+    }
+    results.push({ template, ok });
   }
   return NextResponse.json({ results });
 }

@@ -42,14 +42,14 @@ export default function AdminLoginPage() {
       if (!sessionRes.ok) {
         await auth.signOut();
         const { error, missing } = await sessionRes.json().catch(() => ({}));
+        // Technical detail for whoever fixes it; admins see plain wording
+        console.error("[admin login] session failed:", sessionRes.status, error, missing ?? "");
         if (error === "Not authorised") {
-          setError("This account is not on the admin list (ADMIN_EMAILS).");
-        } else if (error === "Server misconfiguration") {
-          setError(`Password is correct, but admin login isn't configured on the server. Missing in Vercel: ${(missing ?? []).join(", ") || "env vars"}.`);
-        } else if (error === "Invalid token") {
-          setError("Password is correct, but the server couldn't verify the sign-in. Check FIREBASE_SERVICE_ACCOUNT is for this Firebase project.");
+          setError("This account doesn't have admin access. Ask the site owner to add you.");
+        } else if (error === "Server misconfiguration" || error === "Invalid token") {
+          setError("Admin sign-in isn't available right now. Please contact the site developer.");
         } else {
-          setError(`Sign-in failed (server ${sessionRes.status}). Please try again.`);
+          setError("Sign-in failed. Please try again.");
         }
         return;
       }

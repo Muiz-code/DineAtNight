@@ -15,7 +15,8 @@ import {
  */
 export async function POST(req: NextRequest) {
   if (!process.env.SESSION_SECRET) {
-    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+    console.error("[scan/login] SESSION_SECRET is not set");
+    return NextResponse.json({ error: "Scanning isn't available right now. Please contact an admin." }, { status: 500 });
   }
   if (!(await checkRateLimit(`scan-login:${clientIp(req)}`, SCANNER_LOGIN_RATE_LIMIT, RATE_LIMIT_WINDOW_MS))) {
     return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });

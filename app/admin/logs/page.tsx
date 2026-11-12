@@ -164,11 +164,7 @@ export default function AdminLogsPage() {
               <p className="text-gray-700 text-sm">
                 {logs.length === 0 ? "No activity logged yet." : "No entries match your filters."}
               </p>
-              {logs.length === 0 && (
-                <p className="text-gray-800 text-xs max-w-sm mx-auto">
-                  Make sure your Firestore rules allow authenticated reads/writes to the <code className="text-gray-600">admin_logs</code> collection.
-                </p>
-              )}
+
             </div>
           ) : (
             <div className="rounded-xl border overflow-hidden" style={{ borderColor: "rgba(255,255,255,0.06)" }}>

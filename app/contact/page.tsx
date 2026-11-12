@@ -451,9 +451,8 @@ export default function ContactPage() {
                     {emailError}
                   </div>
                   <p className="text-gray-500 text-sm mb-6">
-                    Check the browser console (F12 → Console) for more detail.
-                    <br />
-                    Likely cause: network error or server misconfiguration.
+                    Please check your internet connection and try again. If it keeps happening, email us at
+                    contact@dineatnight.com.
                   </p>
                   <button
                     onClick={() => {

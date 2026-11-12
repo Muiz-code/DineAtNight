@@ -1474,8 +1474,7 @@ export default function HomeClient({
               </div>
             ) : vendorsError ? (
               <p className="text-gray-700 text-center text-sm tracking-widest uppercase py-16">
-                Couldn&apos;t load vendors — check Firestore rules for the
-                vendors collection
+                Vendors couldn&apos;t load right now — please refresh the page
               </p>
             ) : approvedVendors.length === 0 ? (
               <p className="text-gray-700 text-center text-sm tracking-widest uppercase py-16">

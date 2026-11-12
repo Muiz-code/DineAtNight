@@ -92,7 +92,7 @@ export default function AdminDashboard() {
         setTickets(txs);
       } catch (err) {
         console.error("Firestore load error:", err);
-        setError("Could not load data. Check Firestore rules and that the database is created.");
+        setError("Refresh the page — if it keeps happening, contact the site developer.");
       } finally {
         setLoading(false);
       }
@@ -331,9 +331,8 @@ export default function AdminDashboard() {
         <div className="flex items-start gap-3 rounded-xl border border-[#FF3333]/30 bg-[#FF3333]/05 p-4">
           <AlertCircle className="w-4 h-4 text-[#FF3333] flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-[#FF3333] text-sm font-medium">Firestore Error</p>
+            <p className="text-[#FF3333] text-sm font-medium">Couldn&apos;t load the dashboard</p>
             <p className="text-gray-500 text-xs mt-0.5">{error}</p>
-            <p className="text-gray-600 text-xs mt-2">Fix: Firebase Console → Firestore Database → Create database → Start in test mode</p>
           </div>
         </div>
       )}

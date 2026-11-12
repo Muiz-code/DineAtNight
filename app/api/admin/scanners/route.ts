@@ -34,7 +34,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
   if (!process.env.SESSION_SECRET) {
-    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+    console.error("[admin/scanners] SESSION_SECRET is not set");
+    return NextResponse.json({ error: "Scanner codes can't be created right now. Please contact the site developer." }, { status: 500 });
   }
 
   let body: Record<string, unknown>;

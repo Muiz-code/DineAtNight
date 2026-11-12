@@ -56,7 +56,7 @@ export default function AdminTicketsPage() {
         if (evs.length > 0) setSelectedEvent(evs[0].id!);
       } catch (err) {
         console.error(err);
-        setError("Could not load events. Check Firestore rules.");
+        setError("Couldn't load events. Refresh the page — if it keeps happening, contact the site developer.");
       } finally {
         setLoadingEvents(false);
       }
@@ -161,9 +161,6 @@ export default function AdminTicketsPage() {
           <div>
             <p className="text-[#FF3333] text-sm font-medium">Error</p>
             <p className="text-gray-500 text-xs mt-0.5">{error}</p>
-            <p className="text-gray-600 text-xs mt-2">
-              Fix: Firebase Console → Firestore Database → Rules → allow read, write: if true;
-            </p>
           </div>
         </div>
       )}

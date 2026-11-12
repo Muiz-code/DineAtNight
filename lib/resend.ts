@@ -19,7 +19,15 @@ import {
 } from "./vendorEmailTemplates";
 import { hmacHex } from "./session";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Created on first send: the SDK throws when the key is missing, which would
+// otherwise crash every route that imports this file (e.g. a local .env.local
+// without RESEND_API_KEY). Without a key, sends just fail and return false.
+let resendClient: Resend | null = null;
+function getResend(): Resend | null {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return null;
+  return (resendClient ??= new Resend(key));
+}
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? "hello@dineatnight.com";
 const FROM = `Dine At Night <${FROM_EMAIL}>`;
 const ADMIN_TO = process.env.RESEND_ADMIN_EMAIL ?? "hello@dineatnight.com";
@@ -179,6 +187,11 @@ async function send(opts: {
   text: string;
   headers?: Record<string, string>;
 }): Promise<boolean> {
+  const resend = getResend();
+  if (!resend) {
+    console.error("[resend] RESEND_API_KEY is not set — email not sent:", opts.subject);
+    return false;
+  }
   try {
     const { error } = await resend.emails.send({
       from: FROM,

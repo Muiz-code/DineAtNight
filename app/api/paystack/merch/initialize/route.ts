@@ -13,14 +13,14 @@ export async function POST(req: NextRequest) {
   if (!PAYSTACK_SECRET) {
     console.error("[merch/initialize] PAYSTACK_SECRET_KEY is not set");
     return NextResponse.json(
-      { error: "Payment service not configured. Contact support." },
+      { error: "Checkout is temporarily unavailable. Please try again shortly." },
       { status: 500 }
     );
   }
   if (process.env.NODE_ENV === "production" && PAYSTACK_SECRET.startsWith("sk_test_")) {
     console.error("[merch/initialize] FATAL: production build is using a Paystack TEST secret key.");
     return NextResponse.json(
-      { error: "Payment service not configured for production." },
+      { error: "Checkout is temporarily unavailable. Please try again shortly." },
       { status: 500 }
     );
   }
