@@ -24,6 +24,7 @@ The single technical reference for this codebase. For day-to-day admin tasks see
 15. [Security headers](#15-security-headers)
 16. [Deployment](#16-deployment)
 17. [Gotchas](#17-gotchas)
+18. [Errors and debugging](#18-errors-and-debugging)
 
 ---
 
@@ -434,3 +435,18 @@ Checklist for a new environment or after big changes:
   abandoned. To upgrade, download the new tarball from cdn.sheetjs.com into `vendor/`.
 - **CRLF:** the repo uses Windows line endings in most files; keep your editor's
   setting so diffs stay small.
+
+---
+
+## 18. Errors and debugging
+
+**Rule:** error messages people see (buyers, vendors, gate staff, admins) are
+plain language that says what happened and what to do. Technical detail — env
+var names, Firestore, status codes — goes to `console.error("[route-name] …")`
+only, never on screen. Live logs are in **Vercel → Logs**; locally, the
+`npm run dev` terminal.
+
+See **[docs/DEBUGGING.md](docs/DEBUGGING.md)** for the full guide: which
+on-screen message maps to which cause, env setup pitfalls
+(`FIREBASE_SERVICE_ACCOUNT` format, `RESEND_API_KEY`, Node version), and
+payment/email issues we have already hit.
