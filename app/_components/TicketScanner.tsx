@@ -135,13 +135,17 @@ export default function TicketScanner({
         return;
       }
       setTicket(data.ticket);
+      // Tickets bought together and sent to different emails: "Ada's order: 2 of 3 checked in."
+      const order = "order" in data ? data.order : undefined;
+      const orderNote = order ? `${order.buyer}'s order: ${order.scanned} of ${order.total} checked in.` : "";
       if (data.result === "confirmed") {
         setState("success");
+        setNote(orderNote);
         onAdmitted?.(data.ticket);
       } else if (data.result === "already") {
         setState("already");
         setNote(
-          `Already scanned${data.confirmedBy ? ` by ${data.confirmedBy}` : ""}${data.confirmedAt ? ` at ${timeOf(data.confirmedAt)}` : ""}. Do not admit again.`,
+          `Already scanned${data.confirmedBy ? ` by ${data.confirmedBy}` : ""}${data.confirmedAt ? ` at ${timeOf(data.confirmedAt)}` : ""}. Do not admit again.${orderNote ? ` ${orderNote}` : ""}`,
         );
       } else {
         setState("error");

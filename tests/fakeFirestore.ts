@@ -76,6 +76,11 @@ export function createFakeFirestore(seed: Record<string, Data> = {}) {
         set: (ref: DocRef, data: Data, opts?: { merge?: boolean }) =>
           void pending.push(() => applySet(ref.path, data, opts?.merge)),
         delete: (ref: DocRef) => void pending.push(() => void store.delete(ref.path)),
+        create: (ref: DocRef, data: Data) =>
+          void pending.push(() => {
+            if (store.has(ref.path)) throw Object.assign(new Error("ALREADY_EXISTS"), { code: 6 });
+            applySet(ref.path, data);
+          }),
       };
       const result = await fn(tx);
       for (const apply of pending) apply();

@@ -144,6 +144,21 @@ describe("confirmTicketScan", () => {
     expect(await confirmTicketScan("NOPE", staff)).toEqual({ result: "not_found" });
   });
 
+  it("shows how much of a split order is in (Ada 1/3, then 2/3)", async () => {
+    fake.store.set("tickets/ORD", { name: "Ada", eventTitle: "DAN", quantity: 1, status: "paid", guestReferences: ["ORD-2", "ORD-3"] });
+    fake.store.set("tickets/ORD-2", { name: "Bo", eventTitle: "DAN", quantity: 1, status: "paid", parentReference: "ORD" });
+    fake.store.set("tickets/ORD-3", { name: "Cy", eventTitle: "DAN", quantity: 1, status: "paid", parentReference: "ORD" });
+
+    expect(await confirmTicketScan("ORD-2", staff)).toMatchObject({
+      result: "confirmed",
+      ticket: { name: "Bo" },
+      order: { buyer: "Ada", scanned: 1, total: 3 },
+    });
+    expect(await confirmTicketScan("ORD", staff)).toMatchObject({ order: { buyer: "Ada", scanned: 2, total: 3 } });
+    // Re-scanning doesn't count twice
+    expect(await confirmTicketScan("ORD-2", staff)).toMatchObject({ result: "already", order: { scanned: 2, total: 3 } });
+  });
+
   it("never exposes the buyer's email or amount at the gate", async () => {
     const res = await confirmTicketScan("PAID1", staff);
     expect(JSON.stringify(res)).not.toContain("a@x.com");

@@ -5,7 +5,6 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import SectionFadeIn from "../_components/SectionFadeIn";
 import Link from "next/link";
-import VendorModal from "../_components/VendorModal";
 import TicketModal from "../_components/TicketModal";
 import Toast from "../_components/Toast";
 import Footer from "../_components/Footer";
@@ -207,7 +206,6 @@ export default function EventClient({
   initialPast: SerializedEvent[] | null;
 }) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [vendorModalOpen, setVendorModalOpen] = useState(false);
   const [ticketEvent, setTicketEvent] = useState<DanEvent | null>(null);
   const [activeEvents, setActiveEvents] = useState<DanEvent[]>(() => hydrateEvents(initialActive ?? []));
   const [pastEvents, setPastEvents] = useState<DanEvent[]>(() => hydrateEvents(initialPast ?? []));
@@ -343,13 +341,6 @@ export default function EventClient({
           >
             Buy Tickets
           </NeonButton>
-          <NeonButton
-            color="#fff"
-            glowColor="rgba(255,51,51,0.65)"
-            onClick={() => { track("vendor_modal_open"); setVendorModalOpen(true); }}
-          >
-            Become a Vendor
-          </NeonButton>
         </motion.div>
       </section>
 
@@ -416,135 +407,6 @@ export default function EventClient({
           </section>
         </SectionFadeIn>
       )}
-
-      {/* ── SPONSORS ── */}
-      {(() => {
-        const allSponsors = [...activeEvents, ...pastEvents]
-          .flatMap((ev) => ev.sponsors ?? [])
-          .filter(
-            (sp, idx, arr) => arr.findIndex((s) => s.name === sp.name) === idx,
-          );
-        if (loading || allSponsors.length === 0) return null;
-        const colors = ["#FFFF00", "#00FF41", "#FF3333", "#FFFF00"];
-        const glows = [
-          "rgba(255,255,0,0.5)",
-          "rgba(0,255,65,0.5)",
-          "rgba(255,51,51,0.5)",
-          "rgba(255,255,0,0.5)",
-        ];
-        const useMarquee = isMobile || allSponsors.length > 4;
-        const marqueeDuration = allSponsors.length * (isMobile ? 2 : 5);
-
-        const SponsorCard = ({
-          sp,
-          i,
-          keyPrefix,
-        }: {
-          sp: { name: string; logoUrl?: string };
-          i: number;
-          keyPrefix: string;
-        }) => {
-          const c = colors[i % colors.length];
-          const g = glows[i % glows.length];
-          return (
-            <motion.div
-              key={`${keyPrefix}-${sp.name}`}
-              className="w-36 h-20 md:w-44 md:h-24 flex items-center justify-center rounded-lg overflow-hidden p-3 flex-shrink-0"
-              style={{
-                border: `1.5px solid ${c}`,
-                boxShadow: `0 0 18px ${g}, inset 0 0 12px ${g}20`,
-              }}
-              whileHover={{ scale: 1.05 }}
-            >
-              {sp.logoUrl ? (
-                <div className="flex flex-col items-center justify-center gap-1 w-full h-full">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={sp.logoUrl}
-                    alt={sp.name}
-                    className={`max-w-full object-contain ${sp.name ? "max-h-[65%]" : "max-h-full"}`}
-                  />
-                  {sp.name && (
-                    <span
-                      className="text-[10px] font-bold uppercase tracking-wider text-center leading-tight"
-                      style={{ color: c, textShadow: `0 0 10px ${g}` }}
-                    >
-                      {sp.name}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <span
-                  className="text-base font-bold uppercase tracking-wider"
-                  style={{ color: c, textShadow: `0 0 15px ${g}` }}
-                >
-                  {sp.name}
-                </span>
-              )}
-            </motion.div>
-          );
-        };
-
-        return (
-          <SectionFadeIn>
-            <section className="relative z-10 py-14 px-6 md:px-16 bg-black/80 border-t border-white/5">
-              <div className="text-center mb-8">
-                <p className="text-xs tracking-[0.4em] uppercase text-gray-600">
-                  Proudly Supported By
-                </p>
-              </div>
-              {useMarquee ? (
-                <div className="relative overflow-hidden -mx-6 md:-mx-16">
-                  <div
-                    className="pointer-events-none absolute inset-y-0 left-0 w-20 z-10"
-                    style={{
-                      background:
-                        "linear-gradient(to right, #000 0%, transparent 100%)",
-                    }}
-                  />
-                  <div
-                    className="pointer-events-none absolute inset-y-0 right-0 w-20 z-10"
-                    style={{
-                      background:
-                        "linear-gradient(to left, #000 0%, transparent 100%)",
-                    }}
-                  />
-                  <motion.div
-                    className="flex gap-6"
-                    style={{ width: "max-content" }}
-                    animate={{ x: ["0%", "-50%"] }}
-                    transition={{
-                      duration: marqueeDuration,
-                      ease: "linear",
-                      repeat: Infinity,
-                    }}
-                  >
-                    {[...allSponsors, ...allSponsors].map((sp, i) => (
-                      <SponsorCard
-                        key={`${i}-${sp.name}`}
-                        sp={sp}
-                        i={i % allSponsors.length}
-                        keyPrefix={String(i)}
-                      />
-                    ))}
-                  </motion.div>
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center justify-center gap-6">
-                  {allSponsors.map((sp, i) => (
-                    <SponsorCard
-                      key={sp.name}
-                      sp={sp}
-                      i={i}
-                      keyPrefix="static"
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
-          </SectionFadeIn>
-        );
-      })()}
 
       {/* ── ACTIVE EVENTS ── */}
       {!loading && activeEvents.length > 0 && (
@@ -773,11 +635,6 @@ export default function EventClient({
                                         <span className="text-base font-bold text-white">
                                           ₦{tier.price.toLocaleString()}
                                         </span>
-                                        {tier.limit != null && (
-                                          <span className="text-[9px] text-gray-600 uppercase tracking-widest">
-                                            {tier.limit} slots
-                                          </span>
-                                        )}
                                       </div>
                                     ))}
                                   </div>
@@ -837,6 +694,135 @@ export default function EventClient({
       )}
 
       {!loading && activeEvents.length > 0 && <NeonMarquee />}
+      {/* ── SPONSORS (under the event poster) ── */}
+      {(() => {
+        const allSponsors = [...activeEvents, ...pastEvents]
+          .flatMap((ev) => ev.sponsors ?? [])
+          .filter(
+            (sp, idx, arr) => arr.findIndex((s) => s.name === sp.name) === idx,
+          );
+        if (loading || allSponsors.length === 0) return null;
+        const colors = ["#FFFF00", "#00FF41", "#FF3333", "#FFFF00"];
+        const glows = [
+          "rgba(255,255,0,0.5)",
+          "rgba(0,255,65,0.5)",
+          "rgba(255,51,51,0.5)",
+          "rgba(255,255,0,0.5)",
+        ];
+        const useMarquee = isMobile || allSponsors.length > 4;
+        const marqueeDuration = allSponsors.length * (isMobile ? 2 : 5);
+
+        const SponsorCard = ({
+          sp,
+          i,
+          keyPrefix,
+        }: {
+          sp: { name: string; logoUrl?: string };
+          i: number;
+          keyPrefix: string;
+        }) => {
+          const c = colors[i % colors.length];
+          const g = glows[i % glows.length];
+          return (
+            <motion.div
+              key={`${keyPrefix}-${sp.name}`}
+              className="w-36 h-20 md:w-44 md:h-24 flex items-center justify-center rounded-lg overflow-hidden p-3 flex-shrink-0"
+              style={{
+                border: `1.5px solid ${c}`,
+                boxShadow: `0 0 18px ${g}, inset 0 0 12px ${g}20`,
+              }}
+              whileHover={{ scale: 1.05 }}
+            >
+              {sp.logoUrl ? (
+                <div className="flex flex-col items-center justify-center gap-1 w-full h-full">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={sp.logoUrl}
+                    alt={sp.name}
+                    className={`max-w-full object-contain ${sp.name ? "max-h-[65%]" : "max-h-full"}`}
+                  />
+                  {sp.name && (
+                    <span
+                      className="text-[10px] font-bold uppercase tracking-wider text-center leading-tight"
+                      style={{ color: c, textShadow: `0 0 10px ${g}` }}
+                    >
+                      {sp.name}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <span
+                  className="text-base font-bold uppercase tracking-wider"
+                  style={{ color: c, textShadow: `0 0 15px ${g}` }}
+                >
+                  {sp.name}
+                </span>
+              )}
+            </motion.div>
+          );
+        };
+
+        return (
+          <SectionFadeIn>
+            <section className="relative z-10 py-14 px-6 md:px-16 bg-black/80 border-t border-white/5">
+              <div className="text-center mb-8">
+                <p className="text-xs tracking-[0.4em] uppercase text-gray-600">
+                  Proudly Supported By
+                </p>
+              </div>
+              {useMarquee ? (
+                <div className="relative overflow-hidden -mx-6 md:-mx-16">
+                  <div
+                    className="pointer-events-none absolute inset-y-0 left-0 w-20 z-10"
+                    style={{
+                      background:
+                        "linear-gradient(to right, #000 0%, transparent 100%)",
+                    }}
+                  />
+                  <div
+                    className="pointer-events-none absolute inset-y-0 right-0 w-20 z-10"
+                    style={{
+                      background:
+                        "linear-gradient(to left, #000 0%, transparent 100%)",
+                    }}
+                  />
+                  <motion.div
+                    className="flex gap-6"
+                    style={{ width: "max-content" }}
+                    animate={{ x: ["0%", "-50%"] }}
+                    transition={{
+                      duration: marqueeDuration,
+                      ease: "linear",
+                      repeat: Infinity,
+                    }}
+                  >
+                    {[...allSponsors, ...allSponsors].map((sp, i) => (
+                      <SponsorCard
+                        key={`${i}-${sp.name}`}
+                        sp={sp}
+                        i={i % allSponsors.length}
+                        keyPrefix={String(i)}
+                      />
+                    ))}
+                  </motion.div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-center gap-6">
+                  {allSponsors.map((sp, i) => (
+                    <SponsorCard
+                      key={sp.name}
+                      sp={sp}
+                      i={i}
+                      keyPrefix="static"
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </SectionFadeIn>
+        );
+      })()}
+
       {/* ── WHAT TO EXPECT Carousel ── */}
       {/* ── PAST EDITIONS Carousel (from Firebase) ── */}
       {!loading && pastEvents.length > 0 && (
@@ -1143,10 +1129,6 @@ export default function EventClient({
       <Footer />
 
       {/* Modals */}
-      <VendorModal
-        isOpen={vendorModalOpen}
-        onClose={() => setVendorModalOpen(false)}
-      />
       <AnimatePresence>
         {ticketEvent && (
           <TicketModal

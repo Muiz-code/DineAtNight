@@ -73,6 +73,7 @@ export interface DanTicketType {
   name: string; // e.g. "VIP", "VVIP", "General Admission"
   price: number; // in Naira
   limit?: number; // max tickets available for this tier (undefined = no separate cap)
+  description?: string; // what the tier includes, one item per line (shown at checkout)
 }
 
 export interface DanEvent {
@@ -113,6 +114,15 @@ export interface DanTicket {
   status: "pending" | "paid" | "confirmed";
   purchasedAt?: Timestamp;
   confirmedAt?: Timestamp | null;
+  // "Send tickets to different emails" — see markTicketPaid in lib/payments.ts.
+  // On the buyer's ticket: the guests chosen at checkout, then (once paid) their
+  // ticket references and the original order size (the buyer's ticket becomes 1×).
+  guests?: { name: string; email: string }[];
+  guestReferences?: string[];
+  orderQuantity?: number;
+  // On a guest's ticket: the buyer's ticket it was split from.
+  parentReference?: string;
+  purchasedBy?: string;
 }
 
 /* ═══════════════════════════════════════════════

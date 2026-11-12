@@ -18,6 +18,7 @@ vi.mock("next/server", async (orig) => ({
   after: (fn: () => unknown) => void afterFns.push(fn),
 }));
 vi.mock("@/lib/checkin", () => ({ pushTicketToCheckin: vi.fn() }));
+vi.mock("@/lib/ticketDelivery", () => ({ deliverPaidTicket: vi.fn() }));
 
 const fbAdmin = vi.hoisted(() => ({
   verifyFirebaseIdToken: vi.fn(),

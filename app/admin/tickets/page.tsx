@@ -95,6 +95,19 @@ export default function AdminTicketsPage() {
   const revenue = tickets.filter((t) => t.status !== "pending").reduce((s, t) => s + t.amount, 0) / 100;
   const remaining = (activeEvent?.totalTickets ?? 0) - soldCount;
 
+  // Orders sent to different emails: buyer's reference → { buyer, scanned, total }
+  const orders = new Map<string, { buyer: string; scanned: number; total: number }>();
+  for (const t of tickets) {
+    const key = t.parentReference ?? (t.guestReferences?.length ? t.reference : null);
+    if (!key) continue;
+    const o = orders.get(key) ?? { buyer: "", scanned: 0, total: 0 };
+    if (!t.parentReference) o.buyer = t.name;
+    o.total += 1;
+    if (t.status === "confirmed") o.scanned += 1;
+    orders.set(key, o);
+  }
+  const orderOf = (t: DanTicket) => orders.get(t.parentReference ?? t.reference);
+
   // Derived display + pagination
   const displayTickets = tickets.filter((t) =>
     ticketTab === "scanned" ? t.status === "confirmed" : t.status === "paid"
@@ -110,6 +123,8 @@ export default function AdminTicketsPage() {
       Email: t.email,
       Phone: (t as DanTicket & { phone?: string }).phone ?? "",
       "Age Range": t.ageRange ?? "—",
+      "Order (buyer)": t.purchasedBy ?? (t.guestReferences?.length ? t.name : ""),
+      "Order Ref": t.parentReference ?? (t.guestReferences?.length ? t.reference : ""),
       Reference: t.reference,
       "Ticket Type": t.ticketType ?? "—",
       Quantity: t.quantity,
@@ -410,6 +425,11 @@ export default function AdminTicketsPage() {
                                     <p className="text-gray-600 text-xs">
                                       {t.email}
                                       {t.ageRange && <span className="text-gray-500"> · {t.ageRange}</span>}
+                                      {orderOf(t) && (
+                                        <span className="text-[#C084FC]">
+                                          {" "}· {orderOf(t)!.buyer || t.purchasedBy}&apos;s order · {orderOf(t)!.scanned}/{orderOf(t)!.total} scanned
+                                        </span>
+                                      )}
                                     </p>
                                   </td>
                                   <td className="px-4 py-3 hidden sm:table-cell">

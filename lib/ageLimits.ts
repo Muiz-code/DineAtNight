@@ -26,8 +26,9 @@ export function ageConfirmText({ minAge, maxAge }: AgeLimit): string {
   return `I confirm every ticket holder is ${maxAge} or younger`;
 }
 
-/** "18–24" → [18, 24]; "55+" → [55, ∞]. */
+/** "18–24" → [18, 24]; "55+" → [55, ∞]; "Under 16" → [0, 15]. */
 function bounds(range: TicketAgeRange): [number, number] {
+  if (range.startsWith("Under ")) return [0, Number(range.slice(6)) - 1];
   const [lo, hi] = range.replace("+", "").split("–").map(Number);
   return [lo, range.endsWith("+") ? Infinity : hi];
 }

@@ -5,7 +5,7 @@ import { createFakeFirestore } from "./fakeFirestore";
 let fake: ReturnType<typeof createFakeFirestore>;
 vi.mock("@/lib/firebase-admin", () => ({ adminDb: () => fake.db }));
 
-const { isValidReference, priceCart, quoteTicket, markTicketPaid, markMerchOrderPaid } = await import(
+const { isValidReference, priceCart, quoteTicket, markTicketPaid, markMerchOrderPaid, parseGuests } = await import(
   "@/lib/payments"
 );
 
@@ -150,6 +150,58 @@ describe("markTicketPaid", () => {
 
   it("throws for an unknown reference", async () => {
     await expect(markTicketPaid("NOPE", 1)).rejects.toThrow(/not found/);
+  });
+});
+
+describe("markTicketPaid — tickets sent to different emails", () => {
+  const guests = [
+    { name: "Bo", email: "bo@x.com" },
+    { name: "Cy", email: "cy@x.com" },
+  ];
+  beforeEach(() => {
+    fake = createFakeFirestore({
+      "tickets/REF1": { eventId: "ev1", eventTitle: "Ev", name: "Ada", quantity: 3, amount: 3_000_000, status: "pending", ticketType: "VIP", guests },
+      "events/ev1": { title: "Ev", soldTickets: 10 },
+    });
+  });
+
+  it("splits the order into one paid 1× ticket per person, once", async () => {
+    expect(await markTicketPaid("REF1", 3_000_000)).toBe(true);
+    expect(fake.store.get("tickets/REF1")).toMatchObject({
+      status: "paid",
+      quantity: 1,
+      orderQuantity: 3,
+      amount: 3_000_000,
+      guestReferences: ["REF1-2", "REF1-3"],
+    });
+    expect(fake.store.get("tickets/REF1-2")).toMatchObject({
+      name: "Bo",
+      email: "bo@x.com",
+      quantity: 1,
+      amount: 0, // revenue stays on the buyer's ticket
+      status: "paid",
+      ticketType: "VIP",
+      parentReference: "REF1",
+      purchasedBy: "Ada",
+    });
+    expect(fake.store.get("tickets/REF1-3")).toMatchObject({ name: "Cy", parentReference: "REF1" });
+
+    // soldTickets still counts the whole order
+    const eventUpdate = fake.updates.find((u) => u.path === "events/ev1");
+    expect((eventUpdate?.data.soldTickets as FieldValue).isEqual(FieldValue.increment(3))).toBe(true);
+
+    // Webhook + redirect both firing never creates the guest tickets twice
+    expect(await markTicketPaid("REF1", 3_000_000)).toBe(false);
+  });
+});
+
+describe("parseGuests", () => {
+  it("needs a valid name and email for every extra ticket", () => {
+    expect(parseGuests([{ name: " Bo ", email: "BO@x.com" }], 2)).toEqual([{ name: "Bo", email: "bo@x.com" }]);
+    expect(parseGuests([], 2)).toMatch(/each extra ticket/);
+    expect(parseGuests([{ name: "B", email: "bo@x.com" }], 2)).toMatch(/name for ticket 2/);
+    expect(parseGuests([{ name: "Bo", email: "nope" }], 2)).toMatch(/email for ticket 2/);
+    expect(parseGuests("x", 2)).toMatch(/each extra ticket/);
   });
 });
 

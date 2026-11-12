@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createPendingTicket, quoteTicket } from "@/lib/payments";
+import { createPendingTicket, parseGuests, quoteTicket } from "@/lib/payments";
 import { checkRateLimit, clientIp } from "@/lib/rateLimit";
 import { allowedAgeRanges, hasAgeLimit } from "@/lib/ageLimits";
 import {
@@ -60,6 +60,14 @@ export async function POST(req: NextRequest) {
     }
     // ──────────────────────────────────────────────────────────────────────
 
+    // ── "Send tickets to different emails": one guest per extra ticket ──
+    let guests: { name: string; email: string }[] = [];
+    if (body.splitTickets === true && qty > 1) {
+      const parsed = parseGuests(body.guests, qty);
+      if (typeof parsed === "string") return NextResponse.json({ error: parsed }, { status: 400 });
+      guests = parsed;
+    }
+
     const amountKobo = Math.round(quote.unitPrice * qty * 100); // Paystack uses kobo
     const cleanName = name.trim().slice(0, 100);
     const cleanPhone = phone ? String(phone).slice(0, 20) : "";
@@ -109,6 +117,7 @@ export async function POST(req: NextRequest) {
       phone: cleanPhone,
       ageRange,
       ...(limited ? { ageConfirmed: true } : {}),
+      ...(guests.length ? { guests } : {}),
       quantity: qty,
       ...(quote.ticketType ? { ticketType: quote.ticketType } : {}),
       amount: amountKobo,

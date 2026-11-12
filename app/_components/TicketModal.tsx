@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { X } from "lucide-react";
+import { Minus, Plus, X } from "lucide-react";
 import { useScrollLock } from "@/lib/useScrollLock";
 import { type DanEvent } from "@/lib/firestore";
 import { track } from "@vercel/analytics";
 import { ageConfirmText, ageLimitLabel, allowedAgeRanges, hasAgeLimit } from "@/lib/ageLimits";
+import { MAX_TICKET_QUANTITY } from "@/lib/constants";
 
 const inputCls =
   "w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700";
@@ -52,6 +53,15 @@ export default function TicketModal({
     quantity: 1,
   });
   const [ageConfirmed, setAgeConfirmed] = useState(false);
+  // "Send tickets to different emails": one guest per ticket after the buyer's own
+  const [splitTickets, setSplitTickets] = useState(false);
+  const [guests, setGuests] = useState<{ name: string; email: string }[]>([]);
+  const updateGuest = (i: number, field: "name" | "email", value: string) =>
+    setGuests((prev) => {
+      const next = [...prev];
+      next[i] = { ...(next[i] ?? { name: "", email: "" }), [field]: value };
+      return next;
+    });
 
   // The event's age limit (if any) narrows the age ranges and must be confirmed
   const limited = hasAgeLimit(event);
@@ -71,6 +81,10 @@ export default function TicketModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.quantity < 1) {
+      setError("Enter how many tickets you want.");
+      return;
+    }
     if (tierRemaining < form.quantity) {
       setError("Not enough tickets remaining for this tier.");
       return;
@@ -87,6 +101,12 @@ export default function TicketModal({
           ...form,
           ageRange,
           ageConfirmed: limited ? ageConfirmed : undefined,
+          ...(splitTickets && form.quantity > 1
+            ? {
+                splitTickets: true,
+                guests: Array.from({ length: form.quantity - 1 }, (_, i) => guests[i] ?? { name: "", email: "" }),
+              }
+            : {}),
           ticketPrice: activePrice,
           ticketType: hasTiers ? (selectedTier?.name ?? "") : undefined,
         }),
@@ -111,6 +131,11 @@ export default function TicketModal({
   };
 
   const total = activePrice * form.quantity;
+
+  // Typed quantity: whole numbers from 0 (box cleared while typing) up to the per-order max or what's left
+  const maxQty = Math.max(1, Math.min(MAX_TICKET_QUANTITY, tierRemaining));
+  const setQuantity = (n: number) =>
+    setForm((p) => ({ ...p, quantity: Math.max(0, Math.min(maxQty, Math.floor(n) || 0)) }));
 
   return (
     <motion.div
@@ -263,22 +288,27 @@ export default function TicketModal({
                           >
                             ₦{tier.price.toLocaleString()}
                           </span>
-                          {tier.limit != null && (
-                            <span
-                              className="text-[9px] uppercase tracking-widest"
-                              style={{
-                                color: active
-                                  ? "rgba(255,255,0,0.6)"
-                                  : "rgba(255,255,255,0.2)",
-                              }}
-                            >
-                              {tier.limit} slots
-                            </span>
-                          )}
                         </button>
                       );
                     })}
                   </div>
+                  {selectedTier?.description && (
+                    <ul className="mt-3 rounded-lg border border-[#FFFF00]/15 bg-[#FFFF00]/[0.03] px-4 py-3 space-y-1.5">
+                      <li className="text-[10px] font-bold uppercase tracking-widest text-[#FFFF00] list-none">
+                        {selectedTier.name} includes
+                      </li>
+                      {selectedTier.description
+                        .split("\n")
+                        .map((line) => line.replace(/^[-•*]\s*/, "").trim())
+                        .filter(Boolean)
+                        .map((line, i) => (
+                          <li key={i} className="flex gap-2 text-xs text-gray-300 leading-relaxed">
+                            <span className="text-[#FFFF00]">•</span>
+                            {line}
+                          </li>
+                        ))}
+                    </ul>
+                  )}
                 </div>
               )}
 
@@ -311,14 +341,13 @@ export default function TicketModal({
               </div>
               <div>
                 <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
-                  WhatsApp Number *
+                  WhatsApp Number <span className="normal-case text-gray-700">(optional)</span>
                 </label>
                 <input
                   name="phone"
                   type="tel"
                   value={form.phone}
                   onChange={handleChange}
-                  required
                   placeholder="+234 800 000 0000"
                   className={inputCls}
                 />
@@ -365,22 +394,91 @@ export default function TicketModal({
                 <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
                   Quantity
                 </label>
-                <select
-                  name="quantity"
-                  value={form.quantity}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all cursor-pointer"
-                >
-                  {Array.from(
-                    { length: Math.min(10, tierRemaining) },
-                    (_, i) => i + 1,
-                  ).map((n) => (
-                    <option key={n} value={n} className="bg-[#0a0a0a]">
-                      {n} ticket{n > 1 ? "s" : ""}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-stretch gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(form.quantity - 1)}
+                    disabled={form.quantity <= 1}
+                    aria-label="One fewer ticket"
+                    className="w-12 flex items-center justify-center rounded-lg border border-white/10 text-white hover:border-[#FFFF00] transition-all disabled:opacity-30"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <input
+                    name="quantity"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={maxQty}
+                    // Empty while the buyer clears the box to type a new number
+                    value={form.quantity || ""}
+                    onChange={(e) => setQuantity(e.target.value === "" ? 0 : Number(e.target.value))}
+                    onBlur={() => form.quantity < 1 && setQuantity(1)}
+                    required
+                    aria-label="Number of tickets"
+                    className="flex-1 min-w-0 px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white text-center text-base font-bold focus:outline-none focus:border-[#FFFF00] transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(form.quantity + 1)}
+                    disabled={form.quantity >= maxQty}
+                    aria-label="One more ticket"
+                    className="w-12 flex items-center justify-center rounded-lg border border-white/10 text-white hover:border-[#FFFF00] transition-all disabled:opacity-30"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-gray-600 text-[11px] mt-1.5">Up to {maxQty} per order</p>
               </div>
+              {form.quantity > 1 && (
+                <div className="rounded-lg border border-white/10 p-4 space-y-3">
+                  <label className="flex items-start gap-3 text-sm text-gray-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={splitTickets}
+                      onChange={(e) => setSplitTickets(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 accent-[#FFFF00] cursor-pointer flex-shrink-0"
+                    />
+                    <span>
+                      Send tickets to different emails
+                      <span className="block text-gray-600 text-xs mt-0.5">
+                        Each guest gets their own ticket and QR code by email.
+                      </span>
+                    </span>
+                  </label>
+                  {splitTickets && (
+                    <div className="space-y-3 pt-1">
+                      <p className="text-[11px] text-gray-500">
+                        Ticket 1 is yours{form.name.trim() ? ` (${form.name.trim()})` : ""}.
+                      </p>
+                      {Array.from({ length: form.quantity - 1 }, (_, i) => (
+                        <div key={i} className="space-y-2">
+                          <p className="text-[10px] text-gray-500 uppercase tracking-widest">Ticket {i + 2}</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <input
+                              value={guests[i]?.name ?? ""}
+                              onChange={(e) => updateGuest(i, "name", e.target.value)}
+                              required
+                              placeholder="Guest's full name"
+                              aria-label={`Ticket ${i + 2} name`}
+                              className={inputCls}
+                            />
+                            <input
+                              type="email"
+                              value={guests[i]?.email ?? ""}
+                              onChange={(e) => updateGuest(i, "email", e.target.value)}
+                              required
+                              placeholder="guest@example.com"
+                              aria-label={`Ticket ${i + 2} email`}
+                              className={inputCls}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="rounded-lg border border-[#FFFF00]/15 p-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">

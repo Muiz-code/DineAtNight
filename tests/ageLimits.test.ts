@@ -17,6 +17,8 @@ describe("age limits", () => {
     expect(allowedAgeRanges({ minAge: 21 })).toContain("18–24"); // 21–24 still fits
     expect(allowedAgeRanges({ minAge: 18, maxAge: 30 })).toEqual(["18–24", "25–34"]);
     expect(allowedAgeRanges({ minAge: 60 })).toEqual(["55+"]);
+    expect(allowedAgeRanges({ maxAge: 15 })).toEqual(["Under 16"]);
+    expect(allowedAgeRanges({ minAge: 16 })).not.toContain("Under 16");
   });
 
   it("words the confirmation for the limit", () => {

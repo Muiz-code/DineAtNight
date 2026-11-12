@@ -207,9 +207,17 @@ export default function TicketPage() {
             {[
               { label: "Name", value: ticket.name },
               { label: "Email", value: ticket.email },
-              { label: "Phone", value: ticket.phone },
-              { label: "Tickets", value: `${ticket.quantity}x` },
-              { label: "Amount Paid", value: fmt(ticket.amount) },
+              ...(ticket.phone ? [{ label: "Phone", value: ticket.phone }] : []),
+              {
+                label: "Tickets",
+                value: ticket.guestReferences?.length
+                  ? `${ticket.quantity}x (+${ticket.guestReferences.length} sent to guests)`
+                  : `${ticket.quantity}x`,
+              },
+              // A guest's ticket was paid for by the buyer, so show who sent it instead of ₦0
+              ticket.parentReference
+                ? { label: "Sent By", value: ticket.purchasedBy ?? "—" }
+                : { label: "Amount Paid", value: fmt(ticket.amount) },
               { label: "Reference", value: ticket.reference },
             ].map((row) => (
               <div

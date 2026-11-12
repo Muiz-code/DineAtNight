@@ -349,9 +349,12 @@ export type GateTicket = Pick<DanTicket, "reference" | "name" | "eventTitle" | "
   ticketType: string | null;
 };
 
+/** For tickets bought together and sent to different emails: e.g. Ada's order, 2 of 3 in. */
+export type OrderProgress = { buyer: string; scanned: number; total: number };
+
 export type ScanResult =
-  | { result: "confirmed"; ticket: GateTicket }
-  | { result: "already"; ticket: GateTicket; confirmedBy: string | null; confirmedAt: number | null }
+  | { result: "confirmed"; ticket: GateTicket; order?: OrderProgress }
+  | { result: "already"; ticket: GateTicket; confirmedBy: string | null; confirmedAt: number | null; order?: OrderProgress }
   | { result: "unpaid"; ticket: GateTicket }
   | { result: "not_found" };
 
@@ -375,12 +378,33 @@ export async function confirmTicketScan(reference: string, actor: ScanActor, act
       ticketType: t.ticketType ?? null,
     };
 
+    // Part of an order split across emails? Read the rest of it (all reads
+    // must happen before the transaction's writes).
+    let order: OrderProgress | undefined;
+    const orderRef = t.parentReference ?? (t.guestReferences?.length ? reference : null);
+    if (orderRef) {
+      const buyer = orderRef === reference ? t : ((await tx.get(db.collection("tickets").doc(orderRef))).data() as DanTicket | undefined);
+      if (buyer) {
+        const refs = [orderRef, ...(buyer.guestReferences ?? [])];
+        const statuses = await Promise.all(
+          refs.map(async (r) => (r === reference ? t.status : ((await tx.get(db.collection("tickets").doc(r))).data() as DanTicket | undefined)?.status)),
+        );
+        const willAdmit = t.status === "paid" ? 1 : 0; // this scan, if it goes ahead
+        order = {
+          buyer: buyer.name,
+          scanned: statuses.filter((s) => s === "confirmed").length + willAdmit,
+          total: refs.length,
+        };
+      }
+    }
+
     if (t.status === "confirmed") {
       return {
         result: "already" as const,
         ticket,
         confirmedBy: t.confirmedBy?.name ?? null,
         confirmedAt: millis(t.confirmedAt),
+        ...(order ? { order } : {}),
       };
     }
     if (t.status !== "paid") return { result: "unpaid" as const, ticket };
@@ -402,6 +426,6 @@ export async function confirmTicketScan(reference: string, actor: ScanActor, act
       },
       { merge: true },
     );
-    return { result: "confirmed" as const, ticket: { ...ticket, status: "confirmed" as const } };
+    return { result: "confirmed" as const, ticket: { ...ticket, status: "confirmed" as const }, ...(order ? { order } : {}) };
   });
 }

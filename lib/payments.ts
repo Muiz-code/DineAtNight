@@ -89,9 +89,39 @@ export async function createPendingTicket(
 }
 
 /**
+ * Validates the "send tickets to different emails" guest list from checkout:
+ * one { name, email } per ticket after the buyer's own (quantity − 1 entries).
+ * Returns the clean list, or a user-safe error message.
+ */
+export function parseGuests(input: unknown, quantity: number): { name: string; email: string }[] | string {
+  if (!Array.isArray(input) || input.length !== quantity - 1) {
+    return "Add a name and email for each extra ticket.";
+  }
+  const guests: { name: string; email: string }[] = [];
+  for (const [i, g] of input.entries()) {
+    const name = typeof g?.name === "string" ? g.name.trim().slice(0, 100) : "";
+    const email = typeof g?.email === "string" ? g.email.trim().toLowerCase() : "";
+    if (name.length < 2) return `Add a name for ticket ${i + 2}.`;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
+      return `Add a valid email for ticket ${i + 2}.`;
+    }
+    guests.push({ name, email });
+  }
+  return guests;
+}
+
+/** Reference of guest ticket n (2, 3, …) split from an order. */
+export const guestReference = (orderReference: string, n: number) => `${orderReference}-${n}`;
+
+/**
  * Idempotently marks a ticket paid and increments the event's soldTickets.
  * Uses the quantity/eventId stored at checkout, not Paystack metadata.
  * Returns true only for the call that actually flipped the ticket to paid.
+ *
+ * If the buyer chose "send tickets to different emails", the order is split in
+ * the same transaction: the buyer keeps a 1× ticket (with the payment) and each
+ * guest gets their own paid 1× ticket (₦0, linked by parentReference) with its
+ * own QR code. Being one transaction, the split happens exactly once.
  */
 export async function markTicketPaid(reference: string, paidAmountKobo: number): Promise<boolean> {
   const db = adminDb();
@@ -104,7 +134,32 @@ export async function markTicketPaid(reference: string, paidAmountKobo: number):
     if (paidAmountKobo < ticket.amount) {
       throw new Error(`Amount mismatch for ${reference}: paid ${paidAmountKobo}, expected ${ticket.amount}`);
     }
-    tx.update(ticketRef, { status: "paid", paidAt: FieldValue.serverTimestamp() });
+    const guests = ticket.guests ?? [];
+    const guestRefs = guests.map((_, i) => guestReference(reference, i + 2));
+    guests.forEach((g, i) => {
+      tx.create(db.collection("tickets").doc(guestRefs[i]), {
+        eventId: ticket.eventId,
+        eventTitle: ticket.eventTitle,
+        name: g.name,
+        email: g.email,
+        phone: "",
+        quantity: 1,
+        ...(ticket.ticketType ? { ticketType: ticket.ticketType } : {}),
+        amount: 0, // paid on the buyer's ticket — keeps revenue totals right
+        reference: guestRefs[i],
+        status: "paid",
+        parentReference: reference,
+        purchasedBy: ticket.name,
+        purchasedAt: FieldValue.serverTimestamp(),
+        paidAt: FieldValue.serverTimestamp(),
+        confirmedAt: null,
+      });
+    });
+    tx.update(ticketRef, {
+      status: "paid",
+      paidAt: FieldValue.serverTimestamp(),
+      ...(guests.length ? { quantity: 1, orderQuantity: ticket.quantity, guestReferences: guestRefs } : {}),
+    });
     tx.update(db.collection("events").doc(ticket.eventId), {
       soldTickets: FieldValue.increment(ticket.quantity),
     });

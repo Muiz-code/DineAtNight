@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { fetchPaystackTransaction, getTicket, isValidReference, markTicketPaid } from "@/lib/payments";
-import { pushTicketToCheckin } from "@/lib/checkin";
-import { sendTicketConfirmationEmail } from "@/lib/resend";
+import { deliverPaidTicket } from "@/lib/ticketDelivery";
 
 export async function GET(req: NextRequest) {
   const reference = req.nextUrl.searchParams.get("reference");
@@ -41,16 +40,8 @@ export async function GET(req: NextRequest) {
   if (!ticket) return NextResponse.json({ ok: true, ticket: null });
 
   if (newlyPaid) {
-    // Forward to the external check-in system once, after the response is sent
-    after(() => pushTicketToCheckin(reference));
-    sendTicketConfirmationEmail({
-      name: ticket.name,
-      email: ticket.email,
-      eventTitle: ticket.eventTitle,
-      quantity: ticket.quantity,
-      amount: ticket.amount,
-      reference,
-    }).catch(() => {});
+    // Emails (buyer + any guests) and check-in, once, after the response is sent
+    after(() => deliverPaidTicket(reference));
   }
 
   return NextResponse.json({
@@ -63,6 +54,7 @@ export async function GET(req: NextRequest) {
       phone: ticket.phone,
       quantity: ticket.quantity,
       amount: ticket.amount,
+      guests: ticket.guests?.map((g) => g.name) ?? [],
       status: ticket.status === "pending" ? "paid" : ticket.status,
     },
   });

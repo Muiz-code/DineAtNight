@@ -172,9 +172,15 @@ export default function AdminEventsPage() {
     setSaving(true);
     try {
       const dateTime = new Date(`${form.date}T${form.time}:00`);
-      const validTicketTypes = form.ticketTypes.filter(
-        (t) => t.name.trim() && t.price > 0,
-      );
+      // Firestore rejects undefined, so optional fields are only included when set
+      const validTicketTypes = form.ticketTypes
+        .filter((t) => t.name.trim() && t.price > 0)
+        .map((t) => ({
+          name: t.name.trim(),
+          price: t.price,
+          ...(t.limit != null && { limit: t.limit }),
+          ...(t.description?.trim() && { description: t.description.trim() }),
+        }));
       const hasTiers = validTicketTypes.length > 0;
       // Base price = lowest tier price (backward compat); falls back to manual entry
       const basePrice = hasTiers
@@ -869,10 +875,8 @@ export default function AdminEventsPage() {
                       )}
                       <div className="space-y-2">
                         {form.ticketTypes.map((tt, idx) => (
-                          <div
-                            key={idx}
-                            className="grid grid-cols-[1fr_1fr_1fr_2rem] gap-2 items-center"
-                          >
+                          <div key={idx} className="space-y-2 pb-3 border-b border-white/5 last:border-0">
+                          <div className="grid grid-cols-[1fr_1fr_1fr_2rem] gap-2 items-center">
                             {/* Name */}
                             <input
                               value={tt.name}
@@ -946,6 +950,21 @@ export default function AdminEventsPage() {
                             >
                               <X className="w-4 h-4" />
                             </button>
+                          </div>
+                          {/* What this tier includes — shown under the tier at checkout */}
+                          <textarea
+                            value={tt.description ?? ""}
+                            onChange={(e) =>
+                              setForm((p) => {
+                                const types = [...p.ticketTypes];
+                                types[idx] = { ...types[idx], description: e.target.value };
+                                return { ...p, ticketTypes: types };
+                              })
+                            }
+                            rows={2}
+                            placeholder={`What ${tt.name.trim() || "this ticket"} includes (optional) — one item per line, e.g.\nPriority entry\nReserved seating`}
+                            className={`${inputCls} resize-y text-xs`}
+                          />
                           </div>
                         ))}
                       </div>

@@ -43,7 +43,7 @@ Both options use the same shape:
 | `reference` | Unique booking reference (Paystack reference). **Use this as your primary key.** |
 | `quantity` | One reference can admit several people. |
 | `ticketType` | Tier name, or `null` for single-price events. |
-| `ageRange` | Buyer's age range from checkout (`18–24`, `25–34`, `35–44`, `45–54`, `55+`), or `null` for tickets bought before it was added. |
+| `ageRange` | Buyer's age range from checkout (`Under 16`, `16–17`, `18–24`, `25–34`, `35–44`, `45–54`, `55+`), or `null` for tickets bought before it was added. |
 | `status` | `paid`, or `confirmed` once scanned at our gate. |
 | `paidAt` | May be `null` for tickets paid before this integration went live. |
 | Timestamps | ISO 8601, UTC. |

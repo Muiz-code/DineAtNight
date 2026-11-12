@@ -340,8 +340,14 @@ export async function sendTicketConfirmationEmail(data: {
   quantity: number;
   amount: number;
   reference: string;
+  /** Guest copy: the buyer who sent this ticket (hides the amount paid). */
+  sentBy?: string;
+  /** Buyer copy: the guests whose tickets were emailed to them. */
+  guests?: { name: string; email: string }[];
 }): Promise<boolean> {
   const h = escapeFields(data);
+  const isGuest = !!data.sentBy;
+  const guests = (data.guests ?? []).map((g) => ({ name: escapeHtml(g.name), email: escapeHtml(g.email) }));
   const amountNaira = (h.amount / 100).toLocaleString("en-NG", {
     style: "currency",
     currency: "NGN",
@@ -355,8 +361,9 @@ export async function sendTicketConfirmationEmail(data: {
     </div>
 
     <div style="text-align:center;margin-bottom:32px;">
-      ${heading("You're in!", "#00FF41")}
+      ${heading(isGuest ? "You've got a ticket!" : "You're in!", "#00FF41")}
       <p style="margin:6px 0 0;color:#555;font-size:13px;letter-spacing:0.1em;text-transform:uppercase;">${h.eventTitle}</p>
+      ${isGuest ? `<p style="margin:12px 0 0;color:#888;font-size:14px;"><strong style="color:#ccc;">${h.sentBy}</strong> got you a ticket.</p>` : ""}
     </div>
 
     <!-- Ticket card -->
@@ -367,13 +374,19 @@ export async function sendTicketConfirmationEmail(data: {
         <table width="100%" cellpadding="0" cellspacing="0" border="0">
           ${detailRow("Name", h.name)}
           ${h.eventDate ? detailRow("Date", h.eventDate.toDateString()) : ""}
-          ${detailRow("Tickets", `${h.quantity}×`)}
-          ${detailRow("Amount Paid", amountNaira)}
+          ${detailRow("Tickets", guests.length ? `1× (yours) + ${guests.length} sent to guests` : `${h.quantity}×`)}
+          ${isGuest ? "" : detailRow("Amount Paid", amountNaira)}
           ${detailRow("Reference", h.reference)}
         </table>
       </div>
     </div>
 
+    ${guests.length ? `
+    <div style="padding:16px 20px;background:#0d0d0d;border:1px solid #ffffff10;border-radius:8px;margin-bottom:24px;">
+      <p style="margin:0 0 8px;color:#808080;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;">Tickets emailed to your guests</p>
+      ${guests.map((g) => `<p style="margin:0 0 4px;color:#aaa;font-size:13px;">${g.name} · <span style="color:#808080;">${g.email}</span></p>`).join("")}
+      <p style="margin:8px 0 0;color:#808080;font-size:11px;line-height:1.6;">Each guest has their own QR code to show at the entrance.</p>
+    </div>` : ""}
     <p style="margin:0 0 8px;color:#808080;font-size:11px;text-align:center;text-transform:uppercase;letter-spacing:0.2em;">Your e-ticket with QR code</p>
     ${ctaButton(`${APP_URL}/tickets/${h.reference}`, "View My Ticket →", "#00FF41")}
 
@@ -385,9 +398,11 @@ export async function sendTicketConfirmationEmail(data: {
 
   return send({
     to: data.email,
-    subject: `Your Ticket — ${data.eventTitle} | Dine At Night`,
+    subject: isGuest
+      ? `${data.sentBy} sent you a ticket — ${data.eventTitle} | Dine At Night`
+      : `Your Ticket — ${data.eventTitle} | Dine At Night`,
     html,
-    text: `Hi ${data.name}, your ticket for ${data.eventTitle} is confirmed.\nReference: ${data.reference}\nView ticket: ${APP_URL}/tickets/${data.reference}`,
+    text: `Hi ${data.name}, ${isGuest ? `${data.sentBy} got you a ticket for ${data.eventTitle}.` : `your ticket for ${data.eventTitle} is confirmed.`}\nReference: ${data.reference}\nView ticket: ${APP_URL}/tickets/${data.reference}${data.guests?.length ? `\nTickets were also emailed to: ${data.guests.map((g) => `${g.name} (${g.email})`).join(", ")}` : ""}`,
   });
 }
 
