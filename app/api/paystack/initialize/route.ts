@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { eventId, name, email, phone, quantity, ticketType, ageRange, ageConfirmed } = body;
+    const { eventId, name, email, phone, quantity, ticketType, ageRange, ageConfirmed, termsAccepted, marketingConsent } = body;
 
     // ── Input validation ───────────────────────────────────────────────────
     if (!eventId || typeof eventId !== "string" || eventId.includes("/")) {
@@ -34,6 +34,9 @@ export async function POST(req: NextRequest) {
     }
     if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: "Invalid email" }, { status: 400 });
+    }
+    if (termsAccepted !== true) {
+      return NextResponse.json({ error: "Please agree to the Terms & Conditions to continue" }, { status: 400 });
     }
     if (!TICKET_AGE_RANGES.includes(ageRange as TicketAgeRange)) {
       return NextResponse.json({ error: "Please select your age range" }, { status: 400 });
@@ -118,6 +121,8 @@ export async function POST(req: NextRequest) {
       ageRange,
       ...(limited ? { ageConfirmed: true } : {}),
       ...(guests.length ? { guests } : {}),
+      termsAccepted: true,
+      marketingConsent: marketingConsent === true,
       quantity: qty,
       ...(quote.ticketType ? { ticketType: quote.ticketType } : {}),
       amount: amountKobo,

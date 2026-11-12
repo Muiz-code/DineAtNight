@@ -24,6 +24,7 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   UNPUBLISH_VENDOR:    { label: "Unpublish Vendor",   color: "#FFB800" },
   RESEND_VENDOR_EMAIL: { label: "Resend Vendor Email", color: "#00FF41" },
   SEND_VENDOR_EMAIL:   { label: "Send Vendor Email",  color: "#00FF41" },
+  RESEND_TICKET_EMAIL: { label: "Resend Ticket Email", color: "#00FF41" },
   UPDATE_EMAIL_TEMPLATE: { label: "Edit Email Template", color: "#FFB800" },
   RESET_EMAIL_TEMPLATE:  { label: "Reset Email Template", color: "#FFB800" },
   CREATE_VENDOR:       { label: "Add Vendor",         color: "#FFFF00" },

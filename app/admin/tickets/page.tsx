@@ -5,7 +5,8 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { DanEvent, DanTicket } from "@/lib/firestore";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, Download, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { AlertCircle, Download, ChevronLeft, ChevronRight, X, Mail, Check } from "lucide-react";
+import { logAdminAction } from "@/lib/adminLog";
 import * as XLSX from "xlsx";
 
 type TicketTab = "unscanned" | "scanned";
@@ -35,6 +36,7 @@ export default function AdminTicketsPage() {
   const [events, setEvents] = useState<DanEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<string>("");
   const [tickets, setTickets] = useState<DanTicket[]>([]);
+  const [resendTarget, setResendTarget] = useState<DanTicket | null>(null);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [loadingTickets, setLoadingTickets] = useState(false);
   const [error, setError] = useState("");
@@ -123,6 +125,8 @@ export default function AdminTicketsPage() {
       Email: t.email,
       Phone: (t as DanTicket & { phone?: string }).phone ?? "",
       "Age Range": t.ageRange ?? "—",
+      // Only the buyer gave consent — guests' emails were entered by the buyer
+      "Sponsor Marketing Consent": t.parentReference ? "—" : t.marketingConsent === undefined ? "—" : t.marketingConsent ? "Yes" : "No",
       "Order (buyer)": t.purchasedBy ?? (t.guestReferences?.length ? t.name : ""),
       "Order Ref": t.parentReference ?? (t.guestReferences?.length ? t.reference : ""),
       Reference: t.reference,
@@ -409,6 +413,7 @@ export default function AdminTicketsPage() {
                               <th className="text-left px-4 py-3">
                                 {ticketTab === "scanned" ? "Scanned At" : "Purchased"}
                               </th>
+                              <th className="px-4 py-3" />
                             </tr>
                           </thead>
                           <tbody>
@@ -448,6 +453,15 @@ export default function AdminTicketsPage() {
                                   <td className="px-4 py-3 text-gray-300 text-sm">{fmt(t.amount)}</td>
                                   <td className="px-4 py-3">
                                     <span className="text-[10px] font-medium" style={{ color: accent }}>{dateStr}</span>
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    <button
+                                      onClick={() => setResendTarget(t)}
+                                      title="Resend this ticket's email (same ticket and QR code)"
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border border-white/10 text-gray-400 hover:text-white hover:border-white/25 transition-all whitespace-nowrap"
+                                    >
+                                      <Mail className="w-3 h-3" /> Resend
+                                    </button>
                                   </td>
                                 </tr>
                               );
@@ -583,6 +597,137 @@ export default function AdminTicketsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {resendTarget && <ResendTicketDialog ticket={resendTarget} onClose={() => setResendTarget(null)} />}
+      </AnimatePresence>
     </div>
+  );
+}
+
+/** Re-sends an existing ticket's email — same reference and QR code, never a new ticket. */
+function ResendTicketDialog({ ticket, onClose }: { ticket: DanTicket; onClose: () => void }) {
+  const [useOther, setUseOther] = useState(false);
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
+  const [error, setError] = useState("");
+  const [sentTo, setSentTo] = useState("");
+
+  const send = async () => {
+    setState("sending");
+    setError("");
+    try {
+      const res = await fetch("/api/admin/tickets/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference: ticket.reference, ...(useOther ? { email } : {}) }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Could not resend.");
+        setState("idle");
+        return;
+      }
+      setSentTo(data.sentTo);
+      setState("sent");
+      await logAdminAction(
+        "RESEND_TICKET_EMAIL",
+        `Resent ticket ${ticket.reference} for "${ticket.name}" to ${data.sentTo}`,
+        { type: "ticket", id: ticket.reference, name: ticket.name },
+      );
+    } catch {
+      setError("Network error — please try again.");
+      setState("idle");
+    }
+  };
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[400] flex items-end sm:items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={state === "sending" ? undefined : onClose} />
+      <motion.div
+        className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0a0a0a] p-6 space-y-4"
+        initial={{ scale: 0.94, y: 16 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.94, y: 16 }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-widest text-[#FFFF00]">Resend ticket</h2>
+            <p className="text-gray-500 text-xs mt-1">
+              {ticket.name} · <span className="font-mono">{ticket.reference}</span>
+            </p>
+          </div>
+          <button onClick={onClose} disabled={state === "sending"} className="text-gray-600 hover:text-white" aria-label="Close">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {state === "sent" ? (
+          <>
+            <p className="flex items-start gap-2 text-sm text-[#00FF41]">
+              <Check className="w-4 h-4 mt-0.5 flex-shrink-0" /> Sent to {sentTo}. Ask them to check spam if it doesn&apos;t arrive.
+            </p>
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 rounded-full text-xs font-bold uppercase tracking-widest bg-[#00FF41] text-black"
+            >
+              Done
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-gray-400 text-sm leading-relaxed">
+              Sends the same ticket and QR code again — no new ticket is created.
+              {ticket.parentReference ? " This is a guest ticket, so it goes out as their guest copy." : ""}
+            </p>
+            <div className="space-y-2 text-sm">
+              <label className="flex items-center gap-2 text-gray-300 cursor-pointer">
+                <input type="radio" checked={!useOther} onChange={() => setUseOther(false)} className="accent-[#FFFF00]" />
+                <span className="truncate">To {ticket.email}</span>
+              </label>
+              <label className="flex items-center gap-2 text-gray-300 cursor-pointer">
+                <input type="radio" checked={useOther} onChange={() => setUseOther(true)} className="accent-[#FFFF00]" />
+                To a different email
+              </label>
+              {useOther && (
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="correct@example.com"
+                  autoFocus
+                  className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] placeholder:text-gray-700"
+                />
+              )}
+            </div>
+            {error && <p className="text-[#FF3333] text-xs">{error}</p>}
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                disabled={state === "sending"}
+                className="flex-1 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest border border-white/12 text-gray-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={send}
+                disabled={state === "sending" || (useOther && !email.trim())}
+                className="flex-1 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest bg-[#FFFF00] text-black disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                {state === "sending" && <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />}
+                Send
+              </button>
+            </div>
+          </>
+        )}
+      </motion.div>
+    </motion.div>
   );
 }

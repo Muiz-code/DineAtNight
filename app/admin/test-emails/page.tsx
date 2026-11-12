@@ -21,6 +21,8 @@ export default function AdminTestEmailsPage() {
   const [sending, setSending] = useState(false);
   const [results, setResults] = useState<Result[] | null>(null);
   const [error, setError] = useState("");
+  // Group ticket sample: where each guest's ticket goes (blank = the "Send to" address)
+  const [guestEmails, setGuestEmails] = useState(["", ""]);
 
   // Default the recipient to the signed-in admin
   useEffect(() => {
@@ -43,7 +45,7 @@ export default function AdminTestEmailsPage() {
       const res = await fetch("/api/admin/test-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, templates: selected }),
+        body: JSON.stringify({ to, templates: selected, guestEmails }),
       });
       const data = await res.json();
       if (!res.ok) setError(data.error ?? "Failed to send.");
@@ -140,6 +142,36 @@ export default function AdminTestEmailsPage() {
             </div>
           ))}
         </div>
+
+        {selected.includes("ticket-group") && (
+          <div className="rounded-lg border border-[#FFFF00]/25 bg-[#FFFF00]/[0.03] p-4 space-y-3">
+            <p className="text-[10px] text-gray-500 uppercase tracking-widest">
+              Group ticket — guest emails
+            </p>
+            <p className="text-gray-600 text-xs">
+              The buyer&apos;s ticket goes to <span className="text-gray-400">{to || "the address above"}</span>. Leave a
+              guest blank to send theirs there too.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {guestEmails.map((value, i) => (
+                <div key={i}>
+                  <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">
+                    Guest {i + 1} email
+                  </label>
+                  <input
+                    type="email"
+                    value={value}
+                    onChange={(e) =>
+                      setGuestEmails((prev) => prev.map((g, j) => (j === i ? e.target.value : g)))
+                    }
+                    placeholder={to || "guest@example.com"}
+                    className={inputCls}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center gap-3 flex-wrap">
           <button

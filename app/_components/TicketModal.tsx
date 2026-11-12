@@ -8,7 +8,7 @@ import { useScrollLock } from "@/lib/useScrollLock";
 import { type DanEvent } from "@/lib/firestore";
 import { track } from "@vercel/analytics";
 import { ageConfirmText, ageLimitLabel, allowedAgeRanges, hasAgeLimit } from "@/lib/ageLimits";
-import { MAX_TICKET_QUANTITY } from "@/lib/constants";
+import { MAX_TICKET_QUANTITY, PRIVACY_NOTICE_URL, TICKET_TERMS_URL } from "@/lib/constants";
 
 const inputCls =
   "w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700";
@@ -53,6 +53,8 @@ export default function TicketModal({
     quantity: 1,
   });
   const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(false);
   // "Send tickets to different emails": one guest per ticket after the buyer's own
   const [splitTickets, setSplitTickets] = useState(false);
   const [guests, setGuests] = useState<{ name: string; email: string }[]>([]);
@@ -101,6 +103,8 @@ export default function TicketModal({
           ...form,
           ageRange,
           ageConfirmed: limited ? ageConfirmed : undefined,
+          termsAccepted,
+          marketingConsent,
           ...(splitTickets && form.quantity > 1
             ? {
                 splitTickets: true,
@@ -501,6 +505,38 @@ export default function TicketModal({
                   </span>
                 </div>
               </div>
+              {/* Before you check out — T&Cs required, sponsor sharing optional */}
+              <div className="rounded-lg border border-white/10 p-4 space-y-3">
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Before you check out</p>
+                <label className="flex items-start gap-3 text-xs text-gray-300 leading-relaxed cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    required
+                    className="mt-0.5 w-4 h-4 accent-[#FFFF00] cursor-pointer flex-shrink-0"
+                  />
+                  <span>
+                    I have read and agree to the{" "}
+                    <LegalLink href={TICKET_TERMS_URL}>Dine At Night Ticketing Terms &amp; Conditions</LegalLink>{" "}
+                    and acknowledge the <LegalLink href={PRIVACY_NOTICE_URL}>Privacy Notice</LegalLink>. *
+                  </span>
+                </label>
+                <div className="border-t border-white/5" />
+                <label className="flex items-start gap-3 text-xs text-gray-300 leading-relaxed cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={marketingConsent}
+                    onChange={(e) => setMarketingConsent(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-[#FFFF00] cursor-pointer flex-shrink-0"
+                  />
+                  <span>
+                    I consent to Dine At Night sharing my email address and phone number with selected sponsors and
+                    partners for marketing and promotional communications.
+                  </span>
+                </label>
+                <p className="text-gray-600 text-[11px]">Marketing consent is optional and can be withdrawn at any time.</p>
+              </div>
               {error && (
                 <p className="text-[#FF3333] text-xs text-center">{error}</p>
               )}
@@ -536,5 +572,15 @@ export default function TicketModal({
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+/** Opens the document in a new tab; plain text until a URL is set in lib/constants.ts. */
+function LegalLink({ href, children }: { href: string; children: React.ReactNode }) {
+  if (!href) return <span className="text-white">{children}</span>;
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#FFFF00] underline underline-offset-2">
+      {children}
+    </a>
   );
 }

@@ -55,6 +55,15 @@ export const MAX_TICKET_QUANTITY = 20;
 export const TICKET_AGE_RANGES = ["Under 16", "16–17", "18–24", "25–34", "35–44", "45–54", "55+"] as const;
 export type TicketAgeRange = (typeof TICKET_AGE_RANGES)[number];
 
+// ── Ticket checkout consent ───────────────────────────────────────────────────
+/**
+ * Linked from the "Before you check out" boxes at ticket checkout. Leave a URL
+ * empty until the document exists — the wording then shows without a link.
+ * (Can be a page on this site, e.g. "/terms", or a shared doc / PDF link.)
+ */
+export const TICKET_TERMS_URL = "";
+export const PRIVACY_NOTICE_URL = "";
+
 // ── Vendor approval email ─────────────────────────────────────────────────────
 /**
  * Fills {eventTitle}, {eventDate} and {venue} in vendor approval emails before

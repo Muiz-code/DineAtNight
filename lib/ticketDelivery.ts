@@ -12,6 +12,44 @@ import { sendTicketConfirmationEmail } from "./resend";
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Re-sends the email for an existing ticket — the same reference and QR code,
+ * never a new ticket. A guest's ticket goes out as the guest copy ("Ada got you
+ * a ticket"); a buyer's lists their guests. `to` overrides the address (e.g. the
+ * buyer mistyped it) without changing the ticket.
+ */
+export async function resendTicketEmail(
+  reference: string,
+  to?: string,
+): Promise<{ ok: true; sentTo: string } | { ok: false; error: string }> {
+  const ticket = await getTicket(reference);
+  if (!ticket) return { ok: false, error: "Ticket not found." };
+  if (ticket.status !== "paid" && ticket.status !== "confirmed") {
+    return { ok: false, error: "This ticket hasn't been paid for." };
+  }
+  const email = to || ticket.email;
+  const sent = ticket.parentReference
+    ? await sendTicketConfirmationEmail({
+        name: ticket.name,
+        email,
+        eventTitle: ticket.eventTitle,
+        quantity: 1,
+        amount: 0,
+        reference,
+        sentBy: ticket.purchasedBy ?? (await getTicket(ticket.parentReference))?.name ?? "A friend",
+      })
+    : await sendTicketConfirmationEmail({
+        name: ticket.name,
+        email,
+        eventTitle: ticket.eventTitle,
+        quantity: ticket.quantity,
+        amount: ticket.amount,
+        reference,
+        ...(ticket.guests?.length ? { guests: ticket.guests } : {}),
+      });
+  return sent ? { ok: true, sentTo: email } : { ok: false, error: "The email couldn't be sent. Try again." };
+}
+
 export async function deliverPaidTicket(reference: string): Promise<void> {
   const ticket = await getTicket(reference);
   if (!ticket) return;

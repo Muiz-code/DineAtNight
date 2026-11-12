@@ -107,6 +107,8 @@ export interface DanTicket {
   phone: string;
   ageRange?: string; // buyer's age range from checkout (TICKET_AGE_RANGES); missing on older tickets
   ageConfirmed?: boolean; // buyer confirmed the event's age limit (only when the event has one)
+  termsAccepted?: boolean; // agreed to the Ticketing T&Cs + Privacy Notice at checkout (required)
+  marketingConsent?: boolean; // opted in to sharing email/phone with sponsors & partners (optional)
   quantity: number;
   ticketType?: string; // e.g. "VIP", "VVIP", "General Admission" — undefined = legacy single-price
   amount: number; // in kobo (Paystack)
