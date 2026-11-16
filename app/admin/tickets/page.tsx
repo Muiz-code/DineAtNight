@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { DanEvent, DanTicket } from "@/lib/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, Download, ChevronLeft, ChevronRight, X, Mail, Check } from "lucide-react";
 import { logAdminAction } from "@/lib/adminLog";
+import { ticketAvailability } from "@/lib/ticketInventory";
+import TicketOrders from "../_components/TicketOrders";
 import * as XLSX from "xlsx";
 
-type TicketTab = "unscanned" | "scanned";
+type TicketTab = "all" | "unscanned" | "scanned";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
@@ -36,11 +38,14 @@ export default function AdminTicketsPage() {
   const [events, setEvents] = useState<DanEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<string>("");
   const [tickets, setTickets] = useState<DanTicket[]>([]);
+  const [allTickets, setAllTickets] = useState<DanTicket[]>([]);
+  const [view, setView] = useState<"tickets" | "orders">("tickets");
+  const [now, setNow] = useState(() => Date.now());
   const [resendTarget, setResendTarget] = useState<DanTicket | null>(null);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [loadingTickets, setLoadingTickets] = useState(false);
   const [error, setError] = useState("");
-  const [ticketTab, setTicketTab] = useState<TicketTab>("unscanned");
+  const [ticketTab, setTicketTab] = useState<TicketTab>("all");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [preview, setPreview] = useState<PreviewState | null>(null);
@@ -64,29 +69,19 @@ export default function AdminTicketsPage() {
     load();
   }, []);
 
-  // Load tickets when selected event changes
+  // Live updates keep payments and gate confirmations in sync without refreshing.
   useEffect(() => {
     if (!selectedEvent) return;
-    setLoadingTickets(true);
-    const load = async () => {
-      try {
-        const snap = await getDocs(
-          query(collection(db, "tickets"), where("eventId", "==", selectedEvent))
-        );
-        const txs = snap.docs.map((d) => ({ id: d.id, ...d.data() } as DanTicket));
-        const filtered = txs
-          .filter((t) => t.status === "paid" || t.status === "confirmed")
-          .sort((a, b) => (b.purchasedAt?.seconds ?? 0) - (a.purchasedAt?.seconds ?? 0));
-        setTickets(filtered);
-      } catch (err) {
-        console.error(err);
-        setError("Could not load tickets.");
-      } finally {
-        setLoadingTickets(false);
-      }
-    };
-    load();
+    setLoadingTickets(true); setTickets([]); setAllTickets([]); setError("");
+    return onSnapshot(query(collection(db, "tickets"), where("eventId", "==", selectedEvent)), snap => {
+      const rows = snap.docs.map(d => ({ id: d.id, ...d.data() } as DanTicket));
+      rows.sort((a,b) => (b.purchasedAt?.seconds ?? 0)-(a.purchasedAt?.seconds ?? 0));
+      setAllTickets(rows);
+      setTickets(rows.filter(t => t.status === "paid" || t.status === "confirmed"));
+      setLoadingTickets(false);
+    }, err => { console.error(err); setError("Could not load tickets."); setLoadingTickets(false); });
   }, [selectedEvent]);
+  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 10000); return () => clearInterval(timer); }, []);
 
   // Reset page on event or tab change
   useEffect(() => { setPage(0); }, [selectedEvent, ticketTab]);
@@ -95,7 +90,11 @@ export default function AdminTicketsPage() {
   const soldCount = tickets.reduce((s, t) => s + t.quantity, 0);
   const confirmedCount = tickets.filter((t) => t.status === "confirmed").reduce((s, t) => s + t.quantity, 0);
   const revenue = tickets.filter((t) => t.status !== "pending").reduce((s, t) => s + t.amount, 0) / 100;
-  const remaining = (activeEvent?.totalTickets ?? 0) - soldCount;
+  const inventory = activeEvent ? ticketAvailability(activeEvent, allTickets, now) : null;
+  const remaining = inventory?.available ?? 0;
+  const reviewPayments = allTickets.filter(t => t.paymentReview);
+  const paidOrders = tickets.filter(t => !t.parentReference).length;
+  const buyerOf = (t: DanTicket) => tickets.find(b => b.reference === (t.parentReference ?? t.reference));
 
   // Orders sent to different emails: buyer's reference → { buyer, scanned, total }
   const orders = new Map<string, { buyer: string; scanned: number; total: number }>();
@@ -112,7 +111,7 @@ export default function AdminTicketsPage() {
 
   // Derived display + pagination
   const displayTickets = tickets.filter((t) =>
-    ticketTab === "scanned" ? t.status === "confirmed" : t.status === "paid"
+    ticketTab === "all" || (ticketTab === "scanned" ? t.status === "confirmed" : t.status === "paid")
   );
   const totalPages = Math.ceil(displayTickets.length / pageSize);
   const pageTickets = displayTickets.slice(page * pageSize, (page + 1) * pageSize);
@@ -132,10 +131,10 @@ export default function AdminTicketsPage() {
       Reference: t.reference,
       "Ticket Type": t.ticketType ?? "—",
       Quantity: t.quantity,
-      "Amount (₦)": t.amount / 100,
+      "Order payment (NGN; recorded once on buyer)": t.parentReference ? "Included in order" : t.amount / 100,
       Status: t.status,
-      Purchased: t.purchasedAt
-        ? new Date((t.purchasedAt as { seconds: number }).seconds * 1000).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })
+      Purchased: (buyerOf(t)?.purchasedAt ?? t.purchasedAt)
+        ? new Date(((buyerOf(t)?.purchasedAt ?? t.purchasedAt) as { seconds: number }).seconds * 1000).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })
         : "—",
       "Scanned At": t.confirmedAt
         ? new Date((t.confirmedAt as { seconds: number }).seconds * 1000).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })
@@ -178,7 +177,7 @@ export default function AdminTicketsPage() {
             {events.map((ev) => (
               <button
                 key={ev.id}
-                onClick={() => { setSelectedEvent(ev.id!); setTicketTab("unscanned"); }}
+                onClick={() => { setSelectedEvent(ev.id!); setTicketTab("all"); }}
                 className="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all border"
                 style={{
                   borderColor: selectedEvent === ev.id ? "#FFFF00" : "rgba(255,255,255,0.1)",
@@ -199,10 +198,10 @@ export default function AdminTicketsPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             {[
               { label: "Total Capacity", value: activeEvent.totalTickets, color: "#888", glow: "rgba(136,136,136,0.4)" },
-              { label: "Tickets Sold", value: loadingTickets ? "…" : soldCount, color: "#FFFF00", glow: "rgba(255,255,0,0.5)" },
-              { label: "Confirmed", value: loadingTickets ? "…" : confirmedCount, color: "#00FF41", glow: "rgba(0,255,65,0.5)" },
+              { label: "Admissions Sold", value: loadingTickets ? "…" : soldCount, color: "#FFFF00", glow: "rgba(255,255,0,0.5)" },
+              { label: "Admissions Checked In", value: loadingTickets ? "…" : confirmedCount, color: "#00FF41", glow: "rgba(0,255,65,0.5)" },
               {
-                label: "Remaining",
+                label: "Available to Buy",
                 value: loadingTickets ? "…" : remaining,
                 color: remaining < 50 ? "#FF3333" : "#00FF41",
                 glow: remaining < 50 ? "rgba(255,51,51,0.5)" : "rgba(0,255,65,0.5)",
@@ -215,6 +214,7 @@ export default function AdminTicketsPage() {
             ))}
           </div>
 
+          <p className="text-xs text-gray-500">Available to buy excludes {inventory?.reserved ?? 0} admissions reserved in active checkouts.</p>
           {/* Progress bars */}
           <div className="rounded-xl border p-6 space-y-4" style={{ borderColor: "rgba(255,255,255,0.06)", background: "#0a0a0a" }}>
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Sales Progress</h3>
@@ -237,11 +237,37 @@ export default function AdminTicketsPage() {
             </div>
           </div>
 
+          <section className="rounded-xl border border-white/10 p-4 space-y-3">
+            <h3 className="text-sm font-bold text-white">Tier allocations</h3>
+            {loadingTickets ? <p className="text-gray-500 text-sm">Loading inventory...</p> : <div className="overflow-x-auto"><table className="w-full text-sm text-left">
+              <thead className="text-gray-500"><tr>{["Tier", "Allocation", "Sold", "Reserved", "Available"].map(label => <th key={label} className="p-2">{label}</th>)}</tr></thead>
+              <tbody>{inventory?.tiers.map(t => <tr key={t.name} className="border-t border-white/5 text-gray-300">
+                <td className="p-2">{t.name}{t.overAllocation > 0 && <span className="block text-xs text-red-400">{t.overAllocation} over allocation</span>}</td>
+                <td className="p-2">{t.limit ?? "Unlimited"}</td><td className="p-2">{t.sold}</td><td className="p-2">{t.reserved}</td><td className="p-2">{t.available ?? "Unlimited"}</td>
+              </tr>)}</tbody>
+            </table></div>}
+            <p className="text-xs text-gray-500">Checkout reservations last 15 minutes. Existing paid tickets remain valid, including sales above allocation.</p>
+          </section>
+          {reviewPayments.length > 0 && <section className="rounded-xl border border-red-500/40 p-4 space-y-3">
+            <h3 className="text-sm font-bold text-red-400">Payments awaiting review / refund ({reviewPayments.length})</h3>
+            <p className="text-xs text-gray-400">Payment received after the reservation expired and inventory was unavailable. No entry tickets or guest QR codes were issued. Review each reference and process any refund in Paystack.</p>
+            {reviewPayments.map(t => <div key={t.reference} className="text-sm text-white border-t border-white/10 pt-3">
+              <p>{t.name} | {t.quantity} admissions requested | {fmt(t.amount)} received</p>
+              <p className="text-xs text-gray-400 break-all">{t.email} | {t.ticketType} | {t.reference}</p>
+            </div>)}
+          </section>}
+          <div className="space-y-3">
+            <p className="text-sm text-gray-400">{paidOrders} paid orders | {tickets.length} ticket QR codes | {soldCount} admissions sold</p>
+            <p className="text-xs text-gray-500">Awaiting check-in: {soldCount-confirmedCount} admissions across {tickets.filter(t => t.status === "paid").length} QR codes. Checked in: {confirmedCount} admissions across {tickets.filter(t => t.status === "confirmed").length} QR codes.</p>
+            <div className="flex flex-wrap gap-2">{(["tickets", "orders"] as const).map(v => <button key={v} onClick={() => setView(v)} className={"rounded-lg border px-4 py-2 text-sm " + (view === v ? "border-[#FFFF00] text-[#FFFF00]" : "border-white/10 text-gray-500")}>{v === "tickets" ? "Ticket list" : "Paid orders"}</button>)}</div>
+            {view === "orders" && !loadingTickets && <TicketOrders key={selectedEvent} tickets={tickets} onResend={setResendTarget} />}
+          </div>
           {/* Ticket list */}
+          {view === "tickets" && (
           <div>
             <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
               <h3 className="text-sm font-bold text-white uppercase tracking-widest">
-                Ticket Purchases
+                Ticket list
                 {loadingTickets
                   ? <span className="ml-2 inline-block w-3 h-3 border-2 border-[#FFFF00] border-t-transparent rounded-full animate-spin align-middle" />
                   : <span className="text-gray-600 font-normal ml-1">({tickets.length} total)</span>
@@ -249,10 +275,11 @@ export default function AdminTicketsPage() {
               </h3>
 
               {/* Scanned / Unscanned tabs */}
-              <div className="flex gap-1 p-1 rounded-xl border border-white/8 bg-white/[0.02]">
+              <div className="flex flex-wrap gap-1 p-1 rounded-xl border border-white/8 bg-white/[0.02]">
                 {([
-                  { key: "unscanned" as TicketTab, label: "Unscanned", accent: "#FFFF00", count: tickets.filter((t) => t.status === "paid").length },
-                  { key: "scanned"   as TicketTab, label: "Scanned",   accent: "#00FF41", count: tickets.filter((t) => t.status === "confirmed").length },
+                  { key: "all" as TicketTab, label: "All tickets", accent: "#FFFF00", count: tickets.length },
+                  { key: "unscanned" as TicketTab, label: "Awaiting check-in / QR codes", accent: "#FFFF00", count: tickets.filter((t) => t.status === "paid").length },
+                  { key: "scanned"   as TicketTab, label: "Checked in / QR codes",   accent: "#00FF41", count: tickets.filter((t) => t.status === "confirmed").length },
                 ] as const).map(({ key, label, accent, count }) => {
                   const active = ticketTab === key;
                   return (
@@ -335,7 +362,7 @@ export default function AdminTicketsPage() {
                     <button
                       onClick={() => setPreview({
                         rows: pageTickets,
-                        label: `Page ${page + 1} — ${ticketTab === "scanned" ? "Scanned" : "Unscanned"}`,
+                        label: `Page ${page + 1} — ${ticketTab === "all" ? "All tickets" : ticketTab === "scanned" ? "Checked in" : "Awaiting check-in"}`,
                         suffix: `page${page + 1}`,
                       })}
                       disabled={pageTickets.length === 0}
@@ -348,7 +375,7 @@ export default function AdminTicketsPage() {
                     <button
                       onClick={() => setPreview({
                         rows: displayTickets,
-                        label: `All ${ticketTab === "scanned" ? "Scanned" : "Unscanned"} Tickets`,
+                        label: ticketTab === "all" ? "All tickets" : `All ${ticketTab === "scanned" ? "checked-in" : "awaiting check-in"} tickets`,
                         suffix: "all",
                       })}
                       disabled={displayTickets.length === 0}
@@ -402,11 +429,11 @@ export default function AdminTicketsPage() {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b text-gray-600 text-[10px] uppercase tracking-widest" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                              <th className="text-left px-5 py-3">Buyer</th>
+                              <th className="text-left px-5 py-3">Ticket holder</th>
                               <th className="text-left px-4 py-3 hidden sm:table-cell">Reference</th>
                               <th className="text-left px-4 py-3 hidden md:table-cell">Type</th>
-                              <th className="text-left px-4 py-3">Qty</th>
-                              <th className="text-left px-4 py-3">Amount</th>
+                              <th className="text-left px-4 py-3">Admits</th>
+                              <th className="text-left px-4 py-3">Order payment</th>
                               <th className="text-left px-4 py-3">
                                 {ticketTab === "scanned" ? "Scanned At" : "Purchased"}
                               </th>
@@ -415,7 +442,7 @@ export default function AdminTicketsPage() {
                           </thead>
                           <tbody>
                             {pageTickets.map((t) => {
-                              const dateField = ticketTab === "scanned" ? t.confirmedAt : t.purchasedAt;
+                              const dateField = ticketTab === "scanned" ? t.confirmedAt : (buyerOf(t)?.purchasedAt ?? t.purchasedAt);
                               const dateStr = dateField
                                 ? new Date((dateField as { seconds: number }).seconds * 1000).toLocaleString("en-NG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
                                 : "—";
@@ -447,7 +474,7 @@ export default function AdminTicketsPage() {
                                     )}
                                   </td>
                                   <td className="px-4 py-3 text-gray-300 text-sm">{t.quantity}x</td>
-                                  <td className="px-4 py-3 text-gray-300 text-sm">{fmt(t.amount)}</td>
+                                  <td className="px-4 py-3 text-gray-300 text-sm">{t.parentReference ? "Included in order" : fmt(t.amount) + " (order total)"}</td>
                                   <td className="px-4 py-3">
                                     <span className="text-[10px] font-medium" style={{ color: accent }}>{dateStr}</span>
                                   </td>
@@ -472,6 +499,7 @@ export default function AdminTicketsPage() {
               </>
             )}
           </div>
+          )}
         </>
       )}
 
@@ -552,7 +580,7 @@ export default function AdminTicketsPage() {
                             <td className="px-4 py-2.5 font-mono text-gray-500 text-[10px] whitespace-nowrap">{t.reference}</td>
                             <td className="px-4 py-2.5 text-gray-400 whitespace-nowrap">{t.ticketType ?? "—"}</td>
                             <td className="px-4 py-2.5 text-gray-300">{t.quantity}x</td>
-                            <td className="px-4 py-2.5 text-gray-300 whitespace-nowrap">{fmt(t.amount)}</td>
+                            <td className="px-4 py-2.5 text-gray-300 whitespace-nowrap">{t.parentReference ? "Included in order" : fmt(t.amount) + " (order total)"}</td>
                             <td className="px-4 py-2.5">
                               <span
                                 className="px-1.5 py-0.5 rounded-full font-bold uppercase tracking-widest text-[9px]"
@@ -562,8 +590,8 @@ export default function AdminTicketsPage() {
                               </span>
                             </td>
                             <td className="px-4 py-2.5 text-gray-500 whitespace-nowrap">
-                              {t.purchasedAt
-                                ? new Date((t.purchasedAt as { seconds: number }).seconds * 1000).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })
+                              {(buyerOf(t)?.purchasedAt ?? t.purchasedAt)
+                                ? new Date(((buyerOf(t)?.purchasedAt ?? t.purchasedAt) as { seconds: number }).seconds * 1000).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })
                                 : "—"}
                             </td>
                           </tr>

@@ -57,8 +57,15 @@ export function createFakeFirestore(seed: Record<string, Data> = {}) {
   };
   type DocRef = ReturnType<typeof docRef>;
 
+  type Query = { where: (field: string, op: string, value: unknown) => Query; get: () => Promise<{ docs: ReturnType<typeof snapshot>[] }> };
+  const queryRef = (collection: string, filters: [string, unknown][] = []): Query => ({
+    where: (field, _op, value) => queryRef(collection, [...filters, [field, value]]),
+    get: async () => ({ docs: [...store.entries()].filter(([path, data]) => path.startsWith(collection + "/") && filters.every(([field,value]) => data[field] === value)).map(([path,data]) => snapshot(path.slice(collection.length+1),data)) }),
+  });
+  let queue = Promise.resolve();
   const db = {
     collection: (collection: string) => ({
+      ...queryRef(collection),
       doc: (id: string) => docRef(collection, id),
       get: async () => ({
         docs: [...store.entries()]
@@ -68,10 +75,15 @@ export function createFakeFirestore(seed: Record<string, Data> = {}) {
     }),
     getAll: (...refs: DocRef[]) => Promise.all(refs.map((r) => r.get())),
     runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => {
+      const previous = queue;
+      let release!: () => void;
+      queue = new Promise<void>(resolve => { release = resolve; });
+      await previous;
+      try {
       // Writes are buffered and applied only if the callback succeeds, like Firestore
       const pending: (() => void)[] = [];
       const tx = {
-        get: (ref: DocRef) => ref.get(),
+        get: (ref: { get: () => Promise<unknown> }) => ref.get(),
         update: (ref: DocRef, data: Data) => void pending.push(() => applyUpdate(ref.path, data)),
         set: (ref: DocRef, data: Data, opts?: { merge?: boolean }) =>
           void pending.push(() => applySet(ref.path, data, opts?.merge)),
@@ -85,6 +97,7 @@ export function createFakeFirestore(seed: Record<string, Data> = {}) {
       const result = await fn(tx);
       for (const apply of pending) apply();
       return result;
+      } finally { release(); }
     },
   };
 

@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Mail, Minus, Plus, Users, X } from "lucide-react";
 import { useScrollLock } from "@/lib/useScrollLock";
 import { type DanEvent } from "@/lib/firestore";
+import type { TicketAvailability } from "@/lib/ticketInventory";
 import { track } from "@vercel/analytics";
 import { ageConfirmText, ageLimitLabel, allowedAgeRanges, hasAgeLimit } from "@/lib/ageLimits";
 import { MAX_TICKET_QUANTITY, PRIVACY_NOTICE_URL, TICKET_TERMS_URL } from "@/lib/constants";
@@ -40,8 +41,24 @@ export default function TicketModal({
   useScrollLock(true);
   const [selectedId, setSelectedId] = useState(initialEvent.id ?? "");
   const event = events.find((e) => e.id === selectedId) ?? initialEvent;
-  const soldCount = event.soldTickets ?? 0;
-  const remaining = event.totalTickets - soldCount;
+  const [availability, setAvailability] = useState<{ eventId: string; data: TicketAvailability } | null>(null);
+  const [availabilityError, setAvailabilityError] = useState("");
+  useEffect(() => {
+    let active = true;
+    const update = async () => {
+      try {
+        const res = await fetch("/api/tickets/availability?eventId=" + encodeURIComponent(selectedId), { cache: "no-store" });
+        if (!res.ok) throw new Error();
+        const data: TicketAvailability = await res.json();
+        if (active) { setAvailability({ eventId: selectedId, data }); setAvailabilityError(""); }
+      } catch { if (active) { setAvailability(null); setAvailabilityError("Could not check ticket availability. Retrying shortly."); } }
+    };
+    void update(); const timer = setInterval(update, 15000);
+    return () => { active = false; clearInterval(timer); };
+  }, [selectedId]);
+  const inventory = availability?.eventId === selectedId ? availability.data : null;
+  const soldCount = inventory?.sold ?? event.soldTickets ?? 0;
+  const remaining = inventory ? (inventory.available ?? MAX_TICKET_QUANTITY) : 0;
   const pct = event.totalTickets > 0 ? Math.round((soldCount / event.totalTickets) * 100) : 0;
   const router = useRouter();
 
@@ -55,10 +72,7 @@ export default function TicketModal({
     : null;
   const activePrice = selectedTier ? selectedTier.price : event.ticketPrice;
 
-  const tierRemaining =
-    selectedTier?.limit != null
-      ? Math.min(remaining, selectedTier.limit)
-      : remaining;
+  const tierRemaining = inventory?.tiers.find(t => t.name === selectedTier?.name)?.available ?? remaining;
 
   const [form, setForm] = useState({
     name: "",
@@ -105,7 +119,10 @@ export default function TicketModal({
     : [];
 
   // Typed quantity: whole numbers from 0 (box cleared while typing) up to the per-order max or what's left
-  const maxQty = Math.max(1, Math.min(MAX_TICKET_QUANTITY, tierRemaining));
+  const maxQty = Math.max(0, Math.min(MAX_TICKET_QUANTITY, tierRemaining));
+  const soldOut = !!inventory && maxQty === 0;
+  const quantityDisabled = !inventory || soldOut;
+  const checkoutDisabled = loading || quantityDisabled || form.quantity < 1 || form.quantity > maxQty;
   const setQuantity = (n: number) =>
     setForm((p) => ({ ...p, quantity: Math.max(0, Math.min(maxQty, Math.floor(n) || 0)) }));
 
@@ -114,6 +131,7 @@ export default function TicketModal({
   ) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
 
   const pay = async () => {
+    if (quantityDisabled || form.quantity < 1 || form.quantity > tierRemaining) { setError("Please check ticket availability and quantity."); return; }
     setLoading(true);
     setError("");
     try {
@@ -155,7 +173,9 @@ export default function TicketModal({
   // The form's submit = "Continue" (the browser checks this step's required fields first)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (checkoutDisabled) return;
     if (step === "tickets") {
+      if (!inventory) return setError(availabilityError || "Checking ticket availability. Please wait.");
       if (form.quantity < 1) return setError("Enter how many tickets you want.");
       if (tierRemaining < form.quantity) return setError("Not enough tickets remaining for this ticket type.");
     }
@@ -282,6 +302,7 @@ export default function TicketModal({
                       </div>
                     )}
 
+                    {!inventory && <p role="status" className="text-xs text-gray-400">{availabilityError || "Checking ticket availability..."}</p>}
                     {hasTiers && (
                       <div>
                         <label className={labelCls}>Ticket Type</label>
@@ -291,23 +312,28 @@ export default function TicketModal({
                         >
                           {event.ticketTypes!.map((tier, tierIdx) => {
                             const active = ticketType === tier.name;
+                            const left = inventory?.tiers.find(t => t.name === tier.name)?.available;
                             return (
                               <button
                                 key={`${tier.name}-${tierIdx}`}
                                 type="button"
-                                onClick={() => setTicketType(tier.name)}
+                                disabled={!inventory || left === 0}
+                                aria-label={tier.name + (left === 0 ? " - sold out" : "")}
+                                onClick={() => { setTicketType(tier.name); setForm(p => ({ ...p, quantity: 1 })); }}
                                 className="flex flex-col items-center gap-0.5 py-3 px-2 rounded-xl border text-center transition-all duration-200"
                                 style={{
                                   borderColor: active ? "#FFFF00" : "rgba(255,255,255,0.1)",
                                   background: active ? "rgba(255,255,0,0.07)" : "rgba(255,255,255,0.02)",
                                   boxShadow: active ? "0 0 12px rgba(255,255,0,0.15)" : "none",
+                                  opacity: left === 0 ? 0.45 : 1,
+                                  cursor: left === 0 ? "not-allowed" : "pointer",
                                 }}
                               >
                                 <span
                                   className="text-xs font-bold uppercase tracking-widest"
                                   style={{ color: active ? "#FFFF00" : "rgba(255,255,255,0.55)" }}
                                 >
-                                  {tier.name}
+                                  {tier.name}{left === 0 ? " - Sold out" : ""}
                                 </span>
                                 <span
                                   className="text-[11px] font-medium"
@@ -345,7 +371,7 @@ export default function TicketModal({
                         <button
                           type="button"
                           onClick={() => setQuantity(form.quantity - 1)}
-                          disabled={form.quantity <= 1}
+                          disabled={quantityDisabled || form.quantity <= 1}
                           aria-label="One fewer ticket"
                           className="w-12 flex items-center justify-center rounded-lg border border-white/10 text-white hover:border-[#FFFF00] transition-all disabled:opacity-30"
                         >
@@ -355,27 +381,28 @@ export default function TicketModal({
                           name="quantity"
                           type="number"
                           inputMode="numeric"
-                          min={1}
+                          disabled={quantityDisabled}
+                          min={quantityDisabled ? 0 : 1}
                           max={maxQty}
                           // Empty while the buyer clears the box to type a new number
-                          value={form.quantity || ""}
+                          value={quantityDisabled ? 0 : form.quantity || ""}
                           onChange={(e) => setQuantity(e.target.value === "" ? 0 : Number(e.target.value))}
                           onBlur={() => form.quantity < 1 && setQuantity(1)}
                           required
                           aria-label="Number of tickets"
-                          className="flex-1 min-w-0 px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white text-center text-base font-bold focus:outline-none focus:border-[#FFFF00] transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          className="flex-1 min-w-0 px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white text-center text-base font-bold disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:border-[#FFFF00] transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         />
                         <button
                           type="button"
                           onClick={() => setQuantity(form.quantity + 1)}
-                          disabled={form.quantity >= maxQty}
+                          disabled={quantityDisabled || form.quantity >= maxQty}
                           aria-label="One more ticket"
                           className="w-12 flex items-center justify-center rounded-lg border border-white/10 text-white hover:border-[#FFFF00] transition-all disabled:opacity-30"
                         >
                           <Plus className="w-4 h-4" />
                         </button>
                       </div>
-                      <p className="text-gray-600 text-[11px] mt-1.5">Up to {maxQty} per order</p>
+                      <p role="status" className="text-gray-500 text-[11px] mt-1.5">{soldOut ? "This ticket type is sold out. Please choose another available ticket type." : !inventory ? "Checking availability..." : `Up to ${maxQty} per order`}</p>
                     </div>
 
                     {limited && (
@@ -591,6 +618,7 @@ export default function TicketModal({
                       )}
                     </div>
 
+                    <p className="text-xs text-gray-400">Your tickets will be reserved for 15 minutes when you continue to payment.</p>
                     {/* Before you check out — T&Cs required, sponsor sharing optional */}
                     <div className="rounded-lg border border-white/10 p-4 space-y-3">
                       <p className="text-[10px] text-gray-500 uppercase tracking-widest">Before you check out</p>
@@ -648,22 +676,26 @@ export default function TicketModal({
               )}
               <motion.button
                 type="submit"
-                disabled={loading}
-                className="flex-1 py-4 rounded-full font-bold uppercase tracking-widest text-sm"
+                disabled={checkoutDisabled}
+                className="flex-1 py-4 rounded-full font-bold uppercase tracking-widest text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{
                   background: loading ? "transparent" : "#FFFF00",
                   color: loading ? "#FFFF00" : "#000",
                   border: "2px solid #FFFF00",
                   boxShadow: loading ? "0 0 15px rgba(255,255,0,0.2)" : "0 0 30px rgba(255,255,0,0.5)",
                 }}
-                whileHover={!loading ? { scale: 1.02 } : {}}
-                whileTap={!loading ? { scale: 0.97 } : {}}
+                whileHover={!checkoutDisabled ? { scale: 1.02 } : {}}
+                whileTap={!checkoutDisabled ? { scale: 0.97 } : {}}
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-3">
                     <span className="w-4 h-4 border-2 border-[#FFFF00] border-t-transparent rounded-full animate-spin" />
                     Redirecting to Paystack…
                   </span>
+                ) : soldOut ? (
+                  "Sold out"
+                ) : !inventory ? (
+                  "Checking availability..."
                 ) : isLast ? (
                   `Pay ₦${total.toLocaleString()} via Paystack →`
                 ) : (

@@ -122,6 +122,9 @@ export interface DanTicket {
   guests?: { name: string; email: string }[];
   guestReferences?: string[];
   orderQuantity?: number;
+  reservationExpiresAt?: number;
+  paymentReview?: boolean; // payment received, but no admission issued
+  paymentReviewReason?: string;
   // On a guest's ticket: the buyer's ticket it was split from.
   parentReference?: string;
   purchasedBy?: string;

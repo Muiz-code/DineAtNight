@@ -450,3 +450,35 @@ See **[docs/DEBUGGING.md](docs/DEBUGGING.md)** for the full guide: which
 on-screen message maps to which cause, env setup pitfalls
 (`FIREBASE_SERVICE_ACCOUNT` format, `RESEND_API_KEY`, Node version), and
 payment/email issues we have already hit.
+
+
+## Ticket inventory and late payments
+
+Checkout now re-reads existing ticket records inside a Firestore transaction,
+locking the event document on every reservation and successful payment. Tier sales
+are the sum of issued quantities, including split guest tickets; the parent's
+original orderQuantity is not added again. Existing paid tickets remain valid.
+No production migration is needed to enforce tier allocations on existing sales.
+The legacy soldTickets aggregate is retained as a conservative overall-capacity
+floor and reconciled upward when payments complete.
+
+Pending checkouts reserve admissions for 15 minutes (reservationExpiresAt in
+milliseconds). Expired reservations stop consuming inventory without a scheduled
+job. A late successful payment is accepted only if capacity is still available;
+otherwise paymentReview is set while status remains pending. Such records issue
+no guest tickets, email, check-in push or usable entry QR. The admin Ticket
+Analytics review list contains the buyer, amount and Paystack reference. Staff
+must investigate and refund through Paystack; this change does not initiate
+refunds or automatically approve review payments.
+
+The availability API returns aggregate counts only. Admin analytics distinguishes
+paid orders, QR codes and admissions; check-in of a shared group QR still admits
+the whole group together. Existing guest purchase times are displayed from their
+parent order. Public checkout polls availability every 15 seconds; server-side
+transactions remain authoritative. Inventory queries currently read all records
+for one event; introduce audited counters if event volumes outgrow this approach.
+
+Deployment: deploy the application after checks pass. No new Firestore indexes or
+rule changes are required. Do not rename tiers with existing sales without first
+migrating those tickets to the intended allocation. Never reset tier allocations
+or delete existing paid tickets to correct historical overselling.

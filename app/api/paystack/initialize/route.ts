@@ -113,23 +113,27 @@ export async function POST(req: NextRequest) {
     const { reference, authorization_url } = paystackData.data;
 
     // Save a pending ticket in Firestore before redirecting
-    await createPendingTicket({
-      eventId,
-      eventTitle: quote.eventTitle.slice(0, 200),
-      name: cleanName,
-      email,
-      phone: cleanPhone,
-      ageRange,
-      ...(limited ? { ageConfirmed: true } : {}),
-      ...(guests.length ? { guests } : {}),
-      termsAccepted: true,
-      marketingConsent: marketingConsent === true,
-      quantity: qty,
-      ...(quote.ticketType ? { ticketType: quote.ticketType } : {}),
-      amount: amountKobo,
-      reference,
-    });
+    try {
+      await createPendingTicket({
+        eventId,
+        eventTitle: quote.eventTitle.slice(0, 200),
+        name: cleanName,
+        email,
+        phone: cleanPhone,
+        ageRange,
+        ...(limited ? { ageConfirmed: true } : {}),
+        ...(guests.length ? { guests } : {}),
+        termsAccepted: true,
+        marketingConsent: marketingConsent === true,
+        quantity: qty,
+        ...(quote.ticketType ? { ticketType: quote.ticketType } : {}),
+        amount: amountKobo,
+        reference,
+      });
 
+    } catch (err) {
+      return NextResponse.json({ error: err instanceof Error ? err.message : "Tickets are no longer available." }, { status: 409 });
+    }
     return NextResponse.json({ authorization_url, reference });
   } catch (err) {
     console.error("[paystack/initialize]", err);

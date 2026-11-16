@@ -7,6 +7,8 @@
  * charged with the amount stored at checkout.
  */
 
+import { ticketAvailability, RESERVATION_MS } from "./ticketInventory";
+import { MAX_TICKET_QUANTITY } from "./constants";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "./firebase-admin";
 import type { DanEvent, DanMerchOrder, DanProduct, DanTicket } from "./firestore";
@@ -47,44 +49,54 @@ export type TicketQuote = {
  * Validates a ticket purchase against the event in Firestore and returns the
  * server-side price. Throws an Error with a user-safe message on failure.
  */
+function validateQuote(event: DanEvent, quantity: number, ticketType?: string): TicketQuote {
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_TICKET_QUANTITY) throw new Error("Invalid ticket quantity.");
+  if (event.status !== "active" || event.isPast) throw new Error("Tickets for this event are not on sale.");
+  const tier = event.ticketTypes?.length ? event.ticketTypes.find(t => t.name === ticketType) : undefined;
+  if (event.ticketTypes?.length && !tier) throw new Error("Please choose a valid ticket type.");
+  const unitPrice = tier?.price ?? event.ticketPrice;
+  if (!Number.isFinite(unitPrice) || unitPrice <= 0) throw new Error("This event has no valid ticket price.");
+  return { eventTitle: event.title, ticketType: tier?.name, unitPrice, minAge: event.minAge, maxAge: event.maxAge };
+}
+function availableFor(event: DanEvent, tickets: DanTicket[], ticketType?: string, excludeReference?: string) {
+  const inventory = ticketAvailability(event, tickets, Date.now(), excludeReference);
+  return inventory.tiers.find(t => t.name === ticketType)?.available ?? inventory.available ?? Infinity;
+}
+function assertAvailable(available: number, quantity: number) {
+  if (quantity > available) throw new Error(available <= 0 ? "This ticket type is sold out." : "Only " + available + " ticket" + (available === 1 ? "" : "s") + " left.");
+}
+export async function getEventTicketAvailability(eventId: string) {
+  const db = adminDb();
+  const event = await db.collection("events").doc(eventId).get();
+  if (!event.exists) throw new Error("Event not found.");
+  const tickets = await db.collection("tickets").where("eventId", "==", eventId).get();
+  return ticketAvailability(event.data() as DanEvent, tickets.docs.map(d => d.data() as DanTicket));
+}
 export async function quoteTicket(eventId: string, quantity: number, ticketType?: string): Promise<TicketQuote> {
-  const snap = await adminDb().collection("events").doc(eventId).get();
+  const db = adminDb();
+  const snap = await db.collection("events").doc(eventId).get();
   if (!snap.exists) throw new Error("Event not found.");
   const event = snap.data() as DanEvent;
-
-  if (event.status !== "active" || event.isPast) throw new Error("Tickets for this event are not on sale.");
-
-  let unitPrice = event.ticketPrice;
-  let tierName: string | undefined;
-  let tierLimit: number | undefined;
-  if (event.ticketTypes?.length) {
-    const tier = event.ticketTypes.find((t) => t.name === ticketType);
-    if (!tier) throw new Error("Please choose a valid ticket type.");
-    unitPrice = tier.price;
-    tierName = tier.name;
-    tierLimit = tier.limit;
-  }
-  if (!Number.isFinite(unitPrice) || unitPrice <= 0) throw new Error("This event has no valid ticket price.");
-
-  // Overall capacity (when set) and the tier's limit are enforced independently
-  let cap = Infinity;
-  if (event.totalTickets > 0) cap = event.totalTickets - (event.soldTickets ?? 0);
-  if (tierLimit != null) cap = Math.min(cap, tierLimit);
-  if (quantity > cap) {
-    throw new Error(cap <= 0 ? "This event is sold out." : `Only ${cap} ticket${cap === 1 ? "" : "s"} left.`);
-  }
-
-  return { eventTitle: event.title, ticketType: tierName, unitPrice, minAge: event.minAge, maxAge: event.maxAge };
+  const quote = validateQuote(event, quantity, ticketType);
+  const tickets = await db.collection("tickets").where("eventId", "==", eventId).get();
+  assertAvailable(availableFor(event, tickets.docs.map(d => d.data() as DanTicket), quote.ticketType), quantity);
+  return quote;
 }
-
-export async function createPendingTicket(
-  data: Omit<DanTicket, "id" | "purchasedAt" | "confirmedAt" | "status">,
-): Promise<void> {
-  await adminDb().collection("tickets").doc(data.reference).create({
-    ...data,
-    status: "pending",
-    purchasedAt: FieldValue.serverTimestamp(),
-    confirmedAt: null,
+/** Lock the event and reserve inventory before returning a hosted checkout URL. */
+export async function createPendingTicket(data: Omit<DanTicket, "id" | "purchasedAt" | "confirmedAt" | "status">): Promise<void> {
+  const db = adminDb();
+  await db.runTransaction(async tx => {
+    const eventRef = db.collection("events").doc(data.eventId);
+    const eventSnap = await tx.get(eventRef);
+    if (!eventSnap.exists) throw new Error("Event not found.");
+    const event = eventSnap.data() as DanEvent;
+    const quote = validateQuote(event, data.quantity, data.ticketType);
+    if (Math.round(quote.unitPrice * data.quantity * 100) !== data.amount) throw new Error("Ticket price changed. Please try again.");
+    const tickets = await tx.get(db.collection("tickets").where("eventId", "==", data.eventId));
+    assertAvailable(availableFor(event, tickets.docs.map(d => d.data() as DanTicket), data.ticketType), data.quantity);
+    tx.create(db.collection("tickets").doc(data.reference), { ...data, status: "pending",
+      reservationExpiresAt: Date.now() + RESERVATION_MS, purchasedAt: FieldValue.serverTimestamp(), confirmedAt: null });
+    tx.update(eventRef, { inventoryRevision: FieldValue.increment(1) });
   });
 }
 
@@ -130,9 +142,22 @@ export async function markTicketPaid(reference: string, paidAmountKobo: number):
     const snap = await tx.get(ticketRef);
     if (!snap.exists) throw new Error(`Ticket not found: ${reference}`);
     const ticket = snap.data() as DanTicket;
-    if (ticket.status === "paid" || ticket.status === "confirmed") return false;
+    if (ticket.status === "paid" || ticket.status === "confirmed" || ticket.paymentReview) return false;
     if (paidAmountKobo < ticket.amount) {
       throw new Error(`Amount mismatch for ${reference}: paid ${paidAmountKobo}, expected ${ticket.amount}`);
+    }
+    const eventRef = db.collection("events").doc(ticket.eventId);
+    const eventSnap = await tx.get(eventRef);
+    if (!eventSnap.exists) throw new Error("Event not found.");
+    const event = eventSnap.data() as DanEvent;
+    const tickets = await tx.get(db.collection("tickets").where("eventId", "==", ticket.eventId));
+    const inventory = tickets.docs.map(d => d.data() as DanTicket);
+    const reserved = (ticket.reservationExpiresAt ?? 0) > Date.now();
+    const tierExists = !event.ticketTypes?.length || event.ticketTypes.some(t => t.name === ticket.ticketType);
+    if (!reserved && (!tierExists || ticket.quantity > availableFor(event, inventory, ticket.ticketType, reference))) {
+      tx.update(ticketRef, { paymentReview: true, paymentReviewReason: "Payment received after reservation expiry; allocation unavailable. Review and refund in Paystack.", paidAt: FieldValue.serverTimestamp(), reservationExpiresAt: 0 });
+      tx.update(eventRef, { inventoryRevision: FieldValue.increment(1) });
+      return false;
     }
     const guests = ticket.guests ?? [];
     const guestRefs = guests.map((_, i) => guestReference(reference, i + 2));
@@ -150,7 +175,7 @@ export async function markTicketPaid(reference: string, paidAmountKobo: number):
         status: "paid",
         parentReference: reference,
         purchasedBy: ticket.name,
-        purchasedAt: FieldValue.serverTimestamp(),
+        purchasedAt: ticket.purchasedAt ?? FieldValue.serverTimestamp(),
         paidAt: FieldValue.serverTimestamp(),
         confirmedAt: null,
       });
@@ -158,10 +183,12 @@ export async function markTicketPaid(reference: string, paidAmountKobo: number):
     tx.update(ticketRef, {
       status: "paid",
       paidAt: FieldValue.serverTimestamp(),
+      reservationExpiresAt: 0,
       ...(guests.length ? { quantity: 1, orderQuantity: ticket.quantity, guestReferences: guestRefs } : {}),
     });
     tx.update(db.collection("events").doc(ticket.eventId), {
-      soldTickets: FieldValue.increment(ticket.quantity),
+      soldTickets: Math.max(event.soldTickets ?? 0, inventory.filter(t => t.status === "paid" || t.status === "confirmed").reduce((n,t) => n+t.quantity,0)) + ticket.quantity,
+      inventoryRevision: FieldValue.increment(1),
     });
     return true;
   });

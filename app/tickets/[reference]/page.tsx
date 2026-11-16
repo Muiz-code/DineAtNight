@@ -66,7 +66,7 @@ export default function TicketPage() {
           return;
         }
         if (t.status === "pending") {
-          setError("Payment not yet confirmed.");
+          setError(t.paymentReview ? "Payment received and awaiting admin review/refund. No entry ticket has been issued. Contact support with your payment reference." : "Payment not yet confirmed.");
           return;
         }
         setTicket(t);

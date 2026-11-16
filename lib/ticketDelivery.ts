@@ -52,7 +52,7 @@ export async function resendTicketEmail(
 
 export async function deliverPaidTicket(reference: string): Promise<void> {
   const ticket = await getTicket(reference);
-  if (!ticket) return;
+  if (!ticket || (ticket.status !== "paid" && ticket.status !== "confirmed")) return;
   const guestRefs = ticket.guestReferences ?? [];
   const guests = ticket.guests ?? [];
 

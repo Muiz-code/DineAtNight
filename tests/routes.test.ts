@@ -5,6 +5,8 @@ import { NextRequest } from "next/server";
 // ── Mocks ───────────────────────────────────────────────────────────────────
 const payments = vi.hoisted(() => ({
   markTicketPaid: vi.fn(),
+  getTicket: vi.fn(),
+  fetchPaystackTransaction: vi.fn(),
   markMerchOrderPaid: vi.fn(),
 }));
 vi.mock("@/lib/payments", async (orig) => ({
@@ -28,6 +30,7 @@ const fbAdmin = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/firebase-admin", () => fbAdmin);
 
+const { GET: verifyTicket } = await import("@/app/api/paystack/verify/route");
 const { POST: webhook } = await import("@/app/api/paystack/webhook/route");
 const { POST: sessionLogin } = await import("@/app/api/admin/session/route");
 const { verifySessionValue } = await import("@/lib/session");
@@ -153,5 +156,23 @@ describe("POST /api/admin/session", () => {
     const res = await sessionLogin(loginRequest());
     expect((await res.json()).refreshToken).toBe(false);
     expect(fbAdmin.setAdminClaim).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("payment verification and review", () => {
+  it("does not issue tickets or schedule email for a payment held for review", async () => {
+    payments.fetchPaystackTransaction.mockResolvedValue({ status:"success", amount:2000000 });
+    payments.markTicketPaid.mockResolvedValue(false);
+    payments.getTicket.mockResolvedValue({ status:"pending", paymentReview:true, reference:"LATE" });
+    const res = await verifyTicket(new NextRequest("http://localhost/api/paystack/verify?reference=LATE"));
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ paymentReview:true });
+    expect(afterFns).toHaveLength(0);
+  });
+  it("acknowledges a held payment webhook without delivering an entry ticket", async () => {
+    payments.markTicketPaid.mockResolvedValue(false);
+    expect((await webhook(webhookRequest(ticketCharge))).status).toBe(200);
+    expect(afterFns).toHaveLength(0);
   });
 });

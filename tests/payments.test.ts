@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { FieldValue } from "firebase-admin/firestore";
 import { createFakeFirestore } from "./fakeFirestore";
 
 let fake: ReturnType<typeof createFakeFirestore>;
 vi.mock("@/lib/firebase-admin", () => ({ adminDb: () => fake.db }));
 
-const { isValidReference, priceCart, quoteTicket, markTicketPaid, markMerchOrderPaid, parseGuests } = await import(
+const { createPendingTicket, isValidReference, priceCart, quoteTicket, markTicketPaid, markMerchOrderPaid, parseGuests } = await import(
   "@/lib/payments"
 );
 
@@ -139,7 +138,7 @@ describe("markTicketPaid", () => {
     expect(await markTicketPaid("REF1", 3_000_000)).toBe(true);
     expect(fake.store.get("tickets/REF1")?.status).toBe("paid");
     const eventUpdate = fake.updates.find((u) => u.path === "events/ev1");
-    expect((eventUpdate?.data.soldTickets as FieldValue).isEqual(FieldValue.increment(3))).toBe(true);
+    expect(eventUpdate?.data.soldTickets).toBe(13);
   });
 
   it("is idempotent (webhook + redirect both firing)", async () => {
@@ -188,7 +187,7 @@ describe("markTicketPaid — tickets sent to different emails", () => {
 
     // soldTickets still counts the whole order
     const eventUpdate = fake.updates.find((u) => u.path === "events/ev1");
-    expect((eventUpdate?.data.soldTickets as FieldValue).isEqual(FieldValue.increment(3))).toBe(true);
+    expect(eventUpdate?.data.soldTickets).toBe(13);
 
     // Webhook + redirect both firing never creates the guest tickets twice
     expect(await markTicketPaid("REF1", 3_000_000)).toBe(false);
@@ -233,5 +232,54 @@ describe("markMerchOrderPaid", () => {
       "products/cap",
       "products/tee",
     ]);
+  });
+});
+
+
+describe("transactional ticket inventory", () => {
+  const seedEvent = () => ({ title:"Event", status:"active", isPast:false, totalTickets:100, soldTickets:0, ticketPrice:10000, ticketTypes:[{ name:"Early Bird", price:10000, limit:2 }, { name:"VIP", price:50000, limit:98 }] });
+  const pending = (reference: string, quantity = 1) => ({ reference, eventId:"ev", eventTitle:"Event", name:"Buyer", email:"buyer@example.com", phone:"", quantity, ticketType:"Early Bird", amount:1000000*quantity });
+  beforeEach(() => { fake = createFakeFirestore({ "events/ev": seedEvent() }); });
+  it("prevents competing reservations from taking the same final admission", async () => {
+    fake.store.set("tickets/old", { ...pending("old"), status:"paid" });
+    const results = await Promise.allSettled([createPendingTicket(pending("A")), createPendingTicket(pending("B"))]);
+    expect(results.filter(r => r.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter(r => r.status === "rejected")).toHaveLength(1);
+  });
+  it("stops repeated purchases at the cumulative tier limit", async () => {
+    fake.store.set("tickets/old", { ...pending("old",2), status:"paid" });
+    await expect(quoteTicket("ev",1,"Early Bird")).rejects.toThrow(/sold out/);
+    await expect(createPendingTicket(pending("new"))).rejects.toThrow(/sold out/);
+  });
+  it("reserves once, converts to paid once, and keeps totals correct", async () => {
+    await createPendingTicket(pending("A",2));
+    await expect(createPendingTicket(pending("B"))).rejects.toThrow(/sold out/);
+    expect(await markTicketPaid("A",2000000)).toBe(true);
+    expect(await markTicketPaid("A",2000000)).toBe(false);
+    expect(fake.store.get("events/ev")?.soldTickets).toBe(2);
+    expect(fake.store.get("tickets/A")?.reservationExpiresAt).toBe(0);
+  });
+  it("releases expired reservations and holds a late payment for review without QR issuance", async () => {
+    fake.store.set("tickets/expired", { ...pending("expired",2), status:"pending", reservationExpiresAt:Date.now()-1, guests:[{name:"Guest",email:"guest@example.com"}] });
+    await createPendingTicket(pending("new",2));
+    expect(await markTicketPaid("expired",2000000)).toBe(false);
+    expect(fake.store.get("tickets/expired")).toMatchObject({ status:"pending", paymentReview:true });
+    expect(fake.store.has("tickets/expired-2")).toBe(false);
+    expect(fake.store.get("events/ev")?.soldTickets).toBe(0);
+    expect(await markTicketPaid("expired",2000000)).toBe(false);
+  });
+  it("accepts a late payment if the allocation is still available", async () => {
+    fake.store.set("tickets/expired", { ...pending("expired"), status:"pending", reservationExpiresAt:Date.now()-1 });
+    expect(await markTicketPaid("expired",1000000)).toBe(true);
+    expect(fake.store.get("events/ev")?.soldTickets).toBe(1);
+  });
+  it("rejects stale prices before reserving any inventory", async () => {
+    await expect(createPendingTicket({ ...pending("stale"), amount:1 })).rejects.toThrow(/price changed/);
+    expect(fake.store.has("tickets/stale")).toBe(false);
+  });
+  it("enforces overall capacity independently of tier limits", async () => {
+    fake.store.set("events/ev", { ...seedEvent(), totalTickets:1 });
+    await createPendingTicket(pending("A"));
+    await expect(createPendingTicket(pending("B"))).rejects.toThrow(/sold out/);
   });
 });

@@ -39,6 +39,10 @@ export async function GET(req: NextRequest) {
   const ticket = await getTicket(reference).catch(() => null);
   if (!ticket) return NextResponse.json({ ok: true, ticket: null });
 
+  if (ticket.paymentReview) {
+    return NextResponse.json({ error: "Payment received, but this ticket allocation is full. Your payment is awaiting admin review/refund; no entry ticket has been issued. Contact support with reference " + reference, paymentReview: true }, { status: 409 });
+  }
+
   if (newlyPaid) {
     // Emails (buyer + any guests) and check-in, once, after the response is sent
     after(() => deliverPaidTicket(reference));

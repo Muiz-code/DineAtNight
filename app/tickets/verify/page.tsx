@@ -7,26 +7,13 @@ import Link from "next/link";
 import { Suspense } from "react";
 import LordIcon from "@/app/_components/LordIcon";
 
-interface TicketData {
-  id?: string;
-  eventTitle: string;
-  name: string;
-  email: string;
-  phone: string;
-  quantity: number;
-  amount: number;
-  reference: string;
-  status: string;
-}
-
 function VerifyContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const reference = searchParams.get("reference") ?? searchParams.get("trxref");
 
   // A missing reference is known at render time — start in the error state
-  const [state, setState] = useState<"loading" | "success" | "error">(reference ? "loading" : "error");
-  const [ticket, setTicket] = useState<TicketData | null>(null);
+  const [state, setState] = useState<"loading" | "success" | "error" | "review">(reference ? "loading" : "error");
   const [error, setError] = useState(reference ? "" : "No payment reference found.");
 
   useEffect(() => {
@@ -37,13 +24,12 @@ function VerifyContent() {
         const res = await fetch(`/api/paystack/verify?reference=${reference}`);
         const data = await res.json();
         if (data.ok && data.ticket) {
-          setTicket(data.ticket);
           setState("success");
           // Confirmation email is sent server-side in /api/paystack/verify
           router.replace(`/tickets/${reference}`);
         } else {
           setError(data.error || "Payment verification failed.");
-          setState("error");
+          setState(data.paymentReview ? "review" : "error");
         }
       } catch {
         setError("Network error. Please contact support.");
@@ -65,18 +51,17 @@ function VerifyContent() {
     );
   }
 
-  if (state === "error") {
+  if (state === "error" || state === "review") {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-black gap-4 px-6 text-center">
         <div className="text-5xl">❌</div>
-        <h2 className="text-2xl font-bold uppercase tracking-wide text-white">Verification Failed</h2>
+        <h2 className="text-2xl font-bold uppercase tracking-wide text-white">{state === "review" ? "Payment awaiting review" : "Verification Failed"}</h2>
         <p className="text-gray-400 text-sm max-w-sm leading-relaxed">{error}</p>
         <div
           className="rounded-lg border border-white/10 bg-white/5 px-5 py-3 max-w-sm w-full text-left space-y-1"
         >
-          <p className="text-gray-600 text-[10px] uppercase tracking-widest">Debug info</p>
+          <p className="text-gray-600 text-[10px] uppercase tracking-widest">Payment reference</p>
           <p className="text-gray-400 text-xs font-mono break-all">Reference: {reference}</p>
-          <p className="text-gray-500 text-xs font-mono break-all">Error: {error}</p>
         </div>
         <p className="text-gray-600 text-xs max-w-sm">
           Screenshot this page and contact support if your payment was deducted.
