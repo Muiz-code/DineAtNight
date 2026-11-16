@@ -123,8 +123,10 @@ export default function TicketModal({
   const soldOut = !!inventory && maxQty === 0;
   const quantityDisabled = !inventory || soldOut;
   const checkoutDisabled = loading || quantityDisabled || form.quantity < 1 || form.quantity > maxQty;
-  const setQuantity = (n: number) =>
+  const setQuantity = (n: number) => {
+    if (quantityDisabled) return;
     setForm((p) => ({ ...p, quantity: Math.max(0, Math.min(maxQty, Math.floor(n) || 0)) }));
+  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -367,7 +369,7 @@ export default function TicketModal({
 
                     <div>
                       <label className={labelCls}>How many tickets?</label>
-                      <div className="flex items-stretch gap-2">
+                      <fieldset disabled={quantityDisabled} aria-label="Ticket quantity" className="flex min-w-0 items-stretch gap-2">
                         <button
                           type="button"
                           onClick={() => setQuantity(form.quantity - 1)}
@@ -401,7 +403,7 @@ export default function TicketModal({
                         >
                           <Plus className="w-4 h-4" />
                         </button>
-                      </div>
+                      </fieldset>
                       <p role="status" className="text-gray-500 text-[11px] mt-1.5">{soldOut ? "This ticket type is sold out. Please choose another available ticket type." : !inventory ? "Checking availability..." : `Up to ${maxQty} per order`}</p>
                     </div>
 
@@ -679,10 +681,10 @@ export default function TicketModal({
                 disabled={checkoutDisabled}
                 className="flex-1 py-4 rounded-full font-bold uppercase tracking-widest text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{
-                  background: loading ? "transparent" : "#FFFF00",
-                  color: loading ? "#FFFF00" : "#000",
-                  border: "2px solid #FFFF00",
-                  boxShadow: loading ? "0 0 15px rgba(255,255,0,0.2)" : "0 0 30px rgba(255,255,0,0.5)",
+                  background: quantityDisabled ? "#1a1a1a" : loading ? "transparent" : "#FFFF00",
+                  color: quantityDisabled ? "#888" : loading ? "#FFFF00" : "#000",
+                  border: quantityDisabled ? "2px solid #333" : "2px solid #FFFF00",
+                  boxShadow: quantityDisabled ? "none" : loading ? "0 0 15px rgba(255,255,0,0.2)" : "0 0 30px rgba(255,255,0,0.5)",
                 }}
                 whileHover={!checkoutDisabled ? { scale: 1.02 } : {}}
                 whileTap={!checkoutDisabled ? { scale: 0.97 } : {}}
