@@ -8,7 +8,18 @@ const FROM = `Dine At Night <${FROM_EMAIL}>`;
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "https://dineatnight.com").replace(/\/$/, "");
 const BATCH_SIZE = 50;
 
-function buildHtml(subject: string, body: string, unsubscribeUrl: string, linkUrl?: string, linkLabel?: string): string {
+/**
+ * Footer line under the copyright. Newsletter sends get a per-recipient unsubscribe link;
+ * vendor sends are operational mail to approved vendors, and /api/unsubscribe only removes
+ * newsletter subscribers, so a link there would do nothing — explain why they got it instead.
+ */
+function footerHtml(unsubscribeUrl: string | null): string {
+  return unsubscribeUrl
+    ? `<a href="${unsubscribeUrl}" style="color:#333;text-decoration:underline;">Unsubscribe</a>`
+    : `<span style="color:#333;">You're receiving this because you're an approved Dine At Night vendor.</span>`;
+}
+
+function buildHtml(subject: string, body: string, unsubscribeUrl: string | null, linkUrl?: string, linkLabel?: string): string {
   const bodyHtml = body
     .split("\n")
     .map((line) => line.trim())
@@ -44,7 +55,7 @@ function buildHtml(subject: string, body: string, unsubscribeUrl: string, linkUr
           <p style="margin:0 0 16px;color:#FFFF00;font-size:13px;font-weight:700;letter-spacing:0.1em;">— Dine At Night</p>
           <p style="margin:0 0 4px;color:#2a2a2a;font-size:11px;">© Dine At Night · Lagos, Nigeria</p>
           <p style="margin:0;font-size:10px;">
-            <a href="${unsubscribeUrl}" style="color:#333;text-decoration:underline;">Unsubscribe</a>
+            ${footerHtml(unsubscribeUrl)}
           </p>
         </td></tr>
       </table>
@@ -65,7 +76,8 @@ export async function POST(req: NextRequest) {
   const resend = new Resend(process.env.RESEND_API_KEY);
 
   try {
-    const { emails, subject, body, linkUrl, linkLabel } = await req.json();
+    const { emails, subject, body, linkUrl, linkLabel, audience } = await req.json();
+    const isVendorSend = audience === "vendors";
 
     if (!Array.isArray(emails) || emails.length === 0)
       return NextResponse.json({ error: "No recipients" }, { status: 400 });
@@ -79,10 +91,10 @@ export async function POST(req: NextRequest) {
     const sub = subject.trim();
     const msg = body.trim();
 
-    // Pre-generate per-recipient unsubscribe URLs (async HMAC)
+    // Pre-generate per-recipient unsubscribe URLs (async HMAC) — newsletter sends only
     const emailData = await Promise.all(
       validEmails.map(async (to) => {
-        const unsubUrl = await generateUnsubscribeUrl(to);
+        const unsubUrl = isVendorSend ? null : await generateUnsubscribeUrl(to);
         return {
           to,
           html: buildHtml(sub, msg, unsubUrl, linkUrl || undefined, linkLabel || undefined),
@@ -103,11 +115,15 @@ export async function POST(req: NextRequest) {
           to,
           subject: sub,
           html,
-          text: text + `\n\nUnsubscribe: ${unsubUrl}`,
-          headers: {
-            "List-Unsubscribe": `<${unsubUrl}>`,
-            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-          },
+          ...(unsubUrl
+            ? {
+                text: text + `\n\nUnsubscribe: ${unsubUrl}`,
+                headers: {
+                  "List-Unsubscribe": `<${unsubUrl}>`,
+                  "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+                },
+              }
+            : { text: text + "\n\nYou're receiving this because you're an approved Dine At Night vendor." }),
         }))
       );
       if (error) {

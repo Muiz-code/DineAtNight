@@ -477,7 +477,16 @@ This section manages all contacts — newsletter subscribers and ticket buyers �
 | **All Emails** | Combined list of newsletter subscribers + ticket buyers |
 | **Newsletter** | Only newsletter sign-ups |
 | **Ticket Buyers** | Only emails from paid ticket purchases |
-| **Sent** | History of newsletters you've sent |
+| **Approved Vendors** | Emails of every vendor with status *Approved* (separate from All Emails) |
+| **Sent** | History of newsletters and vendor emails you've sent |
+
+### Emailing Approved Vendors
+
+1. Open the **Approved Vendors** tab
+2. Click **Email Vendors** (top right) and write a subject and message — same form as a newsletter
+3. Click **Send to X vendors →**
+
+Vendor emails go only to approved vendors — never to newsletter subscribers or ticket buyers, and vendors aren't included when you send from the other tabs. They don't carry an unsubscribe link; instead the footer says the email was sent because they're an approved vendor. In **Sent** they show a **Vendors** badge, and **Resend** sends them only to vendors approved since the original send. To add or remove vendors from this list, approve or decline them on the **Vendors** page. **Export** on this tab downloads email, brand, owner and phone.
 
 ### Email Counts
 

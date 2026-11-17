@@ -2,22 +2,25 @@
 
 import { useEffect, useState } from "react";
 import {
-  collection, getDocs, orderBy, query,
+  collection, getDocs, orderBy, query, where,
   doc, deleteDoc, writeBatch, addDoc, setDoc, serverTimestamp, Timestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Copy, Download, Mail, Ticket, Trash2, Send,
-  X, Link2, ChevronDown, ChevronUp, RotateCcw, Clock,
+  X, Link2, ChevronDown, ChevronUp, RotateCcw, Clock, Store,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface SubscriberRow { id: string; email: string; subscribedAt?: string; source: "newsletter" }
 interface TicketEmailRow { email: string; name: string; eventTitle: string; source: "ticket" }
+interface VendorRow { id: string; email: string; brandName: string; ownerName: string; phone: string; source: "vendor" }
 type EmailRow = SubscriberRow | TicketEmailRow;
-type Tab = "all" | "newsletter" | "tickets" | "sent";
+type Tab = "all" | "newsletter" | "tickets" | "vendors" | "sent";
+/** Who a send went to. Vendors are kept separate from the newsletter audience. */
+type Audience = "subscribers" | "vendors";
 
 interface SentNewsletter {
   id: string;
@@ -28,6 +31,7 @@ interface SentNewsletter {
   sentAt: Timestamp;
   recipientCount: number;
   recipients: string[];
+  audience: Audience;
 }
 
 // ── Site pages the admin can link to ─────────────────────────────────────────
@@ -47,7 +51,8 @@ const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "https://dineatnight.com").r
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function SubscribersPage() {
   const [rows, setRows]               = useState<EmailRow[]>([]);
-  const [sent, setSent]               = useState<SentNewsletter[]>([]);
+  const [vendors, setVendors]         = useState<VendorRow[]>([]);
+  const [sent, setSent]            = useState<SentNewsletter[]>([]);
   const [suppressed, setSuppressed]   = useState<Set<string>>(new Set());
   const [loading, setLoading]         = useState(true);
   const [tab, setTab]                 = useState<Tab>("all");
@@ -81,11 +86,15 @@ export default function SubscribersPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [subSnap, ticketSnap, sentSnap, suppressedSnap] = await Promise.all([
+      const [subSnap, ticketSnap, sentSnap, suppressedSnap, vendorSnap] = await Promise.all([
         getDocs(query(collection(db, "subscribers"), orderBy("subscribedAt", "desc"))).catch(() => null),
         getDocs(collection(db, "tickets")),
         getDocs(query(collection(db, "newsletters"), orderBy("sentAt", "desc"))).catch(() => null),
         getDocs(collection(db, "suppressed_emails")).catch(() => null),
+        getDocs(query(collection(db, "vendors"), where("status", "==", "approved"))).catch((err) => {
+          console.error("[subscribers] failed to load approved vendors:", err);
+          return null;
+        }),
       ]);
 
       const suppressedSet = new Set<string>();
@@ -111,13 +120,27 @@ export default function SubscribersPage() {
         ticketEmails.push({ email: data.email, name: data.name ?? "", eventTitle: data.eventTitle ?? "", source: "ticket" });
       });
 
+      const vendorList: VendorRow[] = [];
+      const seenVendor = new Set<string>();
+      vendorSnap?.forEach((d) => {
+        const data = d.data();
+        const email = typeof data.email === "string" ? data.email.trim() : "";
+        if (!email.includes("@")) return;
+        const key = email.toLowerCase();
+        if (seenVendor.has(key) || suppressedSet.has(key)) return;
+        seenVendor.add(key);
+        vendorList.push({ id: d.id, email, brandName: data.brandName ?? "", ownerName: data.ownerName ?? "", phone: data.phone ?? "", source: "vendor" });
+      });
+      vendorList.sort((a, b) => a.brandName.localeCompare(b.brandName));
+
       const sentList: SentNewsletter[] = [];
       sentSnap?.forEach((d) => {
         const data = d.data();
-        sentList.push({ id: d.id, subject: data.subject, body: data.body, linkUrl: data.linkUrl, linkLabel: data.linkLabel, sentAt: data.sentAt, recipientCount: data.recipientCount ?? 0, recipients: data.recipients ?? [] });
+        sentList.push({ id: d.id, subject: data.subject, body: data.body, linkUrl: data.linkUrl, linkLabel: data.linkLabel, sentAt: data.sentAt, recipientCount: data.recipientCount ?? 0, recipients: data.recipients ?? [], audience: data.audience === "vendors" ? "vendors" : "subscribers" });
       });
 
       setRows([...subs, ...ticketEmails]);
+      setVendors(vendorList);
       setSent(sentList);
     } finally {
       setLoading(false);
@@ -130,10 +153,20 @@ export default function SubscribersPage() {
     if (tab === "tickets")    return r.source === "ticket";
     return true; // "all"
   });
-  const uniqueEmails    = Array.from(new Set(emailRows.map((r) => r.email)));
+  const isVendorTab     = tab === "vendors";
+  const vendorEmails    = vendors.map((v) => v.email);
+  const uniqueEmails    = isVendorTab ? vendorEmails : Array.from(new Set(emailRows.map((r) => r.email)));
   const newsletterRows  = rows.filter((r): r is SubscriberRow => r.source === "newsletter");
   const newsletterCount = newsletterRows.length;
   const ticketCount     = new Set(rows.filter((r) => r.source === "ticket").map((r) => r.email)).size;
+  const composeAudience: Audience = isVendorTab ? "vendors" : "subscribers";
+
+  /** Everyone currently in a send's audience who wasn't in the original send. */
+  const newRecipientsFor = (item: SentNewsletter) => {
+    const pool = item.audience === "vendors" ? vendorEmails : Array.from(new Set(rows.map((r) => r.email)));
+    const originalSet = new Set(item.recipients.map((e) => e.toLowerCase()));
+    return pool.filter((e) => !originalSet.has(e.toLowerCase()));
+  };
 
   const resolvedLink = linkChoice === "__custom__" ? customUrl.trim() : linkChoice ? `${APP_URL}${linkChoice}` : "";
   const resolvedLabel = linkChoice === "__custom__" ? "Visit" : SITE_LINKS.find((l) => l.path === linkChoice)?.label ?? "";
@@ -146,6 +179,14 @@ export default function SubscribersPage() {
   };
 
   const handleExport = () => {
+    if (isVendorTab) {
+      const data = vendors.map((v) => ({ Email: v.email, Brand: v.brandName, Owner: v.ownerName, Phone: v.phone }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Vendors");
+      XLSX.writeFile(wb, `dan-emails-vendors-${new Date().toISOString().slice(0, 10)}.xlsx`);
+      return;
+    }
     const data = emailRows.map((r) => ({ Email: r.email, Source: r.source === "newsletter" ? "Newsletter" : "Ticket Buyer", Name: r.source === "ticket" ? r.name : "", Event: r.source === "ticket" ? r.eventTitle : "", "Subscribed At": r.source === "newsletter" ? r.subscribedAt : "" }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -190,21 +231,25 @@ export default function SubscribersPage() {
     } finally { setDeletingSent(null); }
   };
 
-  const doSend = async (emails: string[], sub: string, msg: string, lUrl: string, lLabel: string) => {
+  const doSend = async (emails: string[], sub: string, msg: string, lUrl: string, lLabel: string, audience: Audience) => {
     const res = await fetch("/api/admin/newsletter", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ emails, subject: sub, body: msg, linkUrl: lUrl || undefined, linkLabel: lLabel || undefined }),
+      body: JSON.stringify({ emails, subject: sub, body: msg, linkUrl: lUrl || undefined, linkLabel: lLabel || undefined, audience }),
     });
     return res.json();
   };
 
   const handleSend = async () => {
     if (!subject.trim() || !body.trim()) return;
+    if (uniqueEmails.length === 0) {
+      setSendResult({ ok: false, msg: isVendorTab ? "There are no approved vendors to email yet." : "There's no one to send to yet." });
+      return;
+    }
     setSending(true);
     setSendResult(null);
     try {
-      const data = await doSend(uniqueEmails, subject.trim(), body.trim(), resolvedLink, resolvedLabel);
+      const data = await doSend(uniqueEmails, subject.trim(), body.trim(), resolvedLink, resolvedLabel, composeAudience);
       if (data.ok) {
         // Save to Firestore sent history
         const docRef = await addDoc(collection(db, "newsletters"), {
@@ -214,6 +259,7 @@ export default function SubscribersPage() {
           sentAt: serverTimestamp(),
           recipientCount: data.sent,
           recipients: data.recipients ?? uniqueEmails,
+          audience: composeAudience,
         });
         setSent((prev) => [{
           id: docRef.id,
@@ -224,6 +270,7 @@ export default function SubscribersPage() {
           sentAt: Timestamp.now(),
           recipientCount: data.sent,
           recipients: data.recipients ?? uniqueEmails,
+          audience: composeAudience,
         }, ...prev]);
         setSendResult({ ok: true, msg: `Sent to ${data.sent} recipient${data.sent !== 1 ? "s" : ""}.` });
         setSubject(""); setBody(""); setLinkChoice(""); setCustomUrl("");
@@ -239,17 +286,15 @@ export default function SubscribersPage() {
     if (!resendItem) return;
     setResending(true);
     setResendResult(null);
-    // Only send to emails NOT in the original recipients
-    const allCurrentEmails = Array.from(new Set(rows.map((r) => r.email)));
-    const originalSet = new Set(resendItem.recipients.map((e) => e.toLowerCase()));
-    const newEmails = allCurrentEmails.filter((e) => !originalSet.has(e.toLowerCase()));
+    // Only send to emails NOT in the original recipients (same audience as the original)
+    const newEmails = newRecipientsFor(resendItem);
     if (newEmails.length === 0) {
       setResendResult({ ok: false, msg: "No new recipients since this newsletter was sent." });
       setResending(false);
       return;
     }
     try {
-      const data = await doSend(newEmails, resendItem.subject, resendItem.body, resendItem.linkUrl ?? "", resendItem.linkLabel ?? "");
+      const data = await doSend(newEmails, resendItem.subject, resendItem.body, resendItem.linkUrl ?? "", resendItem.linkLabel ?? "", resendItem.audience);
       if (data.ok) {
         // Update saved recipients list
         const updated = [...resendItem.recipients, ...newEmails];
@@ -264,9 +309,7 @@ export default function SubscribersPage() {
   };
 
   const openResend = (item: SentNewsletter) => {
-    const allCurrentEmails = Array.from(new Set(rows.map((r) => r.email)));
-    const originalSet = new Set(item.recipients.map((e) => e.toLowerCase()));
-    const newCount = allCurrentEmails.filter((e) => !originalSet.has(e.toLowerCase())).length;
+    const newCount = newRecipientsFor(item).length;
     setResendItem(item);
     setResendResult(newCount === 0 ? { ok: false, msg: "No new recipients." } : null);
   };
@@ -275,7 +318,8 @@ export default function SubscribersPage() {
     { key: "all",        label: "All Emails" },
     { key: "newsletter", label: "Newsletter" },
     { key: "tickets",    label: "Ticket Buyers" },
-    { key: "sent",       label: `Sent (${sent.length})` },
+    { key: "vendors",    label: `Approved Vendors (${vendors.length})` },
+    { key: "sent",     label: `Sent (${sent.length})` },
   ];
 
   return (
@@ -285,7 +329,7 @@ export default function SubscribersPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold uppercase tracking-widest text-white">Email List</h1>
-          <p className="text-gray-600 text-xs mt-1">{newsletterCount} newsletter · {ticketCount} ticket buyers</p>
+          <p className="text-gray-600 text-xs mt-1">{newsletterCount} newsletter · {ticketCount} ticket buyers · {vendors.length} approved vendors</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {tab !== "sent" && (
@@ -303,7 +347,7 @@ export default function SubscribersPage() {
             className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#FFFF00]/40 text-[#FFFF00] text-xs font-bold uppercase tracking-widest hover:border-[#FFFF00] transition-all"
             style={{ boxShadow: "0 0 12px rgba(255,255,0,0.1)" }}
           >
-            <Send className="w-3.5 h-3.5" />Send Newsletter
+            <Send className="w-3.5 h-3.5" />{isVendorTab ? "Email Vendors" : "Send Newsletter"}
           </button>
         </div>
       </div>
@@ -320,8 +364,12 @@ export default function SubscribersPage() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold uppercase tracking-widest" style={{ color: "#FFFF00" }}>Send Newsletter</h2>
-                  <p className="text-gray-600 text-xs mt-0.5">Sending to {uniqueEmails.length} recipient{uniqueEmails.length !== 1 ? "s" : ""} ({tab === "sent" ? "all" : tab})</p>
+                  <h2 className="text-lg font-bold uppercase tracking-widest" style={{ color: "#FFFF00" }}>{isVendorTab ? "Email Approved Vendors" : "Send Newsletter"}</h2>
+                  <p className="text-gray-600 text-xs mt-0.5">
+                    {isVendorTab
+                      ? `Sending to ${uniqueEmails.length} approved vendor${uniqueEmails.length !== 1 ? "s" : ""}`
+                      : `Sending to ${uniqueEmails.length} recipient${uniqueEmails.length !== 1 ? "s" : ""} (${tab === "sent" ? "all" : tab})`}
+                  </p>
                 </div>
                 <button onClick={() => setCompose(false)} className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all">
                   <X className="w-4 h-4" />
@@ -331,13 +379,13 @@ export default function SubscribersPage() {
               {/* Subject */}
               <div>
                 <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">Subject *</label>
-                <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Dine At Night — Edition 3 is here!" className={inputCls} />
+                <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={isVendorTab ? "e.g. Vendor setup times for Edition 3" : "e.g. Dine At Night — Edition 3 is here!"} className={inputCls} />
               </div>
 
               {/* Body */}
               <div>
                 <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">Message *</label>
-                <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={6} placeholder="Write your newsletter message here..." className={`${inputCls} resize-none`} />
+                <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={6} placeholder={isVendorTab ? "Write your message to vendors here..." : "Write your newsletter message here..."} className={`${inputCls} resize-none`} />
                 <p className="text-gray-700 text-xs mt-1">Plain text — styled with Dine At Night branding automatically.</p>
               </div>
 
@@ -380,7 +428,7 @@ export default function SubscribersPage() {
 
               <button
                 onClick={handleSend}
-                disabled={sending || !subject.trim() || !body.trim()}
+                disabled={sending || !subject.trim() || !body.trim() || uniqueEmails.length === 0}
                 className="w-full py-3 rounded-full font-bold uppercase tracking-widest text-sm transition-all"
                 style={{ background: sending || !subject.trim() || !body.trim() ? "transparent" : "#FFFF00", color: sending || !subject.trim() || !body.trim() ? "#FFFF00" : "#000", border: "2px solid #FFFF00", opacity: !subject.trim() || !body.trim() ? 0.4 : 1 }}
               >
@@ -388,7 +436,7 @@ export default function SubscribersPage() {
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-4 h-4 border-2 border-[#FFFF00] border-t-transparent rounded-full animate-spin" />Sending…
                   </span>
-                ) : `Send to ${uniqueEmails.length} recipient${uniqueEmails.length !== 1 ? "s" : ""} →`}
+                ) : `Send to ${uniqueEmails.length} ${isVendorTab ? "vendor" : "recipient"}${uniqueEmails.length !== 1 ? "s" : ""} →`}
               </button>
             </motion.div>
           </motion.div>
@@ -423,12 +471,10 @@ export default function SubscribersPage() {
               </div>
 
               {(() => {
-                const allCurrentEmails = Array.from(new Set(rows.map((r) => r.email)));
-                const originalSet = new Set(resendItem.recipients.map((e) => e.toLowerCase()));
-                const newCount = allCurrentEmails.filter((e) => !originalSet.has(e.toLowerCase())).length;
+                const newCount = newRecipientsFor(resendItem).length;
                 return (
                   <div className="rounded-xl border border-white/8 px-4 py-3 flex items-center justify-between">
-                    <span className="text-gray-400 text-sm">New recipients since sent</span>
+                    <span className="text-gray-400 text-sm">{resendItem.audience === "vendors" ? "New approved vendors since sent" : "New recipients since sent"}</span>
                     <span className="font-bold text-sm" style={{ color: newCount > 0 ? "#00FF41" : "#666" }}>{newCount}</span>
                   </div>
                 );
@@ -450,7 +496,7 @@ export default function SubscribersPage() {
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-4 h-4 border-2 border-[#FFFF00] border-t-transparent rounded-full animate-spin" />Sending…
                   </span>
-                ) : "Resend to New Users →"}
+                ) : resendItem.audience === "vendors" ? "Resend to New Vendors →" : "Resend to New Users →"}
               </button>
             </motion.div>
           </motion.div>
@@ -538,9 +584,7 @@ export default function SubscribersPage() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
             {sent.map((item) => {
               const isExpanded = expanded === item.id;
-              const allCurrentEmails = Array.from(new Set(rows.map((r) => r.email)));
-              const originalSet = new Set(item.recipients.map((e) => e.toLowerCase()));
-              const newCount = allCurrentEmails.filter((e) => !originalSet.has(e.toLowerCase())).length;
+              const newCount = newRecipientsFor(item).length;
 
               return (
                 <div key={item.id} className="rounded-xl border border-white/8 overflow-hidden" style={{ background: "#080808" }}>
@@ -560,6 +604,11 @@ export default function SubscribersPage() {
                           {item.sentAt?.toDate?.()?.toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" }) ?? "—"}
                         </span>
                         <span className="text-gray-600 text-xs">{item.recipientCount} sent</span>
+                        {item.audience === "vendors" && (
+                          <span className="text-[9px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-full" style={{ color: "#FF9F1C", background: "rgba(255,159,28,0.1)" }}>
+                            Vendors
+                          </span>
+                        )}
                         {newCount > 0 && (
                           <span className="text-[9px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-full" style={{ color: "#00FF41", background: "rgba(0,255,65,0.1)" }}>
                             +{newCount} new
@@ -619,6 +668,38 @@ export default function SubscribersPage() {
                 </div>
               );
             })}
+          </motion.div>
+        )
+
+      ) : isVendorTab ? (
+        /* ── Approved vendors ── */
+        vendors.length === 0 ? (
+          <div className="text-center py-16 text-gray-600 text-sm">No approved vendors yet.</div>
+        ) : (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-1">
+            <p className="text-gray-600 text-xs mb-3">
+              {vendors.length} approved vendor{vendors.length !== 1 ? "s" : ""} · manage them on the Vendors page
+            </p>
+            <div className="rounded-xl border border-white/8 overflow-hidden">
+              {vendors.map((v) => (
+                <div
+                  key={v.id}
+                  className="flex items-center gap-4 px-5 py-3 border-b last:border-b-0 hover:bg-white/[0.02] transition-colors"
+                  style={{ borderColor: "rgba(255,255,255,0.05)" }}
+                >
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(255,159,28,0.08)" }}>
+                    <Store className="w-3.5 h-3.5" style={{ color: "#FF9F1C" }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-200 text-sm truncate">{v.email}</p>
+                    <p className="text-gray-600 text-xs truncate">{v.brandName}{v.ownerName ? ` · ${v.ownerName}` : ""}</p>
+                  </div>
+                  <span className="text-[9px] uppercase tracking-widest font-bold shrink-0" style={{ color: "rgba(255,159,28,0.6)" }}>
+                    Vendor
+                  </span>
+                </div>
+              ))}
+            </div>
           </motion.div>
         )
 
