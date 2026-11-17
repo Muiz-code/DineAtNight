@@ -2,67 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { generateUnsubscribeUrl } from "@/lib/resend";
 import { getAdminEmail } from "@/lib/session";
+import { broadcastHeaders, renderBroadcastEmail } from "@/lib/broadcastEmail";
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? "hello@dineatnight.com";
 const FROM = `Dine At Night <${FROM_EMAIL}>`;
-const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "https://dineatnight.com").replace(/\/$/, "");
 const BATCH_SIZE = 50;
-
-/**
- * Footer line under the copyright. Newsletter sends get a per-recipient unsubscribe link;
- * vendor sends are operational mail to approved vendors, and /api/unsubscribe only removes
- * newsletter subscribers, so a link there would do nothing — explain why they got it instead.
- */
-function footerHtml(unsubscribeUrl: string | null): string {
-  return unsubscribeUrl
-    ? `<a href="${unsubscribeUrl}" style="color:#333;text-decoration:underline;">Unsubscribe</a>`
-    : `<span style="color:#333;">You're receiving this because you're an approved Dine At Night vendor.</span>`;
-}
-
-function buildHtml(subject: string, body: string, unsubscribeUrl: string | null, linkUrl?: string, linkLabel?: string): string {
-  const bodyHtml = body
-    .split("\n")
-    .map((line) => line.trim())
-    .map((line) => line ? `<p style="margin:0 0 14px;color:#ccc;font-size:15px;line-height:1.7;">${line}</p>` : "<br/>")
-    .join("");
-
-  const ctaBtn = linkUrl
-    ? `<tr>
-        <td align="center" style="padding:0 40px 36px;">
-          <a href="${linkUrl}" style="display:inline-block;padding:14px 36px;background:#FFFF00;color:#000;font-weight:700;font-size:13px;letter-spacing:0.15em;text-transform:uppercase;text-decoration:none;border-radius:100px;box-shadow:0 0 24px rgba(255,255,0,0.4);">${linkLabel ?? "View Now"} →</a>
-        </td>
-      </tr>`
-    : "";
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${subject}</title></head>
-<body style="margin:0;padding:0;background:#000000;font-family:Arial,Helvetica,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#000000;min-height:100vh;">
-    <tr><td align="center" style="padding:40px 16px;">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#080808;border:1px solid rgba(255,255,0,0.2);border-radius:16px;overflow:hidden;">
-        <tr><td align="center" style="padding:32px 40px 24px;border-bottom:1px solid rgba(255,255,0,0.08);">
-          <p style="margin:0 0 4px;color:#FFFF00;font-size:11px;font-weight:700;letter-spacing:0.35em;text-transform:uppercase;text-shadow:0 0 12px rgba(255,255,0,0.4);">DINE AT NIGHT</p>
-          <p style="margin:0;color:#333;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;">Nigeria's First Night Food Market</p>
-        </td></tr>
-        <tr><td style="padding:32px 40px 8px;">
-          <h1 style="margin:0;color:#FFFF00;font-size:22px;font-weight:700;letter-spacing:0.05em;text-shadow:0 0 20px rgba(255,255,0,0.3);">${subject}</h1>
-        </td></tr>
-        <tr><td style="padding:16px 40px 36px;">${bodyHtml}</td></tr>
-        ${ctaBtn}
-        <tr><td align="center" style="padding:24px 40px 8px;border-top:1px solid rgba(255,255,0,0.06);background:#050505;">
-          <p style="margin:0 0 2px;color:#555;font-size:13px;">Stay hungry. Stay out late.</p>
-          <p style="margin:0 0 16px;color:#FFFF00;font-size:13px;font-weight:700;letter-spacing:0.1em;">— Dine At Night</p>
-          <p style="margin:0 0 4px;color:#2a2a2a;font-size:11px;">© Dine At Night · Lagos, Nigeria</p>
-          <p style="margin:0;font-size:10px;">
-            ${footerHtml(unsubscribeUrl)}
-          </p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body></html>`;
-}
 
 export async function POST(req: NextRequest) {
   if (!(await getAdminEmail(req))) {
@@ -95,35 +39,29 @@ export async function POST(req: NextRequest) {
     const emailData = await Promise.all(
       validEmails.map(async (to) => {
         const unsubUrl = isVendorSend ? null : await generateUnsubscribeUrl(to);
-        return {
-          to,
-          html: buildHtml(sub, msg, unsubUrl, linkUrl || undefined, linkLabel || undefined),
-          unsubUrl,
-        };
+        const { html, text } = renderBroadcastEmail({
+          subject: sub,
+          body: msg,
+          linkUrl: linkUrl || undefined,
+          linkLabel: linkLabel || undefined,
+          unsubscribeUrl: unsubUrl,
+        });
+        return { to, html, text, headers: broadcastHeaders(unsubUrl) };
       })
     );
-
-    const text = `${sub}\n\n${msg}${linkUrl ? `\n\n${linkLabel ?? "View"}: ${linkUrl}` : ""}\n\nStay hungry. Stay out late.\n— Dine At Night\n\n---\nDine At Night · ${APP_URL}`;
 
     let sent = 0;
     let failed = 0;
     for (let i = 0; i < emailData.length; i += BATCH_SIZE) {
       const batch = emailData.slice(i, i + BATCH_SIZE);
       const { error } = await resend.batch.send(
-        batch.map(({ to, html, unsubUrl }) => ({
+        batch.map(({ to, html, text, headers }) => ({
           from: FROM,
           to,
           subject: sub,
           html,
-          ...(unsubUrl
-            ? {
-                text: text + `\n\nUnsubscribe: ${unsubUrl}`,
-                headers: {
-                  "List-Unsubscribe": `<${unsubUrl}>`,
-                  "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-                },
-              }
-            : { text: text + "\n\nYou're receiving this because you're an approved Dine At Night vendor." }),
+          text,
+          ...(headers ? { headers } : {}),
         }))
       );
       if (error) {

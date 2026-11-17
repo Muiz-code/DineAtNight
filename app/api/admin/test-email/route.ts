@@ -5,6 +5,7 @@ import { adminDb } from "@/lib/firebase-admin";
 import { getAdminEmail } from "@/lib/session";
 import { getPublicEvents } from "@/lib/publicData";
 import {
+  sendBroadcastEmail,
   sendContactConfirmationEmail,
   sendNewsletterWelcomeEmail,
   sendOrderStatusEmail,
@@ -180,6 +181,17 @@ async function sendTemplate(template: Template, to: string, guestEmails: string[
         brandName: SAMPLE.brandName,
         email: to,
         categories: ["Food", "Drinks"],
+      });
+    case "vendor-broadcast":
+      // Same template as "Email Vendors" on the Email List page (no unsubscribe link)
+      return sendBroadcastEmail({
+        email: to,
+        audience: "vendors",
+        subject: "[TEST] Vendor setup times for the next event",
+        body:
+          "Hi vendors,\n\nThis is a sample of the message you send to every approved vendor from the Email List page.\n\nSetup opens at 4pm — please arrive with your stall ready to trade by 6pm.\n\nSee you there!",
+        linkUrl: `${(process.env.NEXT_PUBLIC_APP_URL ?? "https://dineatnight.com").replace(/\/$/, "")}/vendors`,
+        linkLabel: "Vendors",
       });
     case "ticket-confirmation": {
       const ev = await nextEvent();

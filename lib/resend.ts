@@ -18,6 +18,7 @@ import {
   type VendorEmailTemplate,
 } from "./vendorEmailTemplates";
 import { hmacHex } from "./session";
+import { renderBroadcastEmail, broadcastHeaders } from "./broadcastEmail";
 
 // Created on first send: the SDK throws when the key is missing, which would
 // otherwise crash every route that imports this file (e.g. a local .env.local
@@ -678,4 +679,29 @@ export async function sendOrderStatusEmail(data: {
     html,
     text: `Hi ${data.name}, your order ${data.reference} status: ${cfg.title}. ${cfg.message}${data.note ? " Note: " + data.note : ""}`,
   });
+}
+
+// ── Admin-written broadcast (newsletter / approved vendors) ───────────────────
+/**
+ * One copy of the email admins compose on /admin/subscribers. The real send
+ * batches through /api/admin/newsletter; this single-recipient version is for
+ * test samples. Vendor sends carry no unsubscribe link (see broadcastEmail.ts).
+ */
+export async function sendBroadcastEmail(data: {
+  email: string;
+  subject: string;
+  body: string;
+  linkUrl?: string;
+  linkLabel?: string;
+  audience: "subscribers" | "vendors";
+}): Promise<boolean> {
+  const unsubscribeUrl = data.audience === "vendors" ? null : await generateUnsubscribeUrl(data.email);
+  const { html, text } = renderBroadcastEmail({
+    subject: data.subject,
+    body: data.body,
+    linkUrl: data.linkUrl,
+    linkLabel: data.linkLabel,
+    unsubscribeUrl,
+  });
+  return send({ to: data.email, subject: data.subject, html, text, headers: broadcastHeaders(unsubscribeUrl) });
 }
