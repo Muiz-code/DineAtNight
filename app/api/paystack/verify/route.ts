@@ -57,6 +57,8 @@ export async function GET(req: NextRequest) {
       email: ticket.email,
       phone: ticket.phone,
       quantity: ticket.quantity,
+      // Whole order size — `quantity` is 1 on a split order's buyer ticket
+      orderQuantity: ticket.orderQuantity ?? ticket.quantity,
       amount: ticket.amount,
       guests: ticket.guests?.map((g) => g.name) ?? [],
       status: ticket.status === "pending" ? "paid" : ticket.status,

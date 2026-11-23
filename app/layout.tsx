@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "./_components/Navbar";
 import ScrollProgressBar from "./_components/ScrollProgressBar";
 import { Analytics } from "@vercel/analytics/next";
+import MetaPixel from "./_components/MetaPixel";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -260,6 +261,7 @@ export default function RootLayout({
         <Navbar />
         {children}
         <Analytics />
+        <MetaPixel />
       </body>
     </html>
   );

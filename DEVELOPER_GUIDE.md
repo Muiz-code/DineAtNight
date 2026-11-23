@@ -89,6 +89,7 @@ Changes in Vercel only apply after a **redeploy**.
 |---|---|
 | `NEXT_PUBLIC_FIREBASE_API_KEY` … `_APP_ID`, `_AUTH_DOMAIN`, `_PROJECT_ID`, `_STORAGE_BUCKET`, `_MESSAGING_SENDER_ID`, `_MEASUREMENT_ID` | Firebase web config (project `dine-at-night`) |
 | `NEXT_PUBLIC_APP_URL` | Canonical site URL, e.g. `https://www.dineatnight.com` (used for Paystack callbacks, email links, sitemap) |
+| `NEXT_PUBLIC_META_PIXEL_ID` | Optional. Meta (Facebook/Instagram) Pixel ID from Events Manager. When set, the site sends `PageView`, `InitiateCheckout` (ticket form opened), `AddPaymentInfo` (sent to Paystack) and `Purchase` (payment verified, value in NGN, payment reference as event ID). Never runs on `/admin` or `/scan`. Unset = pixel off. See `lib/metaPixel.ts`. |
 
 ### Server-only (never prefix with `NEXT_PUBLIC_`)
 

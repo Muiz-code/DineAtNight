@@ -8,6 +8,7 @@ import { useScrollLock } from "@/lib/useScrollLock";
 import { type DanEvent } from "@/lib/firestore";
 import type { TicketAvailability } from "@/lib/ticketInventory";
 import { track } from "@vercel/analytics";
+import { trackMetaEvent } from "@/lib/metaPixel";
 import { ageConfirmText, ageLimitLabel, allowedAgeRanges, hasAgeLimit } from "@/lib/ageLimits";
 import { MAX_TICKET_QUANTITY, PRIVACY_NOTICE_URL, TICKET_TERMS_URL } from "@/lib/constants";
 
@@ -39,6 +40,10 @@ export default function TicketModal({
   onClose: () => void;
 }) {
   useScrollLock(true);
+  // Meta Pixel: opening the ticket form is the start of checkout
+  useEffect(() => {
+    trackMetaEvent("InitiateCheckout", { content_name: initialEvent.title, content_type: "product", currency: "NGN" });
+  }, [initialEvent.title]);
   const [selectedId, setSelectedId] = useState(initialEvent.id ?? "");
   const event = events.find((e) => e.id === selectedId) ?? initialEvent;
   const [availability, setAvailability] = useState<{ eventId: string; data: TicketAvailability } | null>(null);
@@ -160,6 +165,13 @@ export default function TicketModal({
           ticketType: hasTiers ? (selectedTier?.name ?? "general") : "general",
           quantity: form.quantity,
           totalNaira: total,
+        });
+        trackMetaEvent("AddPaymentInfo", {
+          content_name: event.title,
+          content_type: "product",
+          num_items: form.quantity,
+          value: total,
+          currency: "NGN",
         });
         router.push(data.authorization_url);
       } else {

@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { Suspense } from "react";
 import LordIcon from "@/app/_components/LordIcon";
+import { trackMetaEvent } from "@/lib/metaPixel";
 
 function VerifyContent() {
   const searchParams = useSearchParams();
@@ -25,6 +26,19 @@ function VerifyContent() {
         const data = await res.json();
         if (data.ok && data.ticket) {
           setState("success");
+          // Meta Pixel: the sale. Amount is stored in kobo; the reference as event ID
+          // stops Meta counting it twice if this page is reloaded.
+          trackMetaEvent(
+            "Purchase",
+            {
+              content_name: data.ticket.eventTitle,
+              content_type: "product",
+              num_items: data.ticket.orderQuantity ?? data.ticket.quantity,
+              value: (data.ticket.amount ?? 0) / 100,
+              currency: "NGN",
+            },
+            reference,
+          );
           // Confirmation email is sent server-side in /api/paystack/verify
           router.replace(`/tickets/${reference}`);
         } else {
