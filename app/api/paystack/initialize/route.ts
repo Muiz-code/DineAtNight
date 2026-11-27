@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid email" }, { status: 400 });
     }
     if (termsAccepted !== true) {
-      return NextResponse.json({ error: "Please agree to the Terms & Conditions to continue" }, { status: 400 });
+      return NextResponse.json({ error: "Please agree to the Ticket Terms and Refund Policy to continue" }, { status: 400 });
     }
     if (!TICKET_AGE_RANGES.includes(ageRange as TicketAgeRange)) {
       return NextResponse.json({ error: "Please select your age range" }, { status: 400 });

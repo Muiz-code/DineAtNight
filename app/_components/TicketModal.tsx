@@ -646,7 +646,7 @@ export default function TicketModal({
                         />
                         <span>
                           I have read and agree to the{" "}
-                          <LegalLink href={TICKET_TERMS_URL}>Dine At Night Ticketing Terms &amp; Conditions</LegalLink>{" "}
+                          <LegalLink href={TICKET_TERMS_URL}>Dine at Night Ticket Terms and Refund Policy</LegalLink>{" "}
                           and acknowledge the <LegalLink href={PRIVACY_NOTICE_URL}>Privacy Notice</LegalLink>. *
                         </span>
                       </label>

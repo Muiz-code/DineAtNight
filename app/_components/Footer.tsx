@@ -278,7 +278,7 @@ export default function Footer() {
               href={TICKET_TERMS_URL}
               className="text-gray-700 hover:text-gray-500 text-xs transition-colors"
             >
-              Terms &amp; Conditions
+              Ticket Terms &amp; Refunds
             </a>
           </div>
         </div>
