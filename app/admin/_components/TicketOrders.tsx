@@ -1,24 +1,50 @@
 "use client";
 import { useState } from "react";
 import type { DanTicket } from "@/lib/firestore";
-import { groupTicketOrders } from "@/lib/ticketInventory";
+import { groupTicketOrders, orderKind, TICKET_KINDS, type TicketKind } from "@/lib/ticketInventory";
 
 const money = (n: number) => "\u20a6" + (n / 100).toLocaleString("en-NG");
 export default function TicketOrders({ tickets, onResend }: { tickets: DanTicket[]; onResend: (t: DanTicket) => void }) {
   const [page, setPage] = useState(0);
-  const orders = groupTicketOrders(tickets);
+  const [kindFilter, setKindFilter] = useState<TicketKind | "all">("all");
+  const allOrders = groupTicketOrders(tickets);
+  const orders = kindFilter === "all" ? allOrders : allOrders.filter((o) => orderKind(o) === kindFilter);
+  const shownTickets = orders.flatMap((o) => o.holders);
+  const pickKind = (k: TicketKind | "all") => { setKindFilter(k); setPage(0); };
   const pages = Math.max(1, Math.ceil(orders.length / 10));
   const current = Math.min(page, pages - 1);
   return <section className="space-y-3">
+    <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] text-gray-600 uppercase tracking-widest mr-1">Type</span>
+              {([{ key: "all" as const, label: "All", hint: "" }, ...TICKET_KINDS]).map(({ key, label, hint }) => {
+                const active = kindFilter === key;
+                const count = key === "all" ? allOrders.length : allOrders.filter((o) => orderKind(o) === key).length;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => pickKind(key)}
+                    title={hint}
+                    aria-pressed={active}
+                    className={"rounded-full border px-3 py-1.5 text-xs transition-all " + (active ? "border-[#FFFF00] text-[#FFFF00] bg-[#FFFF00]/5" : "border-white/10 text-gray-400 hover:border-white/25")}
+                  >
+                    {label} <span className="opacity-60">{count}</span>
+                  </button>
+                );
+              })}
+              {kindFilter !== "all" && (
+                <span className="text-xs text-gray-500">{TICKET_KINDS.find((k) => k.key === kindFilter)?.hint} · counts are orders</span>
+              )}
+            </div>
     <div className="flex items-center justify-between gap-3">
-      <p className="text-sm text-gray-400">{orders.length} paid orders | {tickets.length} QR codes | {tickets.reduce((n,t) => n+t.quantity,0)} admissions</p>
+      <p className="text-sm text-gray-400">{orders.length} paid orders | {shownTickets.length} QR codes | {shownTickets.reduce((n,t) => n+t.quantity,0)} admissions</p>
       <div className="flex gap-3 text-xs text-gray-300">
         <button disabled={current === 0} onClick={() => setPage(current-1)} className="disabled:opacity-30">Previous</button>
         <span>{current+1} / {pages}</span>
         <button disabled={current === pages-1} onClick={() => setPage(current+1)} className="disabled:opacity-30">Next</button>
       </div>
     </div>
-    {!orders.length && <p className="text-gray-500 py-8">No paid orders for this event yet.</p>}
+    {!orders.length && <p className="text-gray-500 py-8">{kindFilter === "all" ? "No paid orders for this event yet." : "No orders of this type."}</p>}
     {orders.slice(current*10,current*10+10).map(order => <details key={order.reference} className="rounded-xl border border-white/10 bg-[#0a0a0a] overflow-hidden" open>
       <summary className="cursor-pointer p-4 text-white">
         <span className="font-semibold">{order.buyer?.name ?? order.holders[0]?.purchasedBy ?? "Buyer unavailable"}</span>

@@ -41,3 +41,30 @@ it("renders a split order with one payment total and both ticket holders", async
   expect(html).toContain("Separate QR codes emailed to ticket holders");
   expect(html.match(/Resend ticket/g)).toHaveLength(2);
 });
+
+describe("ticket type filter (single / group QR / sent to guests)", () => {
+  const rows = [
+    ticket({ reference: "solo", quantity: 1 }),
+    ticket({ reference: "group", quantity: 3 }),
+    ticket({ reference: "buyer", quantity: 1, orderQuantity: 2, guestReferences: ["buyer-2"] }),
+    ticket({ reference: "buyer-2", parentReference: "buyer", amount: 0 }),
+  ];
+  it("classifies each QR code", async () => {
+    const { ticketKind } = await import("@/lib/ticketInventory");
+    expect(rows.map(ticketKind)).toEqual(["single", "group", "guests", "guests"]);
+  });
+  it("classifies each order", async () => {
+    const { orderKind } = await import("@/lib/ticketInventory");
+    const kinds = Object.fromEntries(groupTicketOrders(rows).map((o) => [o.reference, orderKind(o)]));
+    expect(kinds).toEqual({ solo: "single", group: "group", buyer: "guests" });
+  });
+  it("shows a chip per type with its order count", async () => {
+    const { createElement } = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { default: TicketOrders } = await import("@/app/admin/_components/TicketOrders");
+    const html = renderToStaticMarkup(createElement(TicketOrders, { tickets: rows, onResend: () => {} }));
+    const chip = (label: string) => html.match(new RegExp(">" + label + " <span class=\"opacity-60\">(\\d+)</span>"))?.[1];
+    expect([chip("All"), chip("Single"), chip("Group QR"), chip("Sent to guests")]).toEqual(["3", "1", "1", "1"]);
+    expect(html).toContain("3 paid orders | 4 QR codes | 6 admissions");
+  });
+});

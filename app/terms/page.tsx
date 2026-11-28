@@ -25,7 +25,9 @@ function Email() {
 }
 
 /**
- * Ticket Terms and Refund Policy, word for word as supplied by the client (Nov 2026).
+ * Ticket Terms and Refund Policy, word for word as supplied by the client (Nov 2026),
+ * plus the entry time slot sentences in point 8 (added for tier entry windows —
+ * see lib/entryWindow.ts).
  * Linked from the checkout's "Before you check out" box (TICKET_TERMS_URL) and the
  * footer. Section ids are stable anchors.
  */
@@ -104,7 +106,8 @@ const POLICY: { id: string; title: string; body: ReactNode }[] = [
     body: (
       <>
         Entry is subject to venue rules and capacity. We may refuse entry for unsafe or disorderly behaviour, without
-        refund.
+        refund. Some ticket types have an entry time slot, shown at checkout, on your ticket and in your ticket email.
+        These tickets can only be used during their slot, and we may refuse entry before it starts or after it ends.
       </>
     ),
   },

@@ -30,6 +30,28 @@ export function ticketAvailability(event: DanEvent, tickets: DanTicket[], now = 
     }) };
 }
 export type TicketAvailability = ReturnType<typeof ticketAvailability>;
+/**
+ * How a ticket was bought, for the admin filters:
+ *  - "single": one person, one QR code
+ *  - "group":  one QR code that admits several people (bought together, kept together)
+ *  - "guests": part of an order sent to different emails — the buyer's QR or a guest's
+ */
+export type TicketKind = "single" | "group" | "guests";
+export const TICKET_KINDS: { key: TicketKind; label: string; hint: string }[] = [
+  { key: "single", label: "Single", hint: "1 person, 1 QR code" },
+  { key: "group", label: "Group QR", hint: "1 QR code admits several people" },
+  { key: "guests", label: "Sent to guests", hint: "Separate QR code for each person" },
+];
+export function ticketKind(t: Pick<DanTicket, "quantity" | "parentReference" | "guestReferences">): TicketKind {
+  if (t.parentReference || t.guestReferences?.length) return "guests";
+  return t.quantity > 1 ? "group" : "single";
+}
+/** The same, for an order from groupTicketOrders. */
+export function orderKind(order: { holders: DanTicket[]; quantity: number }): TicketKind {
+  if (order.holders.length > 1 || order.holders.some((t) => t.parentReference || t.guestReferences?.length)) return "guests";
+  return order.quantity > 1 ? "group" : "single";
+}
+
 export function groupTicketOrders(tickets: DanTicket[]) {
   const groups = new Map<string, DanTicket[]>();
   for (const t of tickets.filter(isIssuedTicket)) {

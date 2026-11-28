@@ -7,7 +7,7 @@ import type { DanEvent, DanTicket } from "@/lib/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, Download, ChevronLeft, ChevronRight, X, Mail, Check } from "lucide-react";
 import { logAdminAction } from "@/lib/adminLog";
-import { ticketAvailability } from "@/lib/ticketInventory";
+import { ticketAvailability, ticketKind, TICKET_KINDS, type TicketKind } from "@/lib/ticketInventory";
 import TicketOrders from "../_components/TicketOrders";
 import * as XLSX from "xlsx";
 
@@ -46,6 +46,8 @@ export default function AdminTicketsPage() {
   const [loadingTickets, setLoadingTickets] = useState(false);
   const [error, setError] = useState("");
   const [ticketTab, setTicketTab] = useState<TicketTab>("all");
+  // Single / group QR / sent to guests — see ticketKind
+  const [kindFilter, setKindFilter] = useState<TicketKind | "all">("all");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [preview, setPreview] = useState<PreviewState | null>(null);
@@ -84,7 +86,7 @@ export default function AdminTicketsPage() {
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 10000); return () => clearInterval(timer); }, []);
 
   // Reset page on event or tab change
-  useEffect(() => { setPage(0); }, [selectedEvent, ticketTab]);
+  useEffect(() => { setPage(0); }, [selectedEvent, ticketTab, kindFilter]);
 
   const activeEvent = events.find((e) => e.id === selectedEvent);
   const soldCount = tickets.reduce((s, t) => s + t.quantity, 0);
@@ -110,9 +112,11 @@ export default function AdminTicketsPage() {
   const orderOf = (t: DanTicket) => orders.get(t.parentReference ?? t.reference);
 
   // Derived display + pagination
-  const displayTickets = tickets.filter((t) =>
-    ticketTab === "all" || (ticketTab === "scanned" ? t.status === "confirmed" : t.status === "paid")
-  );
+  const inTab = (t: DanTicket) =>
+    ticketTab === "all" || (ticketTab === "scanned" ? t.status === "confirmed" : t.status === "paid");
+  const displayTickets = tickets.filter((t) => inTab(t) && (kindFilter === "all" || ticketKind(t) === kindFilter));
+  const kindLabel = kindFilter === "all" ? "" : ` · ${TICKET_KINDS.find((k) => k.key === kindFilter)?.label}`;
+  const kindSuffix = kindFilter === "all" ? "" : `-${kindFilter}`;
   const totalPages = Math.ceil(displayTickets.length / pageSize);
   const pageTickets = displayTickets.slice(page * pageSize, (page + 1) * pageSize);
   const fromRow = displayTickets.length > 0 ? page * pageSize + 1 : 0;
@@ -184,7 +188,7 @@ export default function AdminTicketsPage() {
             {events.map((ev) => (
               <button
                 key={ev.id}
-                onClick={() => { setSelectedEvent(ev.id!); setTicketTab("all"); }}
+                onClick={() => { setSelectedEvent(ev.id!); setTicketTab("all"); setKindFilter("all"); }}
                 className="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all border"
                 style={{
                   borderColor: selectedEvent === ev.id ? "#FFFF00" : "rgba(255,255,255,0.1)",
@@ -320,6 +324,30 @@ export default function AdminTicketsPage() {
                   );
                 })}
               </div>
+
+              {/* How each QR code was bought — Single / Group QR / Sent to guests (own line) */}
+              <div className="w-full flex flex-wrap items-center gap-2">
+              <span className="text-[10px] text-gray-600 uppercase tracking-widest mr-1">Type</span>
+              {([{ key: "all" as const, label: "All", hint: "" }, ...TICKET_KINDS]).map(({ key, label, hint }) => {
+                const active = kindFilter === key;
+                const count = tickets.filter((t) => inTab(t) && (key === "all" || ticketKind(t) === key)).length;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setKindFilter(key)}
+                    title={hint}
+                    aria-pressed={active}
+                    className={"rounded-full border px-3 py-1.5 text-xs transition-all " + (active ? "border-[#FFFF00] text-[#FFFF00] bg-[#FFFF00]/5" : "border-white/10 text-gray-400 hover:border-white/25")}
+                  >
+                    {label} <span className="opacity-60">{count}</span>
+                  </button>
+                );
+              })}
+              {kindFilter !== "all" && (
+                <span className="text-xs text-gray-500">{TICKET_KINDS.find((k) => k.key === kindFilter)?.hint} · counts are QR codes</span>
+              )}
+            </div>
             </div>
 
             {loadingTickets ? (
@@ -369,8 +397,8 @@ export default function AdminTicketsPage() {
                     <button
                       onClick={() => setPreview({
                         rows: pageTickets,
-                        label: `Page ${page + 1} — ${ticketTab === "all" ? "All tickets" : ticketTab === "scanned" ? "Checked in" : "Awaiting check-in"}`,
-                        suffix: `page${page + 1}`,
+                        label: `Page ${page + 1} — ${ticketTab === "all" ? "All tickets" : ticketTab === "scanned" ? "Checked in" : "Awaiting check-in"}${kindLabel}`,
+                        suffix: `page${page + 1}${kindSuffix}`,
                       })}
                       disabled={pageTickets.length === 0}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest border transition-all disabled:opacity-30"
@@ -382,8 +410,8 @@ export default function AdminTicketsPage() {
                     <button
                       onClick={() => setPreview({
                         rows: displayTickets,
-                        label: ticketTab === "all" ? "All tickets" : `All ${ticketTab === "scanned" ? "checked-in" : "awaiting check-in"} tickets`,
-                        suffix: "all",
+                        label: (ticketTab === "all" ? "All tickets" : `All ${ticketTab === "scanned" ? "checked-in" : "awaiting check-in"} tickets`) + kindLabel,
+                        suffix: `all${kindSuffix}`,
                       })}
                       disabled={displayTickets.length === 0}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest border transition-all disabled:opacity-30"

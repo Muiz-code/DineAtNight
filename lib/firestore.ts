@@ -292,16 +292,13 @@ export async function getTicketsByEvent(eventId: string): Promise<DanTicket[]> {
     );
 }
 
+/**
+ * Every ticket, newest first. Used for the Dashboard and Events page totals and
+ * "Export All Data", so it must NOT be capped: a limit here silently drops older
+ * sales from the counts and revenue (it once showed 67 sold where the event had 124).
+ */
 export async function getAllTickets(): Promise<DanTicket[]> {
-  // limit(100) prevents a full-collection scan as ticket volume grows.
-  // Admin pages that need deeper history should implement cursor-based pagination.
-  const snap = await getDocs(
-    query(
-      collection(db, "tickets"),
-      orderBy("purchasedAt", "desc"),
-      limit(100),
-    ),
-  );
+  const snap = await getDocs(query(collection(db, "tickets"), orderBy("purchasedAt", "desc")));
   return snap.docs.map((d) => toDoc<DanTicket>(d));
 }
 
