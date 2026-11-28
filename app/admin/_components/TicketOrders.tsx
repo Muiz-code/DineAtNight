@@ -24,6 +24,8 @@ export default function TicketOrders({ tickets, onResend }: { tickets: DanTicket
         <span className="font-semibold">{order.buyer?.name ?? order.holders[0]?.purchasedBy ?? "Buyer unavailable"}</span>
         <span className="ml-3 text-[#FFFF00]">{order.quantity} admissions | {money(order.amount)} paid</span>
         <span className="block text-xs text-gray-400 mt-2 break-all">{order.reference} | {order.holders[0]?.ticketType ?? "General admission"} | {order.checkedIn}/{order.quantity} admissions checked in</span>
+        {order.buyer?.coupon && <span className="block text-xs text-[#00FF41] mt-1 break-all">Code {order.buyer.coupon.code} (#{order.buyer.coupon.codeNumber} of {order.buyer.coupon.codeCount}, {order.buyer.coupon.campaignName}) | {order.buyer.coupon.percentOff}% off 1 ticket | -{money(order.buyer.coupon.discountKobo)}{order.amount === 0 ? " | Free, no Paystack payment" : ""}</span>}
+        {order.holders.some(t => t.entryOverride) && <span className="block text-xs text-[#FF9F1C] mt-1">Admitted outside entry time by {order.holders.filter(t => t.entryOverride).map(t => t.entryOverride!.by).join(", ")}</span>}
         <span className="block text-xs text-gray-500 mt-1">{order.holders.length > 1 ? "Separate QR codes emailed to ticket holders" : order.quantity > 1 ? "Shared group QR - admits the whole group together" : "One ticket QR"}
           {order.purchasedAt ? " | Purchased " + new Date(order.purchasedAt.seconds*1000).toLocaleString("en-NG", { timeZone: "Africa/Lagos", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }) : ""}</span>
       </summary>

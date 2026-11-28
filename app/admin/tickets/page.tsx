@@ -132,6 +132,13 @@ export default function AdminTicketsPage() {
       "Ticket Type": t.ticketType ?? "—",
       Quantity: t.quantity,
       "Order payment (NGN; recorded once on buyer)": t.parentReference ? "Included in order" : t.amount / 100,
+      "Coupon Code": t.coupon?.code ?? "",
+      "Coupon #": t.coupon ? `${t.coupon.codeNumber} of ${t.coupon.codeCount}` : "",
+      "Coupon Campaign": t.coupon?.campaignName ?? "",
+      "Coupon % Off (1 ticket)": t.coupon?.percentOff ?? "",
+      "Coupon Discount (NGN)": t.coupon ? t.coupon.discountKobo / 100 : "",
+      "Full Price Before Coupon (NGN)": t.coupon ? t.coupon.fullAmountKobo / 100 : "",
+      "Entry Override": t.entryOverride ? `${t.entryOverride.reason} — by ${t.entryOverride.by}` : "",
       Status: t.status,
       Purchased: (buyerOf(t)?.purchasedAt ?? t.purchasedAt)
         ? new Date(((buyerOf(t)?.purchasedAt ?? t.purchasedAt) as { seconds: number }).seconds * 1000).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })

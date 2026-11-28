@@ -358,6 +358,10 @@ export async function sendTicketConfirmationEmail(data: {
   sentBy?: string;
   /** Buyer copy: the guests whose tickets were emailed to them. */
   guests?: { name: string; email: string }[];
+  /** The tier's entry window, e.g. "8:00 PM – 12:00 AM" — the gate refuses entry outside it. */
+  entryTime?: string;
+  /** Issued free with a coupon code: shows "Free" instead of ₦0. */
+  free?: boolean;
 }): Promise<boolean> {
   const h = escapeFields(data);
   const isGuest = !!data.sentBy;
@@ -389,7 +393,8 @@ export async function sendTicketConfirmationEmail(data: {
           ${detailRow("Name", h.name)}
           ${h.eventDate ? detailRow("Date", h.eventDate.toDateString()) : ""}
           ${detailRow("Tickets", guests.length ? `1× (yours) + ${guests.length} sent to guests` : `${h.quantity}×`)}
-          ${isGuest ? "" : detailRow("Amount Paid", amountNaira)}
+          ${h.entryTime ? detailRow("Entry", h.entryTime) : ""}
+          ${isGuest ? "" : detailRow("Amount Paid", data.free ? "Free" : amountNaira)}
           ${detailRow("Reference", h.reference)}
         </table>
       </div>

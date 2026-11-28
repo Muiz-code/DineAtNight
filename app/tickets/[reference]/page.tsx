@@ -11,6 +11,7 @@ import {
   type DanSponsor,
 } from "@/lib/firestore";
 import LordIcon from "@/app/_components/LordIcon";
+import { entryLabel } from "@/lib/entryWindow";
 
 const fmt = (kobo: number) => "₦" + (kobo / 100).toLocaleString("en-NG");
 
@@ -54,6 +55,7 @@ export default function TicketPage() {
   const { reference } = useParams<{ reference: string }>();
   const [ticket, setTicket] = useState<DanTicket | null>(null);
   const [sponsors, setSponsors] = useState<DanSponsor[]>([]);
+  const [entry, setEntry] = useState<string | null>(null); // tier entry window, e.g. "8:00 PM – 12:00 AM"
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -74,6 +76,7 @@ export default function TicketPage() {
         getEventById(t.eventId)
           .then((ev) => {
             if (ev?.sponsors?.length) setSponsors(ev.sponsors);
+            setEntry(entryLabel(ev?.ticketTypes?.find((tt) => tt.name === t.ticketType)));
           })
           .catch(() => {});
       })
@@ -214,10 +217,13 @@ export default function TicketPage() {
                   ? `${ticket.quantity}x (+${ticket.guestReferences.length} sent to guests)`
                   : `${ticket.quantity}x`,
               },
+              ...(ticket.ticketType ? [{ label: "Ticket Type", value: ticket.ticketType }] : []),
+              ...(entry ? [{ label: "Entry", value: entry }] : []),
               // A guest's ticket was paid for by the buyer, so show who sent it instead of ₦0
               ticket.parentReference
                 ? { label: "Sent By", value: ticket.purchasedBy ?? "—" }
-                : { label: "Amount Paid", value: fmt(ticket.amount) },
+                : { label: "Amount Paid", value: ticket.coupon && ticket.amount === 0 ? "Free" : fmt(ticket.amount) },
+              ...(ticket.coupon && !ticket.parentReference ? [{ label: "Code", value: `${ticket.coupon.code} (${ticket.coupon.percentOff}% off 1 ticket)` }] : []),
               { label: "Reference", value: ticket.reference },
             ].map((row) => (
               <div

@@ -55,6 +55,7 @@ const SECTIONS: Section[] = [
     tabs: [
       { label: "Tickets", href: "/admin/tickets" },
       { label: "Scan Ticket", href: "/admin/confirm" },
+      { label: "Coupons", href: "/admin/coupons" },
     ],
   },
   {

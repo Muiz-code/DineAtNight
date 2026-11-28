@@ -3,9 +3,11 @@ import { isValidReference } from "@/lib/payments";
 import { confirmTicketScan, getScanActor } from "@/lib/scanners";
 
 /**
- * POST /api/scan/confirm — { reference }
+ * POST /api/scan/confirm — { reference, override? }
  * Admits a paid ticket at the gate and credits the scan to whoever is signed
  * in (admin or staff scanner). Returns only what the gate needs to see.
+ * Tickets outside their tier's entry window come back too_early / too_late;
+ * `override: true` admits them anyway when the event allows overrides.
  */
 export async function POST(req: NextRequest) {
   const who = await getScanActor(req);
@@ -14,8 +16,11 @@ export async function POST(req: NextRequest) {
   }
 
   let reference: unknown;
+  let override = false;
   try {
-    reference = (await req.json()).reference;
+    const body = await req.json();
+    reference = body.reference;
+    override = body.override === true; // "Admit anyway" — honoured only if the event allows it
   } catch {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
@@ -25,7 +30,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    return NextResponse.json(await confirmTicketScan(reference, who.actor, who.email));
+    return NextResponse.json(await confirmTicketScan(reference, who.actor, who.email, { override }));
   } catch (err) {
     console.error("[scan/confirm]", err);
     return NextResponse.json({ error: "Could not check the ticket. Try again." }, { status: 500 });

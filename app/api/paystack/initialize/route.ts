@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createPendingTicket, parseGuests, quoteTicket } from "@/lib/payments";
+import { NextRequest, NextResponse, after } from "next/server";
+import { createPendingTicket, issueFreeTicket, parseGuests, quoteTicket, quoteTicketCoupon } from "@/lib/payments";
+import { deliverPaidTicket } from "@/lib/ticketDelivery";
 import { checkRateLimit, clientIp } from "@/lib/rateLimit";
 import { allowedAgeRanges, hasAgeLimit } from "@/lib/ageLimits";
 import {
@@ -72,9 +73,47 @@ export async function POST(req: NextRequest) {
       guests = parsed;
     }
 
-    const amountKobo = Math.round(quote.unitPrice * qty * 100); // Paystack uses kobo
     const cleanName = name.trim().slice(0, 100);
     const cleanPhone = phone ? String(phone).slice(0, 20) : "";
+
+    // ── Coupon code: takes its percentage off ONE ticket (lib/coupons.ts) ──
+    const couponCode = typeof body.couponCode === "string" && body.couponCode.trim() ? body.couponCode.trim() : undefined;
+    let amountKobo = Math.round(quote.unitPrice * qty * 100); // Paystack uses kobo
+    if (couponCode) {
+      try {
+        amountKobo = (await quoteTicketCoupon(eventId, qty, quote.ticketType, couponCode)).amountKobo;
+      } catch (err) {
+        return NextResponse.json({ error: err instanceof Error ? err.message : "That code can't be used." }, { status: 400 });
+      }
+    }
+
+    // Whole order free (e.g. 1 ticket, 100% off): no Paystack — issue it now.
+    // The transaction re-checks stock and the code, so a code's last use can't go twice.
+    if (couponCode && amountKobo === 0) {
+      let reference: string;
+      try {
+        reference = await issueFreeTicket(
+          {
+            eventId,
+            eventTitle: quote.eventTitle.slice(0, 200),
+            name: cleanName,
+            email,
+            phone: cleanPhone,
+            ageRange,
+            ...(limited ? { ageConfirmed: true } : {}),
+            termsAccepted: true,
+            marketingConsent: marketingConsent === true,
+            quantity: qty,
+            ...(quote.ticketType ? { ticketType: quote.ticketType } : {}),
+          },
+          couponCode,
+        );
+      } catch (err) {
+        return NextResponse.json({ error: err instanceof Error ? err.message : "We couldn't issue your ticket. Please try again." }, { status: 409 });
+      }
+      after(() => deliverPaidTicket(reference)); // email + check-in, as for a paid ticket
+      return NextResponse.json({ free: true, reference });
+    }
 
     // Initialize Paystack transaction
     const paystackRes = await fetch(
@@ -98,6 +137,7 @@ export async function POST(req: NextRequest) {
             ageRange,
             quantity: qty,
             ticketType: quote.ticketType ?? "",
+            ...(couponCode ? { couponCode } : {}),
           },
         }),
       }
@@ -129,7 +169,7 @@ export async function POST(req: NextRequest) {
         ...(quote.ticketType ? { ticketType: quote.ticketType } : {}),
         amount: amountKobo,
         reference,
-      });
+      }, couponCode);
 
     } catch (err) {
       return NextResponse.json({ error: err instanceof Error ? err.message : "Tickets are no longer available." }, { status: 409 });

@@ -349,6 +349,19 @@ Rate limits live in `lib/constants.ts` and use the `rate_limits` collection
 | `subscribers` | email | Server | Admin |
 | `newsletters`, `suppressed_emails`, `admin_logs`, `deleted_events`, `deleted_products` | — | Admin | Admin |
 | `rate_limits` | key:window | Server | Server |
+| `coupon_campaigns` | auto | Server (`/api/admin/coupons`) | Admin, via API only |
+| `coupon_codes` | code, upper case, letters/digits only | Server (create, hold, redeem) | Admin, via API only |
+
+Coupon codes: rules in `lib/coupons.ts`, redemption inside the ticket transactions in
+`lib/payments.ts` (`createPendingTicket` holds a code for the 15-minute reservation,
+`markTicketPaid` / `issueFreeTicket` redeem it). A code takes its % off ONE ticket; a ₦0
+order skips Paystack (`issueFreeTicket`, reference `FREE-…`). The buyer's ticket stores
+`coupon` (code, number, campaign, % off, discount, full price).
+
+Tier entry windows: `ticketTypes[].entryStart/entryEnd` ("HH:MM", Lagos), event
+`entryGraceMinutes` and `allowEntryOverride`. Checked at the gate in
+`confirmTicketScan` (`lib/scanners.ts`) with `lib/entryWindow.ts`; overrides are
+recorded as `tickets.entryOverride`. The external check-in API/webhook doesn't enforce them.
 
 Amounts: `tickets.amount` is **kobo**; `products.price`, `merch_orders.total` and
 event ticket prices are **naira**.

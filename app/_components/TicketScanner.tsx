@@ -6,10 +6,11 @@ import { QrCode, Search, Camera } from "lucide-react";
 import dynamicImport from "next/dynamic";
 import LordIcon from "@/app/_components/LordIcon";
 import type { GateTicket, ScanResult } from "@/lib/scanners";
+import { formatLagosMoment } from "@/lib/entryWindow";
 
 const CameraScanner = dynamicImport(() => import("@/app/_components/CameraScanner"), { ssr: false });
 
-type ScanState = "idle" | "loading" | "success" | "already" | "error";
+type ScanState = "idle" | "loading" | "success" | "already" | "early" | "late" | "error";
 
 function TicketResult({
   ticket,
@@ -23,10 +24,10 @@ function TicketResult({
   if (!ticket) return null;
 
   const colors: Record<ScanState, string> = {
-    idle: "#888", loading: "#888", success: "#00FF41", already: "#FFFF00", error: "#FF3333",
+    idle: "#888", loading: "#888", success: "#00FF41", already: "#FFFF00", early: "#FF9F1C", late: "#FF3333", error: "#FF3333",
   };
   const labels: Record<ScanState, string> = {
-    idle: "", loading: "", success: "Admitted!", already: "⚠️ Already Scanned", error: "❌ Not Valid",
+    idle: "", loading: "", success: "Admitted!", already: "⚠️ Already Scanned", early: "⏳ Too Early", late: "⛔ Entry Closed", error: "❌ Not Valid",
   };
   const color = colors[state];
 
@@ -103,19 +104,23 @@ export default function TicketScanner({
   const [showCamera, setShowCamera] = useState(false);
   const ranPrefill = useRef(false);
 
-  const handleConfirm = async (ref?: string) => {
+  // A ticket refused for its entry time that the event lets staff admit anyway
+  const [overrideRef, setOverrideRef] = useState<string | null>(null);
+
+  const handleConfirm = async (ref?: string, override = false) => {
     const r = (ref ?? reference).trim();
     if (!r) return;
     setState("loading");
     setTicket(null);
     setNote("");
     setErrorMsg("");
+    setOverrideRef(null);
 
     try {
       const res = await fetch("/api/scan/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reference: r }),
+        body: JSON.stringify({ reference: r, ...(override ? { override: true } : {}) }),
       });
       if (res.status === 401) {
         setState("error");
@@ -140,8 +145,20 @@ export default function TicketScanner({
       const orderNote = order ? `${order.buyer}'s order: ${order.scanned} of ${order.total} checked in.` : "";
       if (data.result === "confirmed") {
         setState("success");
-        setNote(orderNote);
+        const overrideNote = data.overridden
+          ? `Admitted outside its entry time (${data.overridden === "early" ? "early" : "late"}) — override recorded.`
+          : "";
+        setNote([overrideNote, orderNote].filter(Boolean).join(" "));
         onAdmitted?.(data.ticket);
+      } else if (data.result === "too_early" || data.result === "too_late") {
+        const early = data.result === "too_early";
+        setState(early ? "early" : "late");
+        setNote(
+          early
+            ? `Too early. This ticket's entry is ${data.entry.label}. Entry opens ${formatLagosMoment(data.entry.opensMs)}. Do not admit yet.`
+            : `Entry closed. This ticket's entry was ${data.entry.label} and closed ${formatLagosMoment(data.entry.endMs)}. Do not admit.`,
+        );
+        if (data.canOverride) setOverrideRef(r);
       } else if (data.result === "already") {
         setState("already");
         setNote(
@@ -237,6 +254,20 @@ export default function TicketScanner({
         {state !== "idle" && state !== "loading" && (
           <TicketResult key="ticket-result" ticket={ticket} state={state} note={note} />
         )}
+        {(state === "early" || state === "late") && overrideRef && (
+          <motion.div key="override" className="text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <button
+              onClick={() => {
+                if (window.confirm("Admit this ticket outside its entry time? This is recorded against your name.")) {
+                  handleConfirm(overrideRef, true);
+                }
+              }}
+              className="px-5 py-2.5 rounded-full border-2 border-[#FF9F1C] text-[#FF9F1C] text-xs font-bold uppercase tracking-widest hover:bg-[#FF9F1C] hover:text-black transition-all"
+            >
+              Admit anyway
+            </button>
+          </motion.div>
+        )}
         {state === "error" && errorMsg && (
           <motion.p key="error-msg" className="text-center text-[#FF3333] text-xs" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             {errorMsg}
@@ -245,7 +276,7 @@ export default function TicketScanner({
         {state !== "idle" && state !== "loading" && (
           <motion.div key="scan-another" className="text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <button
-              onClick={() => { setState("idle"); setTicket(null); setReference(""); setErrorMsg(""); setNote(""); }}
+              onClick={() => { setState("idle"); setTicket(null); setReference(""); setErrorMsg(""); setNote(""); setOverrideRef(null); }}
               className="text-gray-600 hover:text-gray-400 text-xs uppercase tracking-widest transition-colors"
             >
               Scan Another Ticket →

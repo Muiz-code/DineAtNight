@@ -36,6 +36,13 @@ export const TESTIMONIAL_RATE_LIMIT = 5;
 export const CHECKOUT_RATE_LIMIT = 30;
 
 /**
+ * Max coupon-code checks per IP per window (the checkout "Apply" button).
+ * Low enough that guessing codes is hopeless (~887 million combinations),
+ * high enough for a venue or office sharing one network.
+ */
+export const COUPON_CHECK_RATE_LIMIT = 30;
+
+/**
  * Max ticket-scanner code attempts per IP per window. Generous because gate
  * staff often share one venue network; codes have ~850 billion combinations.
  */

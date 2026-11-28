@@ -7,8 +7,25 @@
  */
 
 import { pushTicketToCheckin } from "./checkin";
+import { adminDb } from "./firebase-admin";
+import { entryLabel } from "./entryWindow";
+import type { DanEvent, DanTicket } from "./firestore";
 import { getTicket } from "./payments";
 import { sendTicketConfirmationEmail } from "./resend";
+
+/** The ticket's tier entry window for the email ("8:00 PM – 12:00 AM"), if it has one. */
+async function entryTimeFor(ticket: DanTicket): Promise<{ entryTime?: string }> {
+  try {
+    if (!ticket.ticketType || !ticket.eventId) return {};
+    const snap = await adminDb().collection("events").doc(ticket.eventId).get();
+    const tier = (snap.data() as DanEvent | undefined)?.ticketTypes?.find((t) => t.name === ticket.ticketType);
+    const label = entryLabel(tier);
+    return label ? { entryTime: label } : {};
+  } catch (err) {
+    console.error("[ticketDelivery] couldn't read the entry time:", err);
+    return {}; // the email still goes out, without the entry row
+  }
+}
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -28,6 +45,7 @@ export async function resendTicketEmail(
     return { ok: false, error: "This ticket hasn't been paid for." };
   }
   const email = to || ticket.email;
+  const entry = await entryTimeFor(ticket);
   const sent = ticket.parentReference
     ? await sendTicketConfirmationEmail({
         name: ticket.name,
@@ -37,6 +55,7 @@ export async function resendTicketEmail(
         amount: 0,
         reference,
         sentBy: ticket.purchasedBy ?? (await getTicket(ticket.parentReference))?.name ?? "A friend",
+        ...entry,
       })
     : await sendTicketConfirmationEmail({
         name: ticket.name,
@@ -46,6 +65,8 @@ export async function resendTicketEmail(
         amount: ticket.amount,
         reference,
         ...(ticket.guests?.length ? { guests: ticket.guests } : {}),
+        ...entry,
+        ...(ticket.coupon && ticket.amount === 0 ? { free: true } : {}),
       });
   return sent ? { ok: true, sentTo: email } : { ok: false, error: "The email couldn't be sent. Try again." };
 }
@@ -55,6 +76,7 @@ export async function deliverPaidTicket(reference: string): Promise<void> {
   if (!ticket || (ticket.status !== "paid" && ticket.status !== "confirmed")) return;
   const guestRefs = ticket.guestReferences ?? [];
   const guests = ticket.guests ?? [];
+  const entry = await entryTimeFor(ticket);
 
   // External check-in system: the buyer's ticket and each guest's
   await Promise.all([reference, ...guestRefs].map((r) => pushTicketToCheckin(r).catch(() => {})));
@@ -69,6 +91,8 @@ export async function deliverPaidTicket(reference: string): Promise<void> {
     amount: ticket.amount,
     reference,
     ...(guests.length ? { guests } : {}),
+    ...entry,
+    ...(ticket.coupon && ticket.amount === 0 ? { free: true } : {}),
   });
   for (const [i, guestRef] of guestRefs.entries()) {
     const guest = guests[i];
@@ -82,6 +106,7 @@ export async function deliverPaidTicket(reference: string): Promise<void> {
       amount: 0,
       reference: guestRef,
       sentBy: ticket.name,
+      ...entry, // guests share the buyer's ticket type
     });
   }
 }

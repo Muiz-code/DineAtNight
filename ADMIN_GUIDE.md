@@ -11,6 +11,7 @@
 2. [Dashboard Overview](#2-dashboard-overview)
 3. [Managing Events](#3-managing-events)
 4. [Managing Tickets](#4-managing-tickets)
+4b. [Coupon Codes](#4b-coupon-codes)
 5. [Gate Scanning (Ticket Confirmation)](#5-gate-scanning-ticket-confirmation)
 6. [Managing Vendors](#6-managing-vendors)
 7. [Managing the Gallery](#7-managing-the-gallery)
@@ -135,6 +136,20 @@ Add multiple ticket types to a single event:
 - The "Limit" field caps how many of that specific tier can be sold. Leave blank for no per-tier cap.
 - The **Total Tickets** field is the overall venue capacity
 
+### Entry Times per Ticket Type (Time Slots)
+
+Each ticket type can have an optional entry window, e.g. After Dark **8:00 PM until 12:00 AM**:
+- Set **Entry from** and **until** under the ticket type (Lagos time, on the event date). Set both or neither.
+- An end time earlier than the start time means the slot runs past midnight (8 PM – 12 AM ends at midnight).
+- Under each ticket type you'll see the exact window the gate will use, so you can check it before saving.
+- Buyers see the entry time at checkout, on their ticket page and in their ticket email.
+
+Once a ticket type has entry times, a **Gate entry times** box appears:
+- **Let early arrivals in up to N minutes before their entry time:** optional grace period for early arrivals.
+- **Allow gate staff to Admit anyway:** when ticked, staff can admit someone outside their entry time. Each override is recorded on the ticket with who did it. When unticked, the gate is strict.
+
+Late entry is always blocked: from the end time on, the ticket is refused.
+
 ### Sold Tickets Count
 
 The admin panel shows actual sold tickets from the `tickets` Firestore collection (cross-referenced with real payment data). This is more accurate than the `soldTickets` field on the event document, which is a denormalised counter.
@@ -172,6 +187,48 @@ You can export ticket data to Excel using the export button (📊) for offline u
 
 ---
 
+## 4b. Coupon Codes
+
+**Navigate to:** Tickets → Coupons tab
+
+Use coupon codes for sponsor promos (e.g. "Naira card holders get a free ticket") or discounts.
+
+### Creating a campaign
+
+1. Click **New campaign** and give it a name (e.g. "Naira card — 40 free tickets")
+2. Choose the **event**
+3. Set the **percentage off**. It comes off **one ticket per order**:
+   - 1 ticket with a 100% code: **free**, issued instantly without Paystack
+   - 3 tickets at ₦5,000 with a 100% code: the buyer pays **₦10,000** and gets 3 tickets
+   - 3 tickets at ₦5,000 with a 50% code: the buyer pays **₦12,500**
+   The percentage can't be changed after the codes are created.
+4. **Works for which ticket types?** Pick types to limit the code (e.g. only Night Market Pass, so it can't be used for VIP). Pick none to allow every type.
+5. **Codes:**
+   - **Unique codes** (best for sponsors): e.g. 40 different codes like `DAN-7KQ2X9`, each works once
+   - **One shared code**: one code for everyone (e.g. `NAIRACARD`) with a total number of uses
+6. **Expiry:** tick **No expiry**, or choose the last day the codes work (they stop at the end of that day, Lagos time)
+
+### Sending codes to a sponsor
+
+Open the campaign, then **Copy codes** or **Export** (Excel with code number, code and status). Send the list to the sponsor, who gives one code to each person.
+
+### Tracking
+
+The campaign page shows every code with its number, whether it's unused, at checkout right now, or used, and who used it (name, email, ticket reference, time). **Export** includes all of this.
+
+Each ticket bought with a code records the code, its number (e.g. #17 of 40), the campaign, the percentage off and the amount taken off, including free tickets. The Tickets page and its Excel export show these.
+
+### Pausing and expiry
+
+- **Pause codes** stops all the campaign's codes working straight away; **Resume codes** turns them back on.
+- **Valid until** changes the expiry date; **No expiry** removes it.
+
+### How the limit is kept exact
+
+A code is held for 15 minutes while someone is paying, the same as the tickets. If two people try the last use at the same moment, only one gets it. If a payment arrives after the 15 minutes and the code was used by someone else meanwhile, the payment goes to **Payments awaiting review / refund** on the Tickets page, the same as a late payment for sold-out tickets.
+
+---
+
 ## 5. Gate Scanning (Ticket Confirmation)
 
 **Navigate to:** Events → Confirm tab
@@ -199,6 +256,10 @@ This is the gate-scanning interface used on event day to verify and admit ticket
 | Already Scanned | Yellow | This ticket was already used. Do not re-admit unless you're certain |
 | Payment Pending | Orange | Ticket exists but payment was not completed. Do not admit |
 | Not Found | Red | Reference doesn't exist in the system. Do not admit |
+| Too Early | Orange | The ticket's entry time hasn't started (it shows when entry opens). Do not admit yet. The ticket is still valid; scan it again later |
+| Entry Closed | Red | The ticket's entry time has ended. Do not admit |
+
+If the event allows overrides, **Too Early** and **Entry Closed** show an **Admit anyway** button. It asks for confirmation and records your name on the ticket.
 
 ### On Event Day — Best Practices
 

@@ -118,6 +118,15 @@ service cloud.firestore {
     match /rate_limits/{id} {
       allow read, write: if false;
     }
+    // Coupon codes are read and written only by the server (/api/admin/coupons,
+    // checkout). Even admins go through the API, so the codes can't be edited
+    // around the redemption checks.
+    match /coupon_campaigns/{id} {
+      allow read, write: if false;
+    }
+    match /coupon_codes/{code} {
+      allow read, write: if false;
+    }
 
     // ── Admin-only collections ───────────────────────────────────────────────
     match /admin_logs/{id} {

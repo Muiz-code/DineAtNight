@@ -27,6 +27,7 @@ import {
 import { logAdminAction, currentAdmin } from "@/lib/adminLog";
 import ImageUpload from "@/app/_components/ImageUpload";
 import { ageLimitLabel, parseAgeLimit } from "@/lib/ageLimits";
+import { entryLabel, entryWindow, formatLagosMoment, isEntryTime, MAX_ENTRY_GRACE_MINUTES } from "@/lib/entryWindow";
 
 const inputCls =
   "w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#FFFF00] transition-all placeholder:text-gray-700";
@@ -48,6 +49,10 @@ const EMPTY_FORM = {
   highlights: "",
   sponsors: [] as DanSponsor[],
   ticketTypes: [] as DanTicketType[],
+  // Gate entry (only matters when a tier has entry times)
+  graceEnabled: false,
+  entryGraceMinutes: "15",
+  allowEntryOverride: false,
 };
 
 type FormState = typeof EMPTY_FORM;
@@ -71,6 +76,7 @@ export default function AdminEventsPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [ageError, setAgeError] = useState("");
+  const [entryError, setEntryError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [togglingPast, setTogglingPast] = useState<string | null>(null);
   const [revenueByEvent, setRevenueByEvent] = useState<Record<string, number>>(
@@ -156,7 +162,11 @@ export default function AdminEventsPage() {
       highlights: (ev.highlights ?? []).join("\n"),
       sponsors: ev.sponsors ?? [],
       ticketTypes: ev.ticketTypes ?? [],
+      graceEnabled: (ev.entryGraceMinutes ?? 0) > 0,
+      entryGraceMinutes: String((ev.entryGraceMinutes ?? 0) > 0 ? ev.entryGraceMinutes : 15),
+      allowEntryOverride: ev.allowEntryOverride === true,
     });
+    setEntryError("");
     setLogoUploading({});
     setModalOpen(true);
   };
@@ -169,6 +179,18 @@ export default function AdminEventsPage() {
       return;
     }
     setAgeError("");
+    // Entry times: both or neither on each tier; grace minutes in range
+    const halfSet = form.ticketTypes.find((t) => t.name.trim() && !!t.entryStart !== !!t.entryEnd);
+    if (halfSet) {
+      setEntryError(`Set both the entry start and end time for ${halfSet.name.trim()}, or clear both.`);
+      return;
+    }
+    const grace = Number(form.entryGraceMinutes);
+    if (form.graceEnabled && (!Number.isInteger(grace) || grace < 1 || grace > MAX_ENTRY_GRACE_MINUTES)) {
+      setEntryError(`Early-arrival grace must be a whole number of minutes from 1 to ${MAX_ENTRY_GRACE_MINUTES}.`);
+      return;
+    }
+    setEntryError("");
     setSaving(true);
     try {
       const dateTime = new Date(`${form.date}T${form.time}:00`);
@@ -180,6 +202,7 @@ export default function AdminEventsPage() {
           price: t.price,
           ...(t.limit != null && { limit: t.limit }),
           ...(t.description?.trim() && { description: t.description.trim() }),
+          ...(isEntryTime(t.entryStart) && isEntryTime(t.entryEnd) && { entryStart: t.entryStart, entryEnd: t.entryEnd }),
         }));
       const hasTiers = validTicketTypes.length > 0;
       // Base price = lowest tier price (backward compat); falls back to manual entry
@@ -209,6 +232,9 @@ export default function AdminEventsPage() {
         // null clears a previously set limit
         minAge: ageLimit.minAge ?? null,
         maxAge: ageLimit.maxAge ?? null,
+        // null clears it; only stored as a number when grace is switched on
+        entryGraceMinutes: form.graceEnabled ? grace : null,
+        allowEntryOverride: form.allowEntryOverride,
         highlights: form.highlights
           .split("\n")
           .map((s) => s.trim())
@@ -965,10 +991,97 @@ export default function AdminEventsPage() {
                             placeholder={`What ${tt.name.trim() || "this ticket"} includes (optional) — one item per line, e.g.\nPriority entry\nReserved seating`}
                             className={`${inputCls} resize-y text-xs`}
                           />
+                          {/* Entry window — the gate refuses this tier outside it */}
+                          <div className="grid grid-cols-[auto_1fr_auto_1fr] gap-2 items-center">
+                            <span className="text-[9px] text-gray-600 uppercase tracking-widest">Entry from</span>
+                            <input
+                              type="time"
+                              value={tt.entryStart ?? ""}
+                              onChange={(e) =>
+                                setForm((p) => {
+                                  const types = [...p.ticketTypes];
+                                  types[idx] = { ...types[idx], entryStart: e.target.value || undefined };
+                                  return { ...p, ticketTypes: types };
+                                })
+                              }
+                              aria-label={`${tt.name || "Tier"} entry start time`}
+                              className={`${inputCls} text-xs`}
+                            />
+                            <span className="text-[9px] text-gray-600 uppercase tracking-widest">until</span>
+                            <input
+                              type="time"
+                              value={tt.entryEnd ?? ""}
+                              onChange={(e) =>
+                                setForm((p) => {
+                                  const types = [...p.ticketTypes];
+                                  types[idx] = { ...types[idx], entryEnd: e.target.value || undefined };
+                                  return { ...p, ticketTypes: types };
+                                })
+                              }
+                              aria-label={`${tt.name || "Tier"} entry end time`}
+                              className={`${inputCls} text-xs`}
+                            />
+                          </div>
+                          {(() => {
+                            // Preview the exact window on the event date, so a past-midnight slot is obvious
+                            const eventMs = form.date ? new Date(`${form.date}T${form.time || "00:00"}:00`).getTime() : NaN;
+                            const w = entryWindow(eventMs, tt, form.graceEnabled ? Number(form.entryGraceMinutes) : 0);
+                            return w ? (
+                              <p className="text-[10px] text-gray-500">
+                                Gate admits {formatLagosMoment(w.opensMs)} → {formatLagosMoment(w.endMs)} (Lagos time){w.opensMs < w.startMs ? " — includes early grace" : ""}.
+                              </p>
+                            ) : (
+                              <p className="text-[10px] text-gray-700">No entry times — this ticket can enter any time.</p>
+                            );
+                          })()}
                           </div>
                         ))}
                       </div>
                     </div>
+
+                    {/* Gate entry rules — only shown once a tier has entry times */}
+                    {(form.ticketTypes.some((t) => entryLabel(t)) || entryError) && (
+                      <div className="rounded-lg border border-white/10 p-4 space-y-3">
+                        <p className="text-[10px] text-gray-500 uppercase tracking-widest">Gate entry times</p>
+                        <p className="text-gray-600 text-xs leading-relaxed">
+                          Tickets are refused at the gate before their tier&apos;s entry time and from its end time on. Buyers see their
+                          entry time at checkout and on their ticket.
+                        </p>
+                        <label className="flex items-center gap-3 text-xs text-gray-300 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={form.graceEnabled}
+                            onChange={(e) => setForm((p) => ({ ...p, graceEnabled: e.target.checked }))}
+                            className="w-4 h-4 accent-[#FFFF00] cursor-pointer"
+                          />
+                          Let early arrivals in up to
+                          <input
+                            type="number"
+                            min="1"
+                            max={MAX_ENTRY_GRACE_MINUTES}
+                            value={form.entryGraceMinutes}
+                            disabled={!form.graceEnabled}
+                            onChange={(e) => setForm((p) => ({ ...p, entryGraceMinutes: e.target.value }))}
+                            aria-label="Early-arrival grace in minutes"
+                            className="w-20 px-2 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white text-xs focus:outline-none focus:border-[#FFFF00] disabled:opacity-40"
+                          />
+                          minutes before their entry time
+                        </label>
+                        <label className="flex items-start gap-3 text-xs text-gray-300 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={form.allowEntryOverride}
+                            onChange={(e) => setForm((p) => ({ ...p, allowEntryOverride: e.target.checked }))}
+                            className="mt-0.5 w-4 h-4 accent-[#FFFF00] cursor-pointer"
+                          />
+                          <span>
+                            Allow gate staff to <strong>Admit anyway</strong> outside a ticket&apos;s entry time (each override is
+                            recorded on the ticket with who did it)
+                          </span>
+                        </label>
+                        {entryError && <p className="text-[#FF3333] text-xs">{entryError}</p>}
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>

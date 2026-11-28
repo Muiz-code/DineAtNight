@@ -20,7 +20,8 @@ import type { NextRequest } from "next/server";
 import { AggregateField, FieldValue, type Timestamp } from "firebase-admin/firestore";
 import { adminDb } from "./firebase-admin";
 import { adminNameFor, getAdminEmail, hmacHex, verifyHmacHex } from "./session";
-import type { DanTicket } from "./firestore";
+import type { DanEvent, DanTicket } from "./firestore";
+import { checkEntry, entryLabel, entryWindow, timestampMillis } from "./entryWindow";
 
 export const SCANNER_COOKIE = "dan_scanner";
 export const SCANNER_SESSION_MAX_AGE = 60 * 60 * 24; // 24 hours in seconds
@@ -352,8 +353,14 @@ export type GateTicket = Pick<DanTicket, "reference" | "name" | "eventTitle" | "
 /** For tickets bought together and sent to different emails: e.g. Ada's order, 2 of 3 in. */
 export type OrderProgress = { buyer: string; scanned: number; total: number };
 
+/** A ticket's tier entry window, as the gate shows it. */
+export type GateEntry = { label: string; startMs: number; endMs: number; opensMs: number };
+
 export type ScanResult =
-  | { result: "confirmed"; ticket: GateTicket; order?: OrderProgress }
+  | { result: "confirmed"; ticket: GateTicket; order?: OrderProgress; overridden?: "early" | "late" }
+  // Outside the tier's entry window: not admitted (the ticket stays valid). canOverride =
+  // the event allows gate staff to "Admit anyway" (re-send with override: true).
+  | { result: "too_early" | "too_late"; ticket: GateTicket; entry: GateEntry; canOverride: boolean; order?: OrderProgress }
   | { result: "already"; ticket: GateTicket; confirmedBy: string | null; confirmedAt: number | null; order?: OrderProgress }
   | { result: "unpaid"; ticket: GateTicket }
   | { result: "not_found" };
@@ -361,8 +368,18 @@ export type ScanResult =
 /**
  * Admits a paid ticket and credits the scan to `actor`. A transaction, so two
  * gates scanning the same ticket at once cannot both admit it.
+ *
+ * If the ticket's tier has an entry window (lib/entryWindow.ts), it's refused
+ * before the window opens (start minus the event's grace) and from the end time
+ * on. `override` admits it anyway — only when the event allows overrides — and
+ * the ticket records who did it.
  */
-export async function confirmTicketScan(reference: string, actor: ScanActor, actorEmail?: string): Promise<ScanResult> {
+export async function confirmTicketScan(
+  reference: string,
+  actor: ScanActor,
+  actorEmail?: string,
+  opts: { override?: boolean; now?: number } = {},
+): Promise<ScanResult> {
   const db = adminDb();
   return db.runTransaction(async (tx) => {
     const ticketRef = db.collection("tickets").doc(reference);
@@ -409,10 +426,34 @@ export async function confirmTicketScan(reference: string, actor: ScanActor, act
     }
     if (t.status !== "paid") return { result: "unpaid" as const, ticket };
 
+    // Tier entry window (last read before the writes)
+    const eventSnap = t.eventId && !t.eventId.includes("/") ? await tx.get(db.collection("events").doc(t.eventId)) : null;
+    const event = eventSnap?.exists ? (eventSnap.data() as DanEvent) : null;
+    const tier = event?.ticketTypes?.find((tt) => tt.name === t.ticketType);
+    const eventMs = timestampMillis(event?.date);
+    const window = tier && eventMs !== null ? entryWindow(eventMs, tier, event?.entryGraceMinutes) : null;
+    const verdict = window ? checkEntry(opts.now ?? Date.now(), window) : "ok";
+    let overridden: "early" | "late" | undefined;
+    if (verdict !== "ok" && window && tier) {
+      const canOverride = event?.allowEntryOverride === true;
+      if (!(opts.override && canOverride)) {
+        return {
+          result: verdict === "early" ? ("too_early" as const) : ("too_late" as const),
+          ticket,
+          entry: { label: entryLabel(tier) ?? "", ...window },
+          canOverride,
+          // `order.scanned` counted this ticket as admitted; it wasn't
+          ...(order ? { order: { ...order, scanned: order.scanned - 1 } } : {}),
+        };
+      }
+      overridden = verdict;
+    }
+
     tx.update(ticketRef, {
       status: "confirmed",
       confirmedAt: FieldValue.serverTimestamp(),
       confirmedBy: actor,
+      ...(overridden ? { entryOverride: { reason: overridden, by: actor.name, at: opts.now ?? Date.now() } } : {}),
     });
     tx.set(
       db.collection("scanners").doc(actor.id),
@@ -426,6 +467,11 @@ export async function confirmTicketScan(reference: string, actor: ScanActor, act
       },
       { merge: true },
     );
-    return { result: "confirmed" as const, ticket: { ...ticket, status: "confirmed" as const }, ...(order ? { order } : {}) };
+    return {
+      result: "confirmed" as const,
+      ticket: { ...ticket, status: "confirmed" as const },
+      ...(order ? { order } : {}),
+      ...(overridden ? { overridden } : {}),
+    };
   });
 }

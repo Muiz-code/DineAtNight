@@ -28,6 +28,7 @@ import { ADMIN_LOG_RETENTION_MS } from "./constants";
 import type { SerializedEvent, SerializedGalleryItem } from "./publicData";
 import { StaticImport } from "next/dist/shared/lib/get-img-props";
 import type { VendorPackage } from "./vendorEmailTemplates";
+import type { TicketCoupon } from "./coupons";
 
 /**
  * Cast a Firestore document snapshot to a typed model, injecting `id`.
@@ -74,6 +75,11 @@ export interface DanTicketType {
   price: number; // in Naira
   limit?: number; // max tickets available for this tier (undefined = no separate cap)
   description?: string; // what the tier includes, one item per line (shown at checkout)
+  // Optional entry window, "HH:MM" Lagos time on the event date — the gate refuses
+  // this tier before entryStart (minus the event's grace) and from entryEnd on.
+  // See lib/entryWindow.ts.
+  entryStart?: string;
+  entryEnd?: string;
 }
 
 export interface DanEvent {
@@ -95,6 +101,8 @@ export interface DanEvent {
   externalTicketUrl?: string;
   minAge?: number | null; // optional age limit — see lib/ageLimits.ts
   maxAge?: number | null;
+  entryGraceMinutes?: number | null; // early arrivals admitted this many minutes before a tier's entry time
+  allowEntryOverride?: boolean; // gate staff may admit outside a tier's entry window ("Admit anyway")
   createdAt?: Timestamp;
 }
 
@@ -123,6 +131,9 @@ export interface DanTicket {
   guestReferences?: string[];
   orderQuantity?: number;
   reservationExpiresAt?: number;
+  coupon?: TicketCoupon; // code used on this order (buyer's ticket) — see lib/coupons.ts
+  // Set when gate staff admitted it outside its tier's entry window
+  entryOverride?: { reason: "early" | "late"; by: string; at: number };
   paymentReview?: boolean; // payment received, but no admission issued
   paymentReviewReason?: string;
   // On a guest's ticket: the buyer's ticket it was split from.

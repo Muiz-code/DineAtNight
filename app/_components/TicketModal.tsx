@@ -9,6 +9,8 @@ import { type DanEvent } from "@/lib/firestore";
 import type { TicketAvailability } from "@/lib/ticketInventory";
 import { track } from "@vercel/analytics";
 import { trackMetaEvent } from "@/lib/metaPixel";
+import { couponDiscountKobo } from "@/lib/coupons";
+import { entryLabel } from "@/lib/entryWindow";
 import { ageConfirmText, ageLimitLabel, allowedAgeRanges, hasAgeLimit } from "@/lib/ageLimits";
 import { MAX_TICKET_QUANTITY, PRIVACY_NOTICE_URL, TICKET_TERMS_URL } from "@/lib/constants";
 
@@ -118,7 +120,43 @@ export default function TicketModal({
     scrollRef.current?.scrollTo({ top: 0 });
   };
 
-  const total = activePrice * form.quantity;
+  // Coupon code (checked by /api/tickets/coupon): its % comes off ONE ticket. Kept only
+  // for the event + ticket type it was checked against — changing either drops it.
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState<{ code: string; percentOff: number; eventId: string; ticketType: string } | undefined>(undefined);
+  const [couponError, setCouponError] = useState("");
+  const [couponChecking, setCouponChecking] = useState(false);
+  const appliedCoupon = coupon && coupon.eventId === selectedId && coupon.ticketType === ticketType ? coupon : undefined;
+  const discount = appliedCoupon && form.quantity > 0 ? couponDiscountKobo(activePrice, appliedCoupon.percentOff) / 100 : 0;
+  const fullTotal = activePrice * form.quantity;
+  const total = fullTotal - discount;
+  const isFree = !!appliedCoupon && form.quantity > 0 && total === 0;
+
+  const applyCoupon = async () => {
+    const code = couponInput.trim();
+    if (!code || couponChecking) return;
+    setCouponChecking(true);
+    setCouponError("");
+    try {
+      const res = await fetch("/api/tickets/coupon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: event.id, ticketType: hasTiers ? (selectedTier?.name ?? "") : undefined, quantity: form.quantity, code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        setCoupon({ code: data.code, percentOff: data.percentOff, eventId: selectedId, ticketType });
+        setCouponInput(data.code);
+      } else {
+        setCoupon(undefined);
+        setCouponError(data.error ?? "We couldn't check that code. Please try again.");
+      }
+    } catch {
+      setCouponError("Network error. Please check your connection and try again.");
+    } finally {
+      setCouponChecking(false);
+    }
+  };
   const guestList = splitTickets && form.quantity > 1
     ? Array.from({ length: form.quantity - 1 }, (_, i) => guests[i] ?? { name: "", email: "" })
     : [];
@@ -154,12 +192,17 @@ export default function TicketModal({
           termsAccepted,
           marketingConsent,
           ...(guestList.length ? { splitTickets: true, guests: guestList } : {}),
+          ...(appliedCoupon ? { couponCode: appliedCoupon.code } : {}),
           ticketPrice: activePrice,
           ticketType: hasTiers ? (selectedTier?.name ?? "") : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (data.authorization_url) {
+      if (data.free && data.reference) {
+        // Free with a code: issued without Paystack — straight to the ticket
+        track("ticket_claim_free", { eventTitle: event.title, ticketType: hasTiers ? (selectedTier?.name ?? "general") : "general" });
+        router.push(`/tickets/${encodeURIComponent(data.reference)}`);
+      } else if (data.authorization_url) {
         track("ticket_purchase", {
           eventTitle: event.title,
           ticketType: hasTiers ? (selectedTier?.name ?? "general") : "general",
@@ -355,10 +398,21 @@ export default function TicketModal({
                                 >
                                   ₦{tier.price.toLocaleString()}
                                 </span>
+                                {entryLabel(tier) && (
+                                  <span className="text-[10px]" style={{ color: active ? "rgba(255,255,0,0.75)" : "rgba(255,255,255,0.3)" }}>
+                                    Entry {entryLabel(tier)}
+                                  </span>
+                                )}
                               </button>
                             );
                           })}
                         </div>
+                        {entryLabel(selectedTier) && (
+                          <p className="mt-3 text-xs text-gray-400">
+                            <span className="font-bold text-[#FFFF00]">Entry {entryLabel(selectedTier)}.</span>{" "}
+                            You can only get in during this time. Arrivals before or after it will be turned away at the gate.
+                          </p>
+                        )}
                         {selectedTier?.description && (
                           <ul className="mt-3 rounded-lg border border-[#FFFF00]/15 bg-[#FFFF00]/[0.03] px-4 py-3 space-y-1.5">
                             <li className="text-[10px] font-bold uppercase tracking-widest text-[#FFFF00] list-none">
@@ -595,14 +649,63 @@ export default function TicketModal({
                         <span className="text-gray-400">
                           {form.quantity}× {hasTiers ? selectedTier?.name : "ticket"} @ ₦{activePrice.toLocaleString()}
                         </span>
-                        <span className="text-gray-300">₦{total.toLocaleString()}</span>
+                        <span className="text-gray-300">₦{fullTotal.toLocaleString()}</span>
                       </div>
+                      {appliedCoupon && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-[#00FF41]">
+                            Code {appliedCoupon.code} · {appliedCoupon.percentOff}% off 1 ticket
+                          </span>
+                          <span className="text-[#00FF41]">−₦{discount.toLocaleString()}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between font-bold border-t border-white/8 pt-2">
                         <span className="text-gray-300">Total</span>
                         <span style={{ color: "#FFFF00", textShadow: "0 0 10px rgba(255,255,0,0.5)" }}>
-                          ₦{total.toLocaleString()}
+                          {isFree ? "Free" : `₦${total.toLocaleString()}`}
                         </span>
                       </div>
+                    </div>
+
+                    {/* Coupon code — inside the checkout form, so Enter applies it instead of submitting */}
+                    <div className="rounded-lg border border-white/10 p-4 space-y-2">
+                      <label htmlFor="coupon-code" className={labelCls}>Have a code?</label>
+                      <div className="flex gap-2">
+                        <input
+                          id="coupon-code"
+                          value={couponInput}
+                          onChange={(e) => { setCouponInput(e.target.value); setCouponError(""); }}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); applyCoupon(); } }}
+                          readOnly={!!appliedCoupon}
+                          placeholder="e.g. DAN-7KQ2X9"
+                          autoComplete="off"
+                          className={`${inputCls} uppercase font-mono`}
+                        />
+                        {appliedCoupon ? (
+                          <button
+                            type="button"
+                            onClick={() => { setCoupon(undefined); setCouponInput(""); setCouponError(""); }}
+                            className="px-4 rounded-lg border border-white/15 text-gray-300 text-xs font-bold uppercase tracking-widest hover:border-white/30"
+                          >
+                            Remove
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={applyCoupon}
+                            disabled={!couponInput.trim() || couponChecking}
+                            className="px-4 rounded-lg border border-[#FFFF00]/40 text-[#FFFF00] text-xs font-bold uppercase tracking-widest hover:border-[#FFFF00] disabled:opacity-40"
+                          >
+                            {couponChecking ? "Checking…" : "Apply"}
+                          </button>
+                        )}
+                      </div>
+                      {couponError && <p className="text-[#FF3333] text-xs">{couponError}</p>}
+                      {appliedCoupon && form.quantity > 1 && (
+                        <p className="text-gray-500 text-xs">
+                          A code takes its discount off one ticket. You pay for the other {form.quantity - 1}.
+                        </p>
+                      )}
                     </div>
 
                     {/* What they entered, with quick edit links */}
@@ -704,12 +807,14 @@ export default function TicketModal({
                 {loading ? (
                   <span className="flex items-center justify-center gap-3">
                     <span className="w-4 h-4 border-2 border-[#FFFF00] border-t-transparent rounded-full animate-spin" />
-                    Redirecting to Paystack…
+                    {isFree ? "Issuing your ticket…" : "Redirecting to Paystack…"}
                   </span>
                 ) : soldOut ? (
                   "Sold out"
                 ) : !inventory ? (
                   "Checking availability..."
+                ) : isLast && isFree ? (
+                  "Claim free ticket →"
                 ) : isLast ? (
                   `Pay ₦${total.toLocaleString()} via Paystack →`
                 ) : (
@@ -718,7 +823,9 @@ export default function TicketModal({
               </motion.button>
             </div>
             {isLast && (
-              <p className="text-gray-700 text-xs text-center">Secured by Paystack. Your ticket is emailed after payment.</p>
+              <p className="text-gray-700 text-xs text-center">
+                {isFree ? "No payment needed. Your ticket is emailed straight away." : "Secured by Paystack. Your ticket is emailed after payment."}
+              </p>
             )}
           </div>
         </form>

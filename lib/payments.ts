@@ -7,11 +7,24 @@
  * charged with the amount stored at checkout.
  */
 
+import crypto from "crypto";
 import { ticketAvailability, RESERVATION_MS } from "./ticketInventory";
 import { MAX_TICKET_QUANTITY } from "./constants";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, type DocumentReference, type Transaction } from "firebase-admin/firestore";
 import { adminDb } from "./firebase-admin";
 import type { DanEvent, DanMerchOrder, DanProduct, DanTicket } from "./firestore";
+import {
+  couponDiscountKobo,
+  couponKey,
+  couponProblem,
+  isCouponKey,
+  liveHolds,
+  ticketOrderAmountKobo,
+  usesLeft,
+  type CouponCampaign,
+  type CouponCodeDoc,
+  type TicketCoupon,
+} from "./coupons";
 
 /** Paystack references are alphanumeric with optional `-`, `_`, `.`. */
 export function isValidReference(ref: unknown): ref is string {
@@ -82,8 +95,93 @@ export async function quoteTicket(eventId: string, quantity: number, ticketType?
   assertAvailable(availableFor(event, tickets.docs.map(d => d.data() as DanTicket), quote.ticketType), quantity);
   return quote;
 }
-/** Lock the event and reserve inventory before returning a hosted checkout URL. */
-export async function createPendingTicket(data: Omit<DanTicket, "id" | "purchasedAt" | "confirmedAt" | "status">): Promise<void> {
+/* ── Coupon codes (rules in lib/coupons.ts) ─────────────────────────────── */
+
+type CouponRefs = {
+  codeRef: DocumentReference;
+  campaignRef: DocumentReference;
+  code: CouponCodeDoc;
+  campaign: CouponCampaign;
+};
+
+/** Reads a code and its campaign (inside `tx` when given). null when either is missing. */
+async function readCoupon(key: string, tx?: Transaction): Promise<CouponRefs | null> {
+  if (!isCouponKey(key)) return null;
+  const db = adminDb();
+  const codeRef = db.collection("coupon_codes").doc(key);
+  const codeSnap = tx ? await tx.get(codeRef) : await codeRef.get();
+  if (!codeSnap.exists) return null;
+  const code = codeSnap.data() as CouponCodeDoc;
+  const campaignRef = db.collection("coupon_campaigns").doc(code.campaignId);
+  const campaignSnap = tx ? await tx.get(campaignRef) : await campaignRef.get();
+  if (!campaignSnap.exists) return null;
+  return { codeRef, campaignRef, code, campaign: { ...(campaignSnap.data() as CouponCampaign), id: campaignRef.id } };
+}
+
+/** Throws the plain-language reason a code can't be used, or returns it read. */
+async function usableCoupon(
+  rawCode: unknown,
+  ctx: { eventId: string; ticketType?: string; excludeReference?: string },
+  tx?: Transaction,
+): Promise<CouponRefs> {
+  const found = await readCoupon(couponKey(rawCode), tx);
+  const problem = couponProblem(found?.campaign, found?.code, { ...ctx, now: Date.now() });
+  if (problem || !found) throw new Error(problem ?? "That code isn't valid. Check it and try again.");
+  return found;
+}
+
+function ticketCouponRecord(c: CouponRefs, unitPriceNaira: number, quantity: number): TicketCoupon {
+  return {
+    campaignId: c.campaign.id!,
+    campaignName: c.campaign.name,
+    code: c.code.code,
+    codeNumber: c.code.number,
+    codeCount: c.campaign.codeCount,
+    percentOff: c.campaign.percentOff,
+    discountKobo: couponDiscountKobo(unitPriceNaira, c.campaign.percentOff),
+    fullAmountKobo: Math.round(unitPriceNaira * quantity * 100),
+  };
+}
+
+/** Records a use of the code on `ticket` (paid or free). Call after all reads in the transaction. */
+function redeemCoupon(tx: Transaction, c: CouponRefs, ticket: { reference: string; name: string; email: string; free: boolean }) {
+  const now = Date.now();
+  tx.update(c.codeRef, {
+    redeemed: (c.code.redeemed ?? 0) + 1,
+    holds: liveHolds(c.code.holds, now, ticket.reference),
+    redemptions: [
+      ...(c.code.redemptions ?? []),
+      { reference: ticket.reference, name: ticket.name, email: ticket.email, at: now, free: ticket.free },
+    ],
+  });
+  tx.update(c.campaignRef, { redeemedCount: (c.campaign.redeemedCount ?? 0) + 1 });
+}
+
+/**
+ * Checkout preview: checks a code against the chosen event, tier and quantity and
+ * prices the order with it. Throws an Error with a user-safe message.
+ */
+export async function quoteTicketCoupon(eventId: string, quantity: number, ticketType: string | undefined, rawCode: unknown) {
+  const quote = await quoteTicket(eventId, quantity, ticketType);
+  const c = await usableCoupon(rawCode, { eventId, ticketType: quote.ticketType });
+  return {
+    quote,
+    code: c.code.code,
+    percentOff: c.campaign.percentOff,
+    discountKobo: couponDiscountKobo(quote.unitPrice, c.campaign.percentOff),
+    amountKobo: ticketOrderAmountKobo(quote.unitPrice, quantity, c.campaign.percentOff),
+  };
+}
+
+/**
+ * Lock the event and reserve inventory before returning a hosted checkout URL.
+ * With a coupon code, the code is re-checked and held for the same 15 minutes
+ * in this transaction, and `amount` must equal the discounted price.
+ */
+export async function createPendingTicket(
+  data: Omit<DanTicket, "id" | "purchasedAt" | "confirmedAt" | "status" | "coupon">,
+  couponCode?: string,
+): Promise<void> {
   const db = adminDb();
   await db.runTransaction(async tx => {
     const eventRef = db.collection("events").doc(data.eventId);
@@ -91,13 +189,74 @@ export async function createPendingTicket(data: Omit<DanTicket, "id" | "purchase
     if (!eventSnap.exists) throw new Error("Event not found.");
     const event = eventSnap.data() as DanEvent;
     const quote = validateQuote(event, data.quantity, data.ticketType);
-    if (Math.round(quote.unitPrice * data.quantity * 100) !== data.amount) throw new Error("Ticket price changed. Please try again.");
     const tickets = await tx.get(db.collection("tickets").where("eventId", "==", data.eventId));
+    const coupon = couponCode
+      ? await usableCoupon(couponCode, { eventId: data.eventId, ticketType: quote.ticketType, excludeReference: data.reference }, tx)
+      : null;
+    // ── reads done ──
+    const expected = ticketOrderAmountKobo(quote.unitPrice, data.quantity, coupon?.campaign.percentOff ?? 0);
+    if (expected !== data.amount) throw new Error("Ticket price changed. Please try again.");
+    if (expected <= 0) throw new Error("This order is free — it doesn't need a payment.");
     assertAvailable(availableFor(event, tickets.docs.map(d => d.data() as DanTicket), data.ticketType), data.quantity);
+    const reservationExpiresAt = Date.now() + RESERVATION_MS;
     tx.create(db.collection("tickets").doc(data.reference), { ...data, status: "pending",
-      reservationExpiresAt: Date.now() + RESERVATION_MS, purchasedAt: FieldValue.serverTimestamp(), confirmedAt: null });
+      ...(coupon ? { coupon: ticketCouponRecord(coupon, quote.unitPrice, data.quantity) } : {}),
+      reservationExpiresAt, purchasedAt: FieldValue.serverTimestamp(), confirmedAt: null });
     tx.update(eventRef, { inventoryRevision: FieldValue.increment(1) });
+    if (coupon) {
+      tx.update(coupon.codeRef, { holds: { ...liveHolds(coupon.code.holds, Date.now()), [data.reference]: reservationExpiresAt } });
+    }
   });
+}
+
+/** Reference for a ticket issued without a Paystack payment (100%-off code). */
+const freeReference = () => `FREE-${crypto.randomBytes(6).toString("hex").toUpperCase()}`;
+
+/**
+ * Issues a ticket straight away when a code makes the whole order free (₦0):
+ * no Paystack. One transaction checks the event, stock and code, creates the
+ * ticket as paid (amount 0, with the coupon recorded) and redeems the code —
+ * so the code's last use can't be claimed twice. Returns the ticket reference.
+ * Send the email afterwards with deliverPaidTicket.
+ */
+export async function issueFreeTicket(
+  data: Omit<DanTicket, "id" | "purchasedAt" | "confirmedAt" | "status" | "coupon" | "amount" | "reference" | "guests">,
+  couponCode: string,
+): Promise<string> {
+  const db = adminDb();
+  const reference = freeReference();
+  await db.runTransaction(async tx => {
+    const eventRef = db.collection("events").doc(data.eventId);
+    const eventSnap = await tx.get(eventRef);
+    if (!eventSnap.exists) throw new Error("Event not found.");
+    const event = eventSnap.data() as DanEvent;
+    const quote = validateQuote(event, data.quantity, data.ticketType);
+    const ticketsSnap = await tx.get(db.collection("tickets").where("eventId", "==", data.eventId));
+    const coupon = await usableCoupon(couponCode, { eventId: data.eventId, ticketType: quote.ticketType }, tx);
+    // ── reads done ──
+    if (ticketOrderAmountKobo(quote.unitPrice, data.quantity, coupon.campaign.percentOff) !== 0) {
+      throw new Error("This code doesn't cover the full price, so this order needs a payment.");
+    }
+    const inventory = ticketsSnap.docs.map(d => d.data() as DanTicket);
+    assertAvailable(availableFor(event, inventory, data.ticketType), data.quantity);
+    tx.create(db.collection("tickets").doc(reference), {
+      ...data,
+      reference,
+      amount: 0,
+      coupon: ticketCouponRecord(coupon, quote.unitPrice, data.quantity),
+      status: "paid",
+      reservationExpiresAt: 0,
+      purchasedAt: FieldValue.serverTimestamp(),
+      paidAt: FieldValue.serverTimestamp(),
+      confirmedAt: null,
+    });
+    tx.update(eventRef, {
+      soldTickets: Math.max(event.soldTickets ?? 0, inventory.filter(t => t.status === "paid" || t.status === "confirmed").reduce((n, t) => n + t.quantity, 0)) + data.quantity,
+      inventoryRevision: FieldValue.increment(1),
+    });
+    redeemCoupon(tx, coupon, { reference, name: data.name, email: data.email, free: true });
+  });
+  return reference;
 }
 
 /**
@@ -152,13 +311,27 @@ export async function markTicketPaid(reference: string, paidAmountKobo: number):
     const event = eventSnap.data() as DanEvent;
     const tickets = await tx.get(db.collection("tickets").where("eventId", "==", ticket.eventId));
     const inventory = tickets.docs.map(d => d.data() as DanTicket);
+    // The code used at checkout (if any). A missing code/campaign can't be re-checked;
+    // the payment was priced with it at checkout, so the ticket still issues.
+    const coupon = ticket.coupon ? await readCoupon(couponKey(ticket.coupon.code), tx) : null;
+    if (ticket.coupon && !coupon) console.warn(`[payments] coupon ${ticket.coupon.code} on ${reference} no longer exists`);
+    // ── reads done ──
     const reserved = (ticket.reservationExpiresAt ?? 0) > Date.now();
     const tierExists = !event.ticketTypes?.length || event.ticketTypes.some(t => t.name === ticket.ticketType);
     if (!reserved && (!tierExists || ticket.quantity > availableFor(event, inventory, ticket.ticketType, reference))) {
       tx.update(ticketRef, { paymentReview: true, paymentReviewReason: "Payment received after reservation expiry; allocation unavailable. Review and refund in Paystack.", paidAt: FieldValue.serverTimestamp(), reservationExpiresAt: 0 });
       tx.update(eventRef, { inventoryRevision: FieldValue.increment(1) });
+      if (coupon) tx.update(coupon.codeRef, { holds: liveHolds(coupon.code.holds, Date.now(), reference) });
       return false;
     }
+    // Hold lapsed and the code's last use went to someone else meanwhile: don't issue
+    if (coupon && usesLeft(coupon.code, Date.now(), reference) <= 0) {
+      tx.update(ticketRef, { paymentReview: true, paymentReviewReason: `Payment received after reservation expiry, but coupon code ${coupon.code.code} had already been used. Review and refund in Paystack.`, paidAt: FieldValue.serverTimestamp(), reservationExpiresAt: 0 });
+      tx.update(eventRef, { inventoryRevision: FieldValue.increment(1) });
+      tx.update(coupon.codeRef, { holds: liveHolds(coupon.code.holds, Date.now(), reference) });
+      return false;
+    }
+    if (coupon) redeemCoupon(tx, coupon, { reference, name: ticket.name, email: ticket.email, free: false });
     const guests = ticket.guests ?? [];
     const guestRefs = guests.map((_, i) => guestReference(reference, i + 2));
     guests.forEach((g, i) => {
